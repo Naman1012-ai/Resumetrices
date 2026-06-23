@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Resume Analyzer - Premium ATS Optimization Dashboard</title>
+  <meta name="description" content="Free online AI Resume Analyzer. Upload your CV in PDF format and get instant analysis on ATS compatibility, skills alignment, formatting, and key strengths.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Premium Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <!-- Hamburger Menu Button (Shown on mobile only) -->
+        <button class="btn-hamburger" id="btn-hamburger" aria-label="Toggle Menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <a href="#dashboard" class="logo-link" id="logo-home">
+          <div class="logo-icon">RA</div>
+          <span class="logo-text">Resume Analyzer <span class="logo-tag">Pro</span></span>
+        </a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1.5rem;">
+        <div class="server-status" id="backend-status-container">
+          <span class="status-dot" id="server-status-dot"></span>
+          <span id="server-status-text">Connecting...</span>
+        </div>
+        <div class="user-profile" id="user-profile-header" style="display: none;">
+          <span class="user-display-name" id="header-username">Developer</span>
+          <button class="btn-logout" id="btn-logout">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="main-content">
+    
+    <!-- AUTHENTICATION PANEL (Shown only if not logged in) -->
+    <section class="panel" id="auth-panel">
+      <h2 class="panel-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #10b981;">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        Authentication
+      </h2>
+      
+      <div class="auth-box">
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login">Login</button>
+          <button class="auth-tab" id="tab-signup">Register</button>
+        </div>
+        
+        <form id="auth-form" class="auth-form">
+          <div class="input-group">
+            <label for="auth-email">Email Address</label>
+            <input type="email" id="auth-email" required placeholder="name@example.com">
+          </div>
+          <div class="input-group">
+            <label for="auth-password">Password</label>
+            <input type="password" id="auth-password" required placeholder="••••••••">
+          </div>
+          <button type="submit" class="btn-auth-submit" id="btn-auth-submit">Sign In</button>
+        </form>
+
+        <div class="auth-divider">
+          <span>or</span>
+        </div>
+
+        <button class="btn-google" id="btn-google">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+            <path d="M12.24 10.285V13.4h6.887C18.2 15.614 15.645 18 12.24 18c-3.86 0-7-3.14-7-7s3.14-7 7-7c1.7 0 3.3 0.64 4.5 1.84l2.5-2.5C17.3 1.57 14.86 1 12.24 1 6.48 1 2 5.48 2 11.24s4.48 10.24 10.24 10.24c5.76 0 10.24-4.48 10.24-10.24 0-.64-.08-1.28-.24-1.96H12.24z"/>
+          </svg>
+          Sign in with Google
+        </button>
+      </div>
+    </section>
+
+    <!-- SCALABLE ROUTED LAYOUT (Shown only once logged in) -->
+    <div id="dashboard-layout" class="dashboard-layout" style="display: none;">
+      
+      <!-- LEFT APP SIDEBAR NAVIGATION -->
+      <aside class="sidebar-column app-sidebar-nav" id="app-sidebar-nav">
+        <!-- Collapse Trigger -->
+        <button class="btn-collapse" id="btn-collapse" title="Collapse Menu">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" id="collapse-arrow-pts"></polyline>
+          </svg>
+        </button>
+        
+        <div class="sidebar-nav-title">Navigation</div>
+        <nav class="sidebar-nav-menu">
+          <a href="#dashboard" class="nav-item active" id="nav-dashboard">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9"></rect>
+              <rect x="14" y="3" width="7" height="5"></rect>
+              <rect x="14" y="12" width="7" height="9"></rect>
+              <rect x="3" y="16" width="7" height="5"></rect>
+            </svg>
+            <span class="nav-label">Dashboard</span>
+          </a>
+          <a href="#new-analysis" class="nav-item" id="nav-new-analysis">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span class="nav-label">New Analysis</span>
+          </a>
+          <a href="#history" class="nav-item" id="nav-history">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8v4l3 3"></path>
+              <circle cx="12" cy="12" r="10"></circle>
+            </svg>
+            <span class="nav-label">Analysis History</span>
+          </a>
+          <a href="#compare" class="nav-item" id="nav-compare">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 3h5v5"></path>
+              <path d="M8 3H3v5"></path>
+              <path d="M21 3l-7 7"></path>
+              <path d="M3 3l7 7"></path>
+              <path d="M16 21h5v-5"></path>
+              <path d="M8 21H3v-5"></path>
+              <path d="M21 21l-7-7"></path>
+              <path d="M3 21l7-7"></path>
+            </svg>
+            <span class="nav-label">Resume Comparison</span>
+          </a>
+          <a href="#profile" class="nav-item" id="nav-profile">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span class="nav-label">Profile</span>
+          </a>
+          
+          <button class="nav-item nav-logout-btn" id="nav-logout" style="border: none; background: transparent; width: 100%; text-align: left; cursor: pointer;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span class="nav-label">Logout</span>
+          </button>
+        </nav>
+        
+        <!-- Sidebar Footer Status Indicator -->
+        <div class="sidebar-nav-footer">
+          <span class="user-display-email" id="sidebar-user-email">user@email.com</span>
+        </div>
+      </aside>
+
+      <!-- PAGE VIEWPORTS -->
+      <div class="main-page-container">
+        
+        <!-- PAGE 1: DASHBOARD OVERVIEW -->
+        <div id="page-dashboard" class="page-view" style="display: none;">
+          <!-- Welcome Row -->
+          <div class="dashboard-welcome-card">
+            <div class="welcome-card-content">
+              <h2>Welcome back, <span id="welcome-username">Developer</span>!</h2>
+              <p>Your resume optimization metrics are updated. Improve your ATS scoring and prepare for your next interview using our AI tools.</p>
+            </div>
+            <div class="welcome-card-icon-area">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="dashboard-stats-grid mt-4">
+            <div class="analytics-card">
+              <div class="analytics-card-header">
+                <h3>Total Analyses</h3>
+                <span class="analytics-card-icon blue">📄</span>
+              </div>
+              <div class="analytics-card-value" id="stats-total-resumes">0</div>
+              <p class="analytics-card-desc">Resumes parsed in this account</p>
+            </div>
+            
+            <div class="analytics-card">
+              <div class="analytics-card-header">
+                <h3>Highest ATS Score</h3>
+                <span class="analytics-card-icon gold">🏆</span>
+              </div>
+              <div class="analytics-card-value" id="stats-highest-score">0/100</div>
+              <p class="analytics-card-desc">Top compatibility score attained</p>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-card-header">
+                <h3>Average ATS Score</h3>
+                <span class="analytics-card-icon emerald">📈</span>
+              </div>
+              <div class="analytics-card-value" id="stats-average-score">0%</div>
+              <p class="analytics-card-desc">Mean performance across uploads</p>
+            </div>
+
+            <div class="analytics-card">
+              <div class="analytics-card-header">
+                <h3>Analyses This Month</h3>
+                <span class="analytics-card-icon purple">📅</span>
+              </div>
+              <div class="analytics-card-value" id="stats-monthly-count">0</div>
+              <p class="analytics-card-desc">New scans in this billing cycle</p>
+            </div>
+          </div>
+
+          <!-- Two Column Grid for Trend Chart + Details (Recent Analysis & Quick Actions) -->
+          <div class="dashboard-main-grid mt-4">
+            <!-- Left Side: Score Trend Section -->
+            <div class="panel dashboard-trend-panel">
+              <h3 class="panel-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--blue);">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                ATS Score Trend Over Time
+              </h3>
+              <p class="section-subtitle">Visual representation of your resume iteration scores</p>
+              
+              <!-- Premium SVG Line/Area Chart -->
+              <div class="trend-chart-container">
+                <svg id="trend-chart-svg" viewBox="0 0 500 200" width="100%" height="100%">
+                  <!-- Definitions for Gradients -->
+                  <defs>
+                    <linearGradient id="chart-glow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--emerald)" stop-opacity="0.3"/>
+                      <stop offset="100%" stop-color="var(--emerald)" stop-opacity="0.0"/>
+                    </linearGradient>
+                  </defs>
+                  
+                  <!-- Grid Lines -->
+                  <line x1="40" y1="20" x2="480" y2="20" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="40" y1="65" x2="480" y2="65" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="40" y1="110" x2="480" y2="110" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  <line x1="40" y1="155" x2="480" y2="155" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="4"/>
+                  
+                  <!-- Y Axis Labels -->
+                  <text x="15" y="24" fill="var(--text-muted)" font-size="9" font-weight="600">100</text>
+                  <text x="15" y="69" fill="var(--text-muted)" font-size="9" font-weight="600">75</text>
+                  <text x="15" y="114" fill="var(--text-muted)" font-size="9" font-weight="600">50</text>
+                  <text x="15" y="159" fill="var(--text-muted)" font-size="9" font-weight="600">25</text>
+                  
+                  <!-- Dynamic Area & Line gets drawn here by Javascript -->
+                  <path id="chart-area" d="" fill="url(#chart-glow)"/>
+                  <path id="chart-line" d="" fill="none" stroke="var(--emerald)" stroke-width="3" stroke-linecap="round"/>
+                  
+                  <!-- Chart Data Points will be inserted here dynamically -->
+                  <g id="chart-points"></g>
+                  
+                  <!-- X Axis Labels will be inserted here dynamically -->
+                  <g id="chart-x-labels"></g>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Right Side: Recent Analysis + Quick Actions -->
+            <div class="dashboard-side-col">
+              
+              <!-- Recent Analysis Card -->
+              <div class="panel dashboard-recent-panel">
+                <h3 class="panel-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--amber);">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  Recent Analysis
+                </h3>
+                
+                <div id="dashboard-recent-empty" class="recent-empty" style="display: none;">
+                  <p>No recent activity. Upload your first resume to see reports here!</p>
+                </div>
+                
+                <div id="dashboard-recent-content" class="dashboard-recent-content">
+                  <div class="recent-header">
+                    <div class="recent-file-info">
+                      <h4 id="recent-resume-name">Jane_Doe_Resume_V2.pdf</h4>
+                      <p id="recent-resume-date">Analyzed on Jun 21, 2026</p>
+                    </div>
+                    <div class="recent-score-circle">
+                      <svg viewBox="0 0 36 36" class="circular-chart emerald">
+                        <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle" id="recent-score-circle-path" stroke-dasharray="75, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <text x="18" y="20.35" class="percentage" id="recent-score-circle-text">75</text>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="recent-feedback-snippet">
+                    <p><strong>Recruiter Snippet:</strong> <span id="recent-feedback-snippet-text">Resume has strong contact, summary details, and technical skills. Consider improving certifications and work history description formatting.</span></p>
+                  </div>
+                  <button class="btn-primary mt-3 w-100" id="btn-recent-view-report">View Full Report</button>
+                </div>
+              </div>
+
+              <!-- Quick Actions -->
+              <div class="panel dashboard-quick-actions">
+                <h3 class="panel-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--purple);">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                  Quick Actions
+                </h3>
+                
+                <div class="quick-actions-list">
+                  <a href="#new-analysis" class="quick-action-item">
+                    <div class="action-icon emerald">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </div>
+                    <div class="action-details">
+                      <h5>New Resume Analysis</h5>
+                      <p>Upload CV to run ATS keyword optimizer and feedback</p>
+                    </div>
+                  </a>
+                  
+                  <a href="#compare" class="quick-action-item">
+                    <div class="action-icon blue">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 3h5v5"></path>
+                        <path d="M8 3H3v5"></path>
+                        <path d="M21 3l-7 7"></path>
+                        <path d="M3 3l7 7"></path>
+                        <path d="M16 21h5v-5"></path>
+                        <path d="M8 21H3v-5"></path>
+                        <path d="M21 21l-7-7"></path>
+                        <path d="M3 21l7-7"></path>
+                      </svg>
+                    </div>
+                    <div class="action-details">
+                      <h5>Compare Resumes</h5>
+                      <p>Run side-by-side breakdown and check scoring gaps</p>
+                    </div>
+                  </a>
+                  
+                  <a href="#history" class="quick-action-item">
+                    <div class="action-icon purple">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 8v4l3 3"></path>
+                        <circle cx="12" cy="12" r="10"></circle>
+                      </svg>
+                    </div>
+                    <div class="action-details">
+                      <h5>View Analysis History</h5>
+                      <p>Browse full catalog of past analyzed documents</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 2: NEW ANALYSIS PAGE (Holds the existing upload card and result panel) -->
+        <div id="page-new-analysis" class="page-view" style="display: none;">
+          <div class="new-analysis-layout-grid">
+            
+            <!-- Left Upload Card Column -->
+            <div class="new-analysis-left-col">
+              <section class="panel" id="upload-panel">
+                <h2 class="panel-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #10b981;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  Upload Resume
+                </h2>
+
+                <div class="upload-container">
+                  <div class="dropzone" id="drop-zone">
+                    <div class="upload-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                      </svg>
+                    </div>
+                    <h3>Drag & drop PDF here</h3>
+                    <p>or click to browse</p>
+                    <p style="font-size: 0.7rem; margin-top: 0.25rem; color: var(--text-muted);">Max file size: 5MB</p>
+                    <input type="file" id="file-input" accept=".pdf">
+                  </div>
+
+                  <!-- Selected File Card -->
+                  <div class="file-preview-card" id="file-preview">
+                    <div class="file-preview-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                      </svg>
+                    </div>
+                    <div class="file-details">
+                      <div class="file-name" id="preview-file-name">filename.pdf</div>
+                      <div class="file-size" id="preview-file-size">120 KB</div>
+                    </div>
+                    <button class="btn-remove-file" id="btn-remove-file" aria-label="Remove selected file">×</button>
+                  </div>
+
+                  <button class="btn-analyze" id="btn-analyze" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                      <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    Run Pipeline Analysis
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <!-- Right Results Column -->
+            <div class="new-analysis-right-col">
+              <section class="panel" id="results-panel" style="min-height: 500px;">
+                
+                <!-- Tabs Navigation -->
+                <div class="results-tabs" id="results-tabs" style="display: none;">
+                  <button class="results-tab active" id="tab-report">ATS Analysis</button>
+                  <button class="results-tab" id="tab-skillgap">Skill Gap Analysis</button>
+                  <button class="results-tab" id="tab-interview">Interview Preparation</button>
+                  <button class="results-tab" id="tab-rawtext">Raw Extracted Text</button>
+                </div>
+
+                <!-- Awaiting Action Empty State -->
+                <div class="empty-state" id="empty-state">
+                  <div class="empty-state-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="16" x2="12" y2="12"></line>
+                      <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                  </div>
+                  <h3>Select or Upload a Resume</h3>
+                  <p>Please select an analysis from your history tab or upload a new PDF resume on the left to view metrics, keywords gap, and prep questions.</p>
+                </div>
+
+                <!-- Loading State Skeleton Screen -->
+                <div class="skeleton-container" id="loader" style="display: none;">
+                  <div class="skeleton-header">
+                    <div class="skeleton-circle animate-pulse"></div>
+                    <div class="skeleton-text-group">
+                      <div class="skeleton-line w-48 h-6 animate-pulse"></div>
+                      <div class="skeleton-line w-24 h-4 mt-2 animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div class="skeleton-grid mt-6">
+                    <div class="skeleton-card h-40 animate-pulse"></div>
+                    <div class="skeleton-card h-40 animate-pulse"></div>
+                    <div class="skeleton-card h-40 animate-pulse"></div>
+                    <div class="skeleton-card h-40 animate-pulse"></div>
+                  </div>
+                </div>
+
+                <!-- TAB 1: ATS Analysis Dashboard -->
+                <div class="results-container" id="results-dashboard" style="display: none;">
+                  <div class="results-header">
+                    <div class="results-header-info">
+                      <h2 id="res-filename">Jane_Doe_Resume.pdf</h2>
+                      <span class="badge-ats" id="res-ats-badge">ATS Compatibility: Medium</span>
+                    </div>
+                    
+                    <!-- Circular Score Gauge -->
+                    <div class="score-circle-wrapper">
+                      <svg class="score-circle-svg" viewBox="0 0 100 100">
+                        <circle class="score-circle-bg" cx="50" cy="50" r="40"></circle>
+                        <circle class="score-circle-fill" id="score-fill-circle" cx="50" cy="50" r="40"></circle>
+                      </svg>
+                      <div class="score-text">
+                        <span class="score-number" id="res-score">0</span>
+                        <span class="score-label">Score</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Recruiter Feedback Card -->
+                  <div class="feedback-card" id="res-feedback-card">
+                    <div class="feedback-header">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                      </svg>
+                      Recruiter Evaluation Feedback
+                    </div>
+                    <p id="res-feedback-text">Claude AI assessment text goes here...</p>
+                  </div>
+
+                  <!-- Score Breakdown Bento Grid -->
+                  <div class="breakdown-section">
+                    <h3 class="section-subtitle">ATS Score Breakdown</h3>
+                    <div class="breakdown-grid" id="breakdown-grid"></div>
+                  </div>
+
+                  <!-- Bento Grid Details Lists -->
+                  <div class="dashboard-details-grid">
+                    <div class="list-panel strengths">
+                      <h3>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Key Strengths
+                      </h3>
+                      <ul class="detail-list" id="res-strengths-list"></ul>
+                    </div>
+                    
+                    <div class="list-panel weaknesses">
+                      <h3>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="12" y1="8" x2="12" y2="12"></line>
+                          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        ATS Risks & Weaknesses
+                      </h3>
+                      <ul class="detail-list" id="res-weaknesses-list"></ul>
+                    </div>
+
+                    <div class="list-panel recommendations">
+                      <h3>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M12 20h9"></path>
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                        Resume Rewrite Suggestions
+                      </h3>
+                      <ul class="detail-list" id="res-rewrite-list"></ul>
+                    </div>
+
+                    <div class="list-panel tips">
+                      <h3>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                          <line x1="12" y1="2" x2="12" y2="12"></line>
+                        </svg>
+                        ATS Optimization Tips
+                      </h3>
+                      <ul class="detail-list" id="res-ats-tips-list"></ul>
+                    </div>
+                  </div>
+
+                  <!-- Missing Keywords / Missing Sections Grid -->
+                  <div class="tags-row-grid">
+                    <div class="keywords-panel" id="res-missing-keywords-panel">
+                      <h3>Missing Relevant Keywords</h3>
+                      <div class="tag-cloud" id="res-missing-keywords-tags"></div>
+                    </div>
+
+                    <div class="keywords-panel" id="res-missing-sections-panel">
+                      <h3>Missing Essential Sections</h3>
+                      <div class="tag-cloud" id="res-missing-sections-tags" style="color: #ef4444;"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TAB 2: Skill Gap Analysis -->
+                <div class="results-container" id="skillgap-dashboard" style="display: none;">
+                  <div class="pipeline-card">
+                    <h2 class="card-title">Skill Gap Analysis Tool</h2>
+                    <p class="card-desc">Compare your resume against industry standard expectations for a target role, and get a curated learning roadmap to bridge any gaps.</p>
+                    
+                    <div class="role-selector-row">
+                      <div class="select-wrapper">
+                        <label for="select-target-role">Target Job Role</label>
+                        <select id="select-target-role">
+                          <option value="AI Engineer">AI Engineer</option>
+                          <option value="Machine Learning Engineer">Machine Learning Engineer</option>
+                          <option value="Data Scientist">Data Scientist</option>
+                          <option value="Frontend Developer">Frontend Developer</option>
+                          <option value="Full Stack Developer">Full Stack Developer</option>
+                        </select>
+                      </div>
+                      <button class="btn-primary" id="btn-run-skillgap">Run Gap Analysis</button>
+                    </div>
+                  </div>
+
+                  <div class="loader-container" id="skillgap-loader" style="display: none; padding: 2rem 0;">
+                    <div class="spinner"></div>
+                    <p>Comparing skills against industry standards...</p>
+                  </div>
+
+                  <div id="skillgap-results" style="display: none;">
+                    <div class="skills-columns-grid">
+                      <div class="skill-col matched">
+                        <h4><span class="dot green"></span>Matched Skills</h4>
+                        <div class="tag-cloud mt-3" id="matched-skills-tags"></div>
+                      </div>
+                      <div class="skill-col missing">
+                        <h4><span class="dot red"></span>Missing Skills</h4>
+                        <div class="tag-cloud mt-3" id="missing-skills-tags"></div>
+                      </div>
+                      <div class="skill-col recommended">
+                        <h4><span class="dot blue"></span>Recommended Skills</h4>
+                        <div class="tag-cloud mt-3" id="recommended-skills-tags"></div>
+                      </div>
+                    </div>
+
+                    <div class="roadmap-card mt-4">
+                      <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+                          <line x1="9" y1="3" x2="9" y2="18"></line>
+                          <line x1="15" y1="6" x2="15" y2="21"></line>
+                        </svg>
+                        Curated Learning Roadmap
+                      </h3>
+                      <div class="roadmap-timeline" id="roadmap-timeline"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TAB 3: Interview Preparation -->
+                <div class="results-container" id="interview-dashboard" style="display: none;">
+                  <div class="pipeline-card">
+                    <h2 class="card-title">Interview Questions Generator</h2>
+                    <p class="card-desc">Generate personalized interview questions based directly on your skills, experience details, and projects to prepare for recruiter screens.</p>
+                    <button class="btn-primary" id="btn-run-interview" style="width: auto; padding: 0.75rem 2rem;">Generate Interview Questions</button>
+                  </div>
+
+                  <div class="loader-container" id="interview-loader" style="display: none; padding: 2rem 0;">
+                    <div class="spinner"></div>
+                    <p>Generating customized interview questions...</p>
+                  </div>
+
+                  <div class="interview-results" id="interview-results" style="display: none;">
+                    <div class="interview-grid">
+                      <div class="question-card">
+                        <div class="q-header technical"><span>Technical Questions</span></div>
+                        <ul class="q-list" id="technical-questions-list"></ul>
+                      </div>
+                      <div class="question-card">
+                        <div class="q-header project"><span>Project-Based Questions</span></div>
+                        <ul class="q-list" id="project-questions-list"></ul>
+                      </div>
+                      <div class="question-card">
+                        <div class="q-header behavioral"><span>Behavioral Questions</span></div>
+                        <ul class="q-list" id="behavioral-questions-list"></ul>
+                      </div>
+                      <div class="question-card">
+                        <div class="q-header hr"><span>HR & Conversation Questions</span></div>
+                        <ul class="q-list" id="hr-questions-list"></ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- TAB 4: Raw Extracted Text -->
+                <div class="results-container" id="raw-text-container" style="display: none;">
+                  <div class="results-header" style="border: none; margin-bottom: 0;">
+                    <h2 id="raw-filename" style="font-size: 1.1rem; font-family: 'Fira Code', monospace; background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">test_resume.pdf</h2>
+                    <button class="btn-copy" id="btn-copy-text" aria-label="Copy extracted text">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy Text
+                    </button>
+                  </div>
+                  <div class="text-content-card">
+                    <pre id="extracted-text-content">Parsed content goes here...</pre>
+                  </div>
+                </div>
+
+              </section>
+            </div>
+            
+          </div>
+        </div>
+
+        <!-- PAGE 3: HISTORY CATALOG LIST -->
+        <div id="page-history" class="page-view" style="display: none;">
+          <div class="page-header-row">
+            <h2>Analysis History Catalog</h2>
+            <p class="page-subtitle">Manage, search, and reload your complete portfolio of analyzed resumes.</p>
+          </div>
+          
+          <!-- Filters & Sorting Row -->
+          <div class="history-filters-row mt-3">
+            <div class="search-wrapper">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="history-search-input" placeholder="Search by resume name...">
+            </div>
+            
+            <div class="select-wrapper select-sort-wrapper">
+              <select id="history-sort-select">
+                <option value="date-desc">Date (Newest First)</option>
+                <option value="date-asc">Date (Oldest First)</option>
+                <option value="score-desc">Score (Highest First)</option>
+                <option value="score-asc">Score (Lowest First)</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- History Catalog Cards Container -->
+          <div class="history-catalog-wrapper mt-4">
+            <!-- Loading Skeleton Grid -->
+            <div class="history-loader-grid" id="history-loader" style="display: none;">
+              <div class="skeleton-history-card animate-pulse"></div>
+              <div class="skeleton-history-card animate-pulse"></div>
+              <div class="skeleton-history-card animate-pulse"></div>
+              <div class="skeleton-history-card animate-pulse"></div>
+              <div class="skeleton-history-card animate-pulse"></div>
+              <div class="skeleton-history-card animate-pulse"></div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="history-empty-state" class="history-empty" style="display: none;">
+              <div class="empty-state-icon" style="margin-bottom: 1rem;">📄</div>
+              <h3>No Resumes Found</h3>
+              <p>Try searching for a different name, or process your first resume under the "New Analysis" section.</p>
+              <a href="#new-analysis" class="btn-primary mt-3" style="display: inline-flex; align-items: center; width: auto; padding: 0.6rem 1.5rem;">
+                Analyze Resume
+              </a>
+            </div>
+            
+            <!-- Dynamic Grid of Cards -->
+            <div class="history-cards-grid" id="history-cards-grid">
+              <!-- Cards dynamically inserted here -->
+            </div>
+            
+            <!-- Pagination Controls -->
+            <div class="history-pagination-row" id="history-pagination" style="display: none;">
+              <button class="btn-pagination-nav" id="btn-history-prev" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                Prev
+              </button>
+              <span id="history-page-info">Page 1 of 1</span>
+              <button class="btn-pagination-nav" id="btn-history-next" disabled>
+                Next
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 4: RESUME COMPARISON -->
+        <div id="page-compare" class="page-view" style="display: none;">
+          <div class="page-header-row">
+            <h2>Resume Side-by-Side Comparison</h2>
+            <p class="page-subtitle">Compare scores, matched skills, and recommendations of two resumes side-by-side.</p>
+          </div>
+          
+          <!-- Dropdown Selectors -->
+          <div class="panel mt-3">
+            <div class="compare-selectors-row">
+              <div class="select-wrapper flex-1">
+                <label for="select-resume-a">Select Resume A</label>
+                <select id="select-resume-a">
+                  <option value="">-- Choose first resume --</option>
+                </select>
+              </div>
+              <div class="compare-vs-divider">VS</div>
+              <div class="select-wrapper flex-1">
+                <label for="select-resume-b">Select Resume B</label>
+                <select id="select-resume-b">
+                  <option value="">-- Choose second resume --</option>
+                </select>
+              </div>
+              <button class="btn-primary" id="btn-compare-resumes" style="height: fit-content; align-self: flex-end; padding: 0.75rem 2rem;">Compare</button>
+            </div>
+          </div>
+          
+          <!-- Comparison Loader -->
+          <div class="loader-container" id="compare-loader" style="display: none; padding: 2rem 0;">
+            <div class="spinner"></div>
+            <p>Retrieving stored analysis records and generating comparison...</p>
+          </div>
+
+          <!-- Comparison Results Area -->
+          <div id="compare-results-container" class="compare-results-area mt-4" style="display: none;">
+            
+            <!-- Comparison Summary Dashboard Card -->
+            <div class="panel compare-summary-card mb-4" id="compare-summary-card">
+              <div class="compare-summary-header">
+                <h3>Comparison Analytics Overview</h3>
+                <div class="compare-delta-badge" id="compare-delta-badge">+0 ATS Score Improvement</div>
+              </div>
+              
+              <div class="compare-summary-grid mt-3">
+                <div class="compare-summary-col">
+                  <h5>📈 Improved Sections</h5>
+                  <ul class="compare-summary-list success" id="compare-improved-sections"></ul>
+                </div>
+                <div class="compare-summary-col">
+                  <h5>📉 Weaker Sections</h5>
+                  <ul class="compare-summary-list danger" id="compare-weaker-sections"></ul>
+                </div>
+                <div class="compare-summary-col">
+                  <h5>➕ Added Skills / Keywords</h5>
+                  <div class="tag-cloud" id="compare-added-skills"></div>
+                </div>
+                <div class="compare-summary-col">
+                  <h5>➖ Removed Skills / Keywords</h5>
+                  <div class="tag-cloud" id="compare-removed-skills"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="compare-columns-grid">
+              
+              <!-- Column A -->
+              <div class="compare-col-panel" id="compare-panel-a">
+                <div class="compare-col-header">
+                  <h3 id="compare-name-a">Resume A</h3>
+                  <div class="compare-score-badge" id="compare-score-a">0/100</div>
+                </div>
+                <div class="compare-content-body">
+                  <div class="compare-meta-item">
+                    <strong>Analyzed:</strong> <span id="compare-date-a">-</span>
+                  </div>
+                  
+                  <div class="compare-section-box">
+                    <h4>Breakdown Metrics</h4>
+                    <div class="compare-breakdown-list" id="compare-breakdown-a"></div>
+                  </div>
+                  
+                  <div class="compare-section-box">
+                    <h4>Key Strengths</h4>
+                    <ul class="detail-list" id="compare-strengths-a"></ul>
+                  </div>
+
+                  <div class="compare-section-box">
+                    <h4>Weaknesses & Risks</h4>
+                    <ul class="detail-list" id="compare-weaknesses-a"></ul>
+                  </div>
+
+                  <div class="compare-section-box">
+                    <h4>Missing Keywords</h4>
+                    <div class="tag-cloud" id="compare-keywords-a"></div>
+                  </div>
+                  
+                  <div class="compare-section-box">
+                    <h4>Missing Sections</h4>
+                    <div class="tag-cloud" id="compare-missing-a"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Column B -->
+              <div class="compare-col-panel" id="compare-panel-b">
+                <div class="compare-col-header">
+                  <h3 id="compare-name-b">Resume B</h3>
+                  <div class="compare-score-badge" id="compare-score-b">0/100</div>
+                </div>
+                <div class="compare-content-body">
+                  <div class="compare-meta-item">
+                    <strong>Analyzed:</strong> <span id="compare-date-b">-</span>
+                  </div>
+                  
+                  <div class="compare-section-box">
+                    <h4>Breakdown Metrics</h4>
+                    <div class="compare-breakdown-list" id="compare-breakdown-b"></div>
+                  </div>
+                  
+                  <div class="compare-section-box">
+                    <h4>Key Strengths</h4>
+                    <ul class="detail-list" id="compare-strengths-b"></ul>
+                  </div>
+
+                  <div class="compare-section-box">
+                    <h4>Weaknesses & Risks</h4>
+                    <ul class="detail-list" id="compare-weaknesses-b"></ul>
+                  </div>
+
+                  <div class="compare-section-box">
+                    <h4>Missing Keywords</h4>
+                    <div class="tag-cloud" id="compare-keywords-b"></div>
+                  </div>
+                  
+                  <div class="compare-section-box">
+                    <h4>Missing Sections</h4>
+                    <div class="tag-cloud" id="compare-missing-b"></div>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 5: USER PROFILE -->
+        <div id="page-profile" class="page-view" style="display: none;">
+          <div class="page-header-row">
+            <h2>User Account Profile</h2>
+            <p class="page-subtitle">Manage your account credentials, view usage statistics, and update profile settings.</p>
+          </div>
+          
+          <div class="profile-layout-grid mt-3">
+            <!-- Left Info Panel -->
+            <div class="panel profile-left-card">
+              <div class="profile-avatar-row">
+                <div class="profile-avatar-circle" id="profile-avatar-placeholder">U</div>
+                <div class="profile-identity-details">
+                  <!-- Name Display Container -->
+                  <div id="profile-name-display-container" class="profile-name-container">
+                    <h3 class="profile-name-text" id="profile-display-name">User Name</h3>
+                    <button class="btn-profile-edit-icon" id="btn-profile-edit" title="Edit Profile Name">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <!-- Name Edit Container -->
+                  <div id="profile-name-edit-container" class="profile-name-container editing" style="display: none;">
+                    <input type="text" id="input-profile-name" class="profile-name-input" placeholder="Enter display name...">
+                    <div class="profile-edit-actions">
+                      <button class="btn-profile-action save" id="btn-profile-save">Save</button>
+                      <button class="btn-profile-action cancel" id="btn-profile-cancel">Cancel</button>
+                    </div>
+                  </div>
+                  <span class="profile-meta-role">SaaS Enterprise Member</span>
+                </div>
+              </div>
+
+              <div class="profile-info-list mt-4">
+                <div class="profile-info-item">
+                  <span class="profile-info-label">Email Address</span>
+                  <span class="profile-info-value" id="profile-email">-</span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="profile-info-label">Account Created</span>
+                  <span class="profile-info-value" id="profile-created-date">-</span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="profile-info-label">Authentication Provider</span>
+                  <span class="profile-info-value" id="profile-provider">firebase</span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="profile-info-label">User ID (UID)</span>
+                  <span class="profile-info-value" id="profile-uid" style="font-family: monospace; font-size: 0.8rem;">-</span>
+                </div>
+              </div>
+
+              <div class="profile-actions-footer mt-4">
+                <button class="btn-primary" id="btn-profile-logout" style="background: var(--grad-rose); box-shadow: 0 4px 15px rgba(244, 63, 94, 0.2); color: #fff;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  Sign Out of Account
+                </button>
+              </div>
+            </div>
+            
+            <!-- Right Stats Grid Panel -->
+            <div class="profile-right-grid">
+              <div class="panel profile-stat-card blue">
+                <div class="profile-stat-icon">📄</div>
+                <div class="profile-stat-details">
+                  <span class="profile-stat-label">Total Analyses</span>
+                  <span class="profile-stat-value" id="profile-stat-total">0</span>
+                  <span class="profile-stat-desc">Total resumes scanned</span>
+                </div>
+              </div>
+              
+              <div class="panel profile-stat-card emerald">
+                <div class="profile-stat-icon">🏆</div>
+                <div class="profile-stat-details">
+                  <span class="profile-stat-label">Highest Score</span>
+                  <span class="profile-stat-value" id="profile-stat-highest">0/100</span>
+                  <span class="profile-stat-desc">Your personal best ATS score</span>
+                </div>
+              </div>
+              
+              <div class="panel profile-stat-card amber">
+                <div class="profile-stat-icon">📊</div>
+                <div class="profile-stat-details">
+                  <span class="profile-stat-label">Average Score</span>
+                  <span class="profile-stat-value" id="profile-stat-average">0%</span>
+                  <span class="profile-stat-desc">Overall compatibility baseline</span>
+                </div>
+              </div>
+              
+              <div class="panel profile-stat-card purple">
+                <div class="profile-stat-icon">🚀</div>
+                <div class="profile-stat-details">
+                  <span class="profile-stat-label">Total Improvements</span>
+                  <span class="profile-stat-value" id="profile-stat-improvements">0</span>
+                  <span class="profile-stat-desc">Chronological score increases</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Mobile Sidebar Overlay Backdrop -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Notification Toast -->
+  <div class="toast-notification" id="toast-notification" style="display: none;">
+    <span class="toast-message" id="toast-message">Success!</span>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <p>&copy; 2026 AI Resume Analyzer. Built with Node.js, Express, and Firebase.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
