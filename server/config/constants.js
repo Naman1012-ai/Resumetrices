@@ -42,7 +42,8 @@ module.exports = {
   // OpenRouter API configuration
   OPENROUTER: {
     URL: 'https://openrouter.ai/api/v1/chat/completions',
-    MODEL_ID: '~anthropic/claude-sonnet-latest',
+    MODEL_ID: process.env.OPENROUTER_MODEL_ID || 'nvidia/nemotron-3-ultra-550b-a55b',
+    FALLBACK_MODEL_ID: process.env.OPENROUTER_FALLBACK_MODEL_ID || 'openrouter/free',
     MAX_RETRIES: 2,
     MAX_TOKENS: 800,
     TEMPERATURE: 0.3,

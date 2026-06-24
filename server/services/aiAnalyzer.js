@@ -1,6 +1,6 @@
 /**
  * @file aiAnalyzer.js
- * @description Service layer for analyzing resume text using Anthropic Claude via OpenRouter API.
+ * @description Service layer for analyzing resume text using NVIDIA Nemotron via OpenRouter API.
  * Contains resume insights, skill gap comparison, and interview prep questions generators.
  * Safely falls back to high-quality developer mocks if the API key is missing or credit-locked.
  */
@@ -297,8 +297,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   let attempt = 0;
   
   while (attempt <= maxRetries) {
+    const currentModel = attempt === 0 ? OPENROUTER.MODEL_ID : (OPENROUTER.FALLBACK_MODEL_ID || 'openrouter/free');
     try {
-      logger.info('AIAnalyzer', `🤖 Requesting Claude analysis via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
+      logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
       
       const response = await fetchWithTimeout(OPENROUTER.URL, {
         method: 'POST',
@@ -309,7 +310,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
           'X-Title': 'AI Resume Analyzer'
         },
         body: JSON.stringify({
-          model: OPENROUTER.MODEL_ID,
+          model: currentModel,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Extracted Resume Text:\n\n${text}` }
@@ -332,7 +333,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
 
       // Log cost and token metrics
       if (payload.usage) {
-        logger.info('AIAnalyzer', 'Claude completion usage metrics:', {
+        logger.info('AIAnalyzer', `${currentModel} completion usage metrics:`, {
           promptTokens: payload.usage.prompt_tokens,
           completionTokens: payload.usage.completion_tokens,
           totalTokens: payload.usage.total_tokens
@@ -340,7 +341,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
       }
 
       const content = payload.choices[0].message.content;
-      logger.info('AIAnalyzer', '✅ Received completion from Claude.');
+      logger.info('AIAnalyzer', `✅ Received completion from ${currentModel}.`);
 
       const cleanedContent = cleanJsonString(content);
       let parsed = JSON.parse(cleanedContent);
@@ -409,8 +410,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   let attempt = 0;
   
   while (attempt <= maxRetries) {
+    const currentModel = attempt === 0 ? OPENROUTER.MODEL_ID : (OPENROUTER.FALLBACK_MODEL_ID || 'openrouter/free');
     try {
-      logger.info('AIAnalyzer', `🤖 Requesting Claude skill gap analysis via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
+      logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} skill gap analysis via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
       
       const response = await fetchWithTimeout(OPENROUTER.URL, {
         method: 'POST',
@@ -421,7 +423,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
           'X-Title': 'AI Resume Analyzer'
         },
         body: JSON.stringify({
-          model: OPENROUTER.MODEL_ID,
+          model: currentModel,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Target Role: ${role}\n\nResume Text:\n\n${resumeText}` }
@@ -444,7 +446,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
 
       // Log cost and token metrics
       if (payload.usage) {
-        logger.info('AIAnalyzer', 'Claude completion usage metrics (Skill Gap):', {
+        logger.info('AIAnalyzer', `${currentModel} completion usage metrics (Skill Gap):`, {
           promptTokens: payload.usage.prompt_tokens,
           completionTokens: payload.usage.completion_tokens,
           totalTokens: payload.usage.total_tokens
@@ -452,7 +454,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
       }
 
       const content = payload.choices[0].message.content;
-      logger.info('AIAnalyzer', '✅ Received completion from Claude for skill gap analysis.');
+      logger.info('AIAnalyzer', `✅ Received completion from ${currentModel} for skill gap analysis.`);
 
       const cleanedContent = cleanJsonString(content);
       let parsed = JSON.parse(cleanedContent);
@@ -519,8 +521,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   let attempt = 0;
   
   while (attempt <= maxRetries) {
+    const currentModel = attempt === 0 ? OPENROUTER.MODEL_ID : (OPENROUTER.FALLBACK_MODEL_ID || 'openrouter/free');
     try {
-      logger.info('AIAnalyzer', `🤖 Requesting Claude interview questions via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
+      logger.info('AIAnalyzer', `🤖 Requesting ${currentModel} interview questions via OpenRouter (Attempt ${attempt + 1}/${maxRetries + 1})...`);
       
       const response = await fetchWithTimeout(OPENROUTER.URL, {
         method: 'POST',
@@ -531,7 +534,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
           'X-Title': 'AI Resume Analyzer'
         },
         body: JSON.stringify({
-          model: OPENROUTER.MODEL_ID,
+          model: currentModel,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Resume Text:\n\n${resumeText}` }
@@ -554,7 +557,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
 
       // Log cost and token metrics
       if (payload.usage) {
-        logger.info('AIAnalyzer', 'Claude completion usage metrics (Interview Questions):', {
+        logger.info('AIAnalyzer', `${currentModel} completion usage metrics (Interview Questions):`, {
           promptTokens: payload.usage.prompt_tokens,
           completionTokens: payload.usage.completion_tokens,
           totalTokens: payload.usage.total_tokens
@@ -562,7 +565,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
       }
 
       const content = payload.choices[0].message.content;
-      logger.info('AIAnalyzer', '✅ Received completion from Claude for interview questions.');
+      logger.info('AIAnalyzer', `✅ Received completion from ${currentModel} for interview questions.`);
 
       const cleanedContent = cleanJsonString(content);
       let parsed = JSON.parse(cleanedContent);
