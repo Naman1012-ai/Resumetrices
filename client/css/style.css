@@ -3306,3 +3306,176 @@ body::-webkit-scrollbar-track {
   color: var(--text-muted);
   margin-top: 0.15rem;
 }
+
+/* ==========================================================================
+   Responsiveness & Device Compatibility Enhancements
+   ========================================================================== */
+
+/* Universal text & wrap robustness */
+p, li, .detail-list li, .compare-summary-list li, .roadmap-timeline, .timeline-node-desc, #extracted-text-content, pre {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+pre, #extracted-text-content {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+}
+
+/* SVG Chart styling */
+#trend-chart-svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Accessible focus outlines for interactive elements */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--emerald) !important;
+  outline-offset: 3px !important;
+}
+
+/* Auth box inputs robustness */
+.auth-form input,
+.auth-form button,
+.btn-google {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Mobile & Small Viewport fixes (<= 480px) */
+@media (max-width: 480px) {
+  /* Layout Paddings */
+  .main-content {
+    padding: 0 0.75rem !important;
+    margin: 1rem auto !important;
+  }
+  
+  .panel {
+    padding: 1.25rem 1rem !important;
+  }
+  
+  /* Header UI scaling */
+  .header-container {
+    padding: 0.75rem 0.75rem !important;
+    gap: 0.75rem !important;
+  }
+  
+  .logo-text {
+    font-size: 1.05rem !important;
+  }
+  
+  .logo-icon {
+    width: 2rem !important;
+    height: 2rem !important;
+    font-size: 1rem !important;
+  }
+  
+  .user-profile .user-display-name {
+    display: none !important;
+  }
+  
+  .user-profile {
+    gap: 0.5rem !important;
+  }
+  
+  .server-status {
+    font-size: 0.75rem !important;
+  }
+
+  /* Welcome Card */
+  .dashboard-welcome-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1.25rem !important;
+    padding: 1.5rem 1.25rem !important;
+  }
+  
+  .welcome-card-content {
+    max-width: 100% !important;
+  }
+  
+  .welcome-card-icon-area {
+    width: 3.5rem !important;
+    height: 3.5rem !important;
+  }
+  
+  /* Recent Feedback Snippet flex wrap */
+  .recent-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+  
+  .recent-score-circle {
+    align-self: flex-start !important;
+  }
+  
+  /* Form Inputs and Selects */
+  .select-wrapper {
+    min-width: 100% !important;
+  }
+
+  /* Toast notification position for mobile */
+  .toast-notification {
+    left: 1rem !important;
+    right: 1rem !important;
+    bottom: 1rem !important;
+    text-align: center !important;
+  }
+}
+
+/* Tablet & Mobile Selector wrapping (<= 768px) */
+@media (max-width: 768px) {
+  /* Resume Comparison Selectors Stacking */
+  .compare-selectors-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 1.25rem !important;
+  }
+  
+  .compare-vs-divider {
+    align-self: center !important;
+    padding-bottom: 0 !important;
+    margin: 0.25rem 0 !important;
+  }
+  
+  #btn-compare-resumes {
+    width: 100% !important;
+    align-self: stretch !important;
+  }
+
+  /* Profile Avatar Row Wrap on narrow screens */
+  .profile-avatar-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+  
+  /* Profile layout grid consolidation */
+  .profile-layout-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  
+  /* Bento Grid stacking */
+  .breakdown-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Medium viewports skill gap columns optimization */
+@media (max-width: 900px) and (min-width: 601px) {
+  .skills-columns-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .skills-columns-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
