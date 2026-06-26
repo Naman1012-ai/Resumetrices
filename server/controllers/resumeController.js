@@ -10,6 +10,8 @@ const pdfParser = require('../services/pdfParser');
 const firebaseService = require('../services/firebaseService');
 const atsScorer = require('../services/atsScorer');
 const aiAnalyzer = require('../services/aiAnalyzer');
+const candidateProfiler = require('../services/candidateProfiler');
+const difficultyEngine = require('../services/difficultyEngine');
 const constants = require('../config/constants');
 const logger = require('../utils/logger');
 
@@ -37,19 +39,39 @@ exports.analyzeResume = async (req, res, next) => {
     const { path: filePath, originalname } = req.file;
     filePathToDelete = filePath;
     const userId = req.user ? req.user.uid : 'anonymous';
-    logger.info('Pipeline', `📄 File received: "${originalname}" for User ID: ${userId}`);
+    logger.info('Pipeline', `📄 [STAGE 1: Receipt] File received: "${originalname}" for User ID: ${userId}`);
+
+    // Validate targetRole
+    const { targetRole } = req.body;
+    if (!targetRole || typeof targetRole !== 'string' || targetRole.trim() === '') {
+      logger.error('Pipeline', 'Validation Error: No target job role selected.');
+      const error = new Error('Please upload a resume and select a target job role before starting the analysis.');
+      error.statusCode = 400;
+      error.code = 'MISSING_TARGET_ROLE';
+      return next(error);
+    }
 
     // 2. Text Extraction
-    logger.info('Pipeline', `🔍 Extracting text from "${originalname}"...`);
+    logger.info('Pipeline', `🔍 [STAGE 2: Text Extraction] Extracting text from "${originalname}"...`);
     let extractedText;
     try {
       extractedText = await pdfParser.extractText(filePath);
-      logger.info('Pipeline', `✅ Successfully extracted text. Length: ${extractedText ? extractedText.length : 0} characters.`);
+      const snippet = extractedText ? extractedText.trim().substring(0, 100).replace(/\r?\n/g, ' ') : '';
+      logger.info('Pipeline', `✅ [STAGE 2: Text Extraction] Successfully extracted text. Length: ${extractedText ? extractedText.length : 0} characters. Snippet: "${snippet}..."`);
     } catch (parseError) {
       logger.error('Pipeline', `Parsing Error: ${parseError.message}`);
       const error = new Error('Failed to parse PDF content. Ensure the file is not corrupted.');
       error.statusCode = 422; // Unprocessable Entity
       error.code = 'PARSING_ERROR';
+      return next(error);
+    }
+
+    // Input Validation: Check text length >= 100 characters
+    if (!extractedText || extractedText.trim().length < 100) {
+      logger.error('Pipeline', `Validation Error: Extracted text is too short (${extractedText ? extractedText.trim().length : 0} characters).`);
+      const error = new Error('Resume content could not be extracted.');
+      error.statusCode = 400;
+      error.code = 'EXTRACTION_FAILED';
       return next(error);
     }
 
@@ -62,12 +84,36 @@ exports.analyzeResume = async (req, res, next) => {
       return next(error);
     }
 
-    // 3. Realistic Rule-Based ATS Scoring
-    logger.info('Pipeline', '🧮 Calculating realistic ATS score breakdown...');
+    // 3. Document Type Classification
+    logger.info('Pipeline', '🔍 [STAGE 3: Classification] Running document type classification...');
+    let docType;
+    try {
+      docType = await aiAnalyzer.classifyDocument(extractedText);
+      logger.info('Pipeline', `✅ [STAGE 3: Classification] Document type classified as: "${docType}"`);
+    } catch (classError) {
+      logger.error('Pipeline', `Document classification failed: ${classError.message}`);
+      docType = 'Unknown';
+    }
+
+    // Reject if not Resume or CV
+    if (docType !== 'Resume' && docType !== 'CV') {
+      logger.warn('Pipeline', `[STAGE 3: Classification] Rejected document type: "${docType}" (not Resume or CV).`);
+      const message = docType === 'Unknown'
+        ? 'Unable to determine document type. Please upload a valid resume.'
+        : 'Uploaded document is not a resume. ATS analysis unavailable.';
+      const error = new Error(message);
+      error.statusCode = 400;
+      error.code = 'INVALID_DOCUMENT_TYPE';
+      error.documentType = docType;
+      return next(error);
+    }
+
+    // 4. Realistic Rule-Based ATS Scoring
+    logger.info('Pipeline', '🧮 [STAGE 4: Scoring] Calculating realistic ATS score breakdown...');
     let scoreAnalysis;
     try {
-      scoreAnalysis = atsScorer.scoreResume(extractedText);
-      logger.info('Pipeline', `✅ Calculated score: ${scoreAnalysis.overallScore}/100.`);
+      scoreAnalysis = atsScorer.scoreResume(extractedText, targetRole);
+      logger.info('Pipeline', `✅ [STAGE 4: Scoring] Calculated score: ${scoreAnalysis.overallScore}/100.`);
     } catch (scoreError) {
       logger.error('Pipeline', `Scoring Error: ${scoreError.message}`);
       const error = new Error('Failed to calculate ATS score.');
@@ -76,44 +122,105 @@ exports.analyzeResume = async (req, res, next) => {
       return next(error);
     }
 
-    // 4. Claude AI Analysis via OpenRouter
-    logger.info('Pipeline', '🤖 Performing AI analysis via Claude...');
+    // 5. Claude AI Analysis via OpenRouter
+    logger.info('Pipeline', '🤖 [STAGE 5: AI Analysis] Performing AI analysis via Claude/Nemotron...');
     let aiAnalysis;
     try {
-      aiAnalysis = await aiAnalyzer.analyzeResumeText(extractedText);
+      aiAnalysis = await aiAnalyzer.analyzeResumeText(extractedText, targetRole, scoreAnalysis);
+      logger.info('Pipeline', '✅ [STAGE 5: AI Analysis] Received AI analysis response successfully.');
     } catch (aiError) {
       logger.warn('Pipeline', `⚠️ AI Analysis failed, falling back to rule-based evaluation: ${aiError.message}`);
-      aiAnalysis = {
-        strengths: scoreAnalysis.strengths,
-        weaknesses: scoreAnalysis.weaknesses,
-        atsTips: ['Clean, standard formatting helps ATS parsing.'],
-        rewriteSuggestions: scoreAnalysis.recommendations.slice(0, 3),
-        missingKeywords: ['CI/CD', 'Unit Testing', 'Cloud Deployment'],
-        recruiterFeedback: 'Claude AI analysis was skipped or encountered an error. Showing local rule-based evaluations instead.'
+      aiAnalysis = aiAnalyzer.getMockRoleBasedAts(targetRole);
+    }
+
+    // 6. Generate Skill Gap and Interview Prep for the record
+    logger.info('Pipeline', '🤖 [STAGE 6: Skill Gap & Interview Prep] Generating related analyses...');
+    let skillGap = null;
+    let interviewPrep = null;
+    try {
+      skillGap = await aiAnalyzer.analyzeSkillGap(extractedText, targetRole, scoreAnalysis.detectedSkills || []);
+      if (skillGap) {
+        skillGap.targetRole = targetRole;
+      }
+    } catch (sgErr) {
+      logger.error('Pipeline', `Failed to generate skill gap in pipeline: ${sgErr.message}`);
+      skillGap = {
+        targetRole: targetRole,
+        matchedSkills: scoreAnalysis.detectedSkills || [],
+        missingSkills: targetRole.toLowerCase().includes('front') ? ['Redux', 'Jest'] : ['TensorFlow', 'PyTorch', 'MLOps'],
+        recommendedSkills: targetRole.toLowerCase().includes('front') ? ['TypeScript'] : ['Python', 'Docker'],
+        learningRoadmap: ['Phase 1: Complete online tutorials', 'Phase 2: Build a role-specific project']
       };
     }
 
-    // 5. Generate secure cryptographically random UUID for analysis ID and save
+    try {
+      const projects = aiAnalyzer.extractProjectsFromText(extractedText);
+      const candidateProfile = candidateProfiler.buildCandidateProfile(
+        extractedText,
+        targetRole || 'Software Engineer',
+        scoreAnalysis.detectedSkills || [],
+        skillGap.missingSkills || [],
+        aiAnalysis.atsScore,
+        projects || []
+      );
+      const difficultyMetadata = difficultyEngine.generateDifficultyMetadata(
+        candidateProfile,
+        aiAnalysis.atsScore
+      );
+      interviewPrep = await aiAnalyzer.generateInterviewQuestions(
+        extractedText,
+        {
+          score: aiAnalysis.atsScore,
+          strengths: aiAnalysis.strengths,
+          weaknesses: aiAnalysis.weaknesses,
+          recommendations: aiAnalysis.recommendations
+        },
+        scoreAnalysis.detectedSkills || [],
+        targetRole || 'Software Engineer',
+        skillGap.missingSkills || [],
+        candidateProfile,
+        difficultyMetadata
+      );
+    } catch (ipErr) {
+      logger.error('Pipeline', `Failed to generate interview prep in pipeline: ${ipErr.message}`);
+      interviewPrep = aiAnalyzer.getMockInterviewQuestions(
+        targetRole,
+        scoreAnalysis.detectedSkills || [],
+        skillGap.missingSkills || [],
+        extractedText
+      );
+    }
+
+    // 7. Generate secure cryptographically random UUID for analysis ID and save
     const analysisId = `analysis_${crypto.randomUUID()}`;
     const createdAt = new Date().toISOString();
 
     const record = {
       userId: userId,
       resumeName: originalname,
+      resumeFileName: originalname,
+      targetRole: targetRole,
       score: scoreAnalysis.overallScore,
+      atsScore: scoreAnalysis.overallScore,
       breakdown: scoreAnalysis.breakdown,
       explanations: scoreAnalysis.explanations,
       strengths: aiAnalysis.strengths,
       weaknesses: aiAnalysis.weaknesses,
-      recommendations: scoreAnalysis.recommendations,
-      atsTips: aiAnalysis.atsTips,
-      rewriteSuggestions: aiAnalysis.rewriteSuggestions,
+      recommendations: aiAnalysis.recommendations,
+      atsTips: [
+        'Use standard section headings like "Work Experience", "Education", and "Skills".',
+        'Avoid using graphics, text boxes, charts, or images which cannot be read by ATS scanners.',
+        'Describe your achievements using the Action Verb + Task + Result formula.'
+      ],
+      rewriteSuggestions: aiAnalysis.recommendations,
       missingKeywords: aiAnalysis.missingKeywords,
       missingSections: scoreAnalysis.missingSections || [],
-      recruiterFeedback: aiAnalysis.recruiterFeedback,
-      skillGap: aiAnalysis.skillGap || null,
-      interviewPrep: aiAnalysis.interviewPrep || null,
+      recruiterFeedback: aiAnalysis.roleFit,
+      skillGap: skillGap,
+      interviewPrep: interviewPrep,
       extractedText: extractedText,
+      extractedResumeText: extractedText,
+      detectedSkills: scoreAnalysis.detectedSkills || [],
       createdAt: createdAt
     };
 
@@ -138,19 +245,28 @@ exports.analyzeResume = async (req, res, next) => {
       analysisId: analysisId,
       userId: userId,
       resumeName: originalname,
+      targetRole: targetRole,
       score: scoreAnalysis.overallScore,
+      atsScore: scoreAnalysis.overallScore,
       breakdown: scoreAnalysis.breakdown,
       explanations: scoreAnalysis.explanations,
       strengths: aiAnalysis.strengths,
       weaknesses: aiAnalysis.weaknesses,
-      recommendations: scoreAnalysis.recommendations,
-      atsTips: aiAnalysis.atsTips,
-      rewriteSuggestions: aiAnalysis.rewriteSuggestions,
+      recommendations: aiAnalysis.recommendations,
+      atsTips: [
+        'Use standard section headings like "Work Experience", "Education", and "Skills".',
+        'Avoid using graphics, text boxes, charts, or images which cannot be read by ATS scanners.',
+        'Describe your achievements using the Action Verb + Task + Result formula.'
+      ],
+      rewriteSuggestions: aiAnalysis.recommendations,
       missingKeywords: aiAnalysis.missingKeywords,
       missingSections: scoreAnalysis.missingSections,
-      recruiterFeedback: aiAnalysis.recruiterFeedback,
-      skillGap: aiAnalysis.skillGap || null,
-      interviewPrep: aiAnalysis.interviewPrep || null,
+      recruiterFeedback: aiAnalysis.roleFit,
+      skillGap: skillGap || null,
+      interviewPrep: interviewPrep || null,
+      extractedText: extractedText,
+      extractedResumeText: extractedText,
+      detectedSkills: scoreAnalysis.detectedSkills || [],
       text: extractedText,
       createdAt: createdAt
     });
@@ -260,10 +376,31 @@ exports.getAnalysisById = async (req, res, next) => {
 exports.analyzeSkillGap = async (req, res, next) => {
   const startTime = Date.now();
   logger.info('SkillGap', '🚀 Starting skill gap analysis...');
+  const userId = req.user ? req.user.uid : 'anonymous';
   
   try {
-    const { resumeText, targetRole } = req.body;
+    let { resumeText, targetRole, analysisId, detectedSkills } = req.body;
     
+    let dbRecord = null;
+    if (analysisId) {
+      try {
+        dbRecord = await firebaseService.getAnalysisById(analysisId);
+        if (dbRecord) {
+          if (!targetRole) {
+            targetRole = dbRecord.targetRole || (dbRecord.skillGap && dbRecord.skillGap.targetRole);
+          }
+          if ((!detectedSkills || detectedSkills.length === 0) && dbRecord.detectedSkills) {
+            detectedSkills = dbRecord.detectedSkills;
+          }
+          if (!resumeText && (dbRecord.extractedResumeText || dbRecord.extractedText)) {
+            resumeText = dbRecord.extractedResumeText || dbRecord.extractedText;
+          }
+        }
+      } catch (dbErr) {
+        logger.error('SkillGap', `Failed to load details from analysis record: ${dbErr.message}`);
+      }
+    }
+
     // Request Validation
     if (!targetRole || typeof targetRole !== 'string' || targetRole.trim() === '') {
       const error = new Error('Target role is required and must be a non-empty string.');
@@ -294,7 +431,7 @@ exports.analyzeSkillGap = async (req, res, next) => {
     logger.info('SkillGap', '🤖 Requesting AI skill gap analysis...');
     let result;
     try {
-      result = await aiAnalyzer.analyzeSkillGap(resumeText, targetRole);
+      result = await aiAnalyzer.analyzeSkillGap(resumeText, targetRole, detectedSkills || []);
       logger.info('SkillGap', '✅ Skill gap analysis completed successfully.');
     } catch (aiError) {
       logger.error('SkillGap', `Skill Gap Analysis Error: ${aiError.message}`);
@@ -302,6 +439,26 @@ exports.analyzeSkillGap = async (req, res, next) => {
       error.statusCode = 500;
       error.code = 'AI_ANALYSIS_ERROR';
       return next(error);
+    }
+
+    // Persist to DB if analysisId is active
+    if (analysisId && dbRecord) {
+      try {
+        if (dbRecord.userId === userId || userId === 'anonymous') {
+          dbRecord.targetRole = targetRole; // Unify context: save to root targetRole
+          dbRecord.skillGap = {
+            targetRole,
+            matchedSkills: result.matchedSkills,
+            missingSkills: result.missingSkills,
+            recommendedSkills: result.recommendedSkills,
+            learningRoadmap: result.learningRoadmap
+          };
+          await firebaseService.saveAnalysis(analysisId, dbRecord);
+          logger.info('SkillGap', `💾 Successfully persisted skill gap results in DB for analysisId: ${analysisId}`);
+        }
+      } catch (dbErr) {
+        logger.error('SkillGap', `Failed to save skill gap results to DB: ${dbErr.message}`);
+      }
     }
 
     const duration = Date.now() - startTime;
@@ -329,10 +486,42 @@ exports.analyzeSkillGap = async (req, res, next) => {
 exports.generateInterviewQuestions = async (req, res, next) => {
   const startTime = Date.now();
   logger.info('InterviewPrep', '🚀 Starting interview questions generation...');
+  const userId = req.user ? req.user.uid : 'anonymous';
   
   try {
-    const { resumeText } = req.body;
+    let { resumeText, analysisId, atsAnalysis, detectedSkills, targetRole, missingSkills } = req.body;
     
+    let dbRecord = null;
+    if (analysisId) {
+      try {
+        dbRecord = await firebaseService.getAnalysisById(analysisId);
+        if (dbRecord) {
+          if (!targetRole) {
+            targetRole = dbRecord.targetRole || (dbRecord.skillGap && dbRecord.skillGap.targetRole);
+          }
+          if ((!missingSkills || missingSkills.length === 0) && dbRecord.skillGap && dbRecord.skillGap.missingSkills) {
+            missingSkills = dbRecord.skillGap.missingSkills;
+          }
+          if ((!detectedSkills || detectedSkills.length === 0) && dbRecord.detectedSkills) {
+            detectedSkills = dbRecord.detectedSkills;
+          }
+          if (!resumeText && (dbRecord.extractedResumeText || dbRecord.extractedText)) {
+            resumeText = dbRecord.extractedResumeText || dbRecord.extractedText;
+          }
+          if (!atsAnalysis) {
+            atsAnalysis = {
+              score: dbRecord.atsScore || dbRecord.score || 0,
+              strengths: dbRecord.strengths || [],
+              weaknesses: dbRecord.weaknesses || [],
+              recommendations: dbRecord.recommendations || []
+            };
+          }
+        }
+      } catch (dbErr) {
+        logger.error('InterviewPrep', `Failed to load details from analysis record: ${dbErr.message}`);
+      }
+    }
+
     // Request Validation
     if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length === 0) {
       const error = new Error('Resume text content is required.');
@@ -350,13 +539,56 @@ exports.generateInterviewQuestions = async (req, res, next) => {
       return next(error);
     }
 
+    // Check Phase 6 Validation Requirements: targetRole, detectedSkills, and projects must not be missing
+    const projects = aiAnalyzer.extractProjectsFromText(resumeText);
+    
+    if (
+      !targetRole || typeof targetRole !== 'string' || targetRole.trim() === '' ||
+      !detectedSkills || !Array.isArray(detectedSkills) || detectedSkills.length === 0 ||
+      !projects || projects.length === 0
+    ) {
+      logger.error('InterviewPrep', 'Validation Error: targetRole, detectedSkills, or projects are missing.');
+      const error = new Error('Interview preparation data unavailable.');
+      error.statusCode = 400;
+      error.code = 'PREPARATION_DATA_UNAVAILABLE';
+      return next(error);
+    }
+
     logger.info('InterviewPrep', `📄 Resume text length: ${resumeText.length}`);
+
+    // Generate Candidate Profile in-memory
+    const candidateProfile = candidateProfiler.buildCandidateProfile(
+      resumeText,
+      targetRole || 'Software Engineer',
+      detectedSkills || [],
+      missingSkills || [],
+      atsAnalysis?.score || atsAnalysis?.atsScore || 0,
+      projects || []
+    );
+
+    logger.info('InterviewPrep', '👤 Generated internal candidate profile:', JSON.stringify(candidateProfile));
+
+    // Generate Adaptive Difficulty metadata
+    const difficultyMetadata = difficultyEngine.generateDifficultyMetadata(
+      candidateProfile,
+      atsAnalysis?.score || atsAnalysis?.atsScore || 0
+    );
+
+    logger.info('InterviewPrep', '⚙️ Generated internal difficulty metadata:', JSON.stringify(difficultyMetadata));
 
     // Generate Interview Questions
     logger.info('InterviewPrep', '🤖 Requesting AI interview questions...');
     let result;
     try {
-      result = await aiAnalyzer.generateInterviewQuestions(resumeText);
+      result = await aiAnalyzer.generateInterviewQuestions(
+        resumeText, 
+        atsAnalysis || null, 
+        detectedSkills || [], 
+        targetRole || 'Software Engineer', 
+        missingSkills || [],
+        candidateProfile,
+        difficultyMetadata
+      );
       logger.info('InterviewPrep', '✅ Interview questions generated successfully.');
     } catch (aiError) {
       logger.error('InterviewPrep', `Interview Questions Error: ${aiError.message}`);
@@ -366,6 +598,26 @@ exports.generateInterviewQuestions = async (req, res, next) => {
       return next(error);
     }
 
+    // Persist to DB if analysisId is active
+    if (analysisId && dbRecord) {
+      try {
+        if (dbRecord.userId === userId || userId === 'anonymous') {
+          dbRecord.targetRole = targetRole; // Unify context: save to root targetRole
+          dbRecord.interviewPrep = {
+            technical: result.technical,
+            projectBased: result.projectBased,
+            skillGap: result.skillGap,
+            behavioral: result.behavioral,
+            hrQuestions: result.hrQuestions
+          };
+          await firebaseService.saveAnalysis(analysisId, dbRecord);
+          logger.info('InterviewPrep', `💾 Successfully persisted interview questions in DB for analysisId: ${analysisId}`);
+        }
+      } catch (dbErr) {
+        logger.error('InterviewPrep', `Failed to save interview questions to DB: ${dbErr.message}`);
+      }
+    }
+
     const duration = Date.now() - startTime;
     logger.info('InterviewPrep', `⏱️ Interview questions generation completed in ${duration}ms.`);
 
@@ -373,6 +625,7 @@ exports.generateInterviewQuestions = async (req, res, next) => {
       success: true,
       technical: result.technical,
       projectBased: result.projectBased,
+      skillGap: result.skillGap,
       behavioral: result.behavioral,
       hrQuestions: result.hrQuestions
     });

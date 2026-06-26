@@ -13,6 +13,8 @@ const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
 let isFirebaseInitialized = false;
 let hasCredentials = false;
+const mockDatabaseStore = new Map();
+
 
 // Validate configuration on startup
 if (!projectId || !databaseURL) {
@@ -91,12 +93,6 @@ const saveAnalysis = async (analysisId, record) => {
     throw new Error('Firebase Admin SDK is not initialized. Cannot write to database.');
   }
 
-  // If in fallback mode without real credentials, skip the DB set operation
-  if (!hasCredentials) {
-    logger.warn('Firebase', `⚠️ Running in fallback mode. Skipping write of analysis ${analysisId} to Realtime Database.`);
-    return true;
-  }
-
   // Data validation before writing to DB
   if (!analysisId || typeof analysisId !== 'string') {
     throw new Error('Database Validation Error: analysisId must be a non-empty string.');
@@ -108,38 +104,52 @@ const saveAnalysis = async (analysisId, record) => {
   if (typeof userId !== 'string' || userId.trim() === '') {
     throw new Error('Database Validation Error: userId must be a non-empty string.');
   }
-  
+
+  // Construct payload with required and validated schema
+  const dbPayload = {
+    analysisId: analysisId,
+    userId: userId,
+    targetRole: record.targetRole || '',
+    resumeText: record.resumeText || record.extractedResumeText || record.extractedText || '',
+    resumeName: record.resumeName || 'Untitled Resume',
+    resumeFileName: record.resumeFileName || record.resumeName || 'Untitled Resume',
+    score: record.score || 0,
+    atsScore: record.atsScore || record.score || 0,
+    breakdown: record.breakdown || {},
+    explanations: record.explanations || {},
+    strengths: record.strengths || [],
+    weaknesses: record.weaknesses || [],
+    recommendations: record.recommendations || [],
+    atsTips: record.atsTips || [],
+    rewriteSuggestions: record.rewriteSuggestions || [],
+    missingKeywords: record.missingKeywords || [],
+    missingSections: record.missingSections || [],
+    recruiterFeedback: record.recruiterFeedback || '',
+    skillGap: record.skillGap || null,
+    interviewPrep: record.interviewPrep || null,
+    extractedText: record.extractedText || '',
+    extractedResumeText: record.extractedResumeText || record.extractedText || '',
+    detectedSkills: record.detectedSkills || [],
+    createdAt: record.createdAt || new Date().toISOString()
+  };
+
+  // If in fallback mode without real credentials, write to in-memory store
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Saving analysis ${analysisId} to local in-memory store.`);
+    mockDatabaseStore.set(analysisId, dbPayload);
+    if (!mockDatabaseStore.has(`user_${userId}`)) {
+      mockDatabaseStore.set(`user_${userId}`, new Map());
+    }
+    mockDatabaseStore.get(`user_${userId}`).set(analysisId, dbPayload);
+    return true;
+  }
+
   try {
     const db = getDatabase();
-    
-    // Construct payload with required and validated schema
-    const dbPayload = {
-      analysisId: analysisId,
-      userId: userId,
-      resumeName: record.resumeName || 'Untitled Resume',
-      score: record.score || 0,
-      breakdown: record.breakdown || {},
-      explanations: record.explanations || {},
-      strengths: record.strengths || [],
-      weaknesses: record.weaknesses || [],
-      recommendations: record.recommendations || [],
-      atsTips: record.atsTips || [],
-      rewriteSuggestions: record.rewriteSuggestions || [],
-      missingKeywords: record.missingKeywords || [],
-      missingSections: record.missingSections || [],
-      recruiterFeedback: record.recruiterFeedback || '',
-      skillGap: record.skillGap || null,
-      interviewPrep: record.interviewPrep || null,
-      extractedText: record.extractedText || '',
-      createdAt: record.createdAt || new Date().toISOString()
-    };
-
     // Save to global analyses repository
     await db.ref(`analyses/${analysisId}`).set(dbPayload);
-
     // Save to user history repository (with summary fields + details for instant loading)
     await db.ref(`users/${userId}/analyses/${analysisId}`).set(dbPayload);
-
     logger.info('Firebase', `💾 Analysis ${analysisId} successfully saved to Firebase RTDB for user ${userId}.`);
     return true;
   } catch (error) {
@@ -157,12 +167,17 @@ const getUserHistory = async (userId) => {
   if (!isFirebaseInitialized) {
     throw new Error('Firebase Admin SDK is not initialized.');
   }
-  if (!hasCredentials) {
-    logger.warn('Firebase', '⚠️ Running in fallback mode. Returning empty local developer history.');
-    return [];
-  }
   if (!userId || typeof userId !== 'string') {
     throw new Error('Database Validation Error: userId must be a non-empty string.');
+  }
+
+  // If in fallback mode without real credentials, return from local in-memory store
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Reading history for user ${userId} from local in-memory store.`);
+    const userMap = mockDatabaseStore.get(`user_${userId}`);
+    if (!userMap) return [];
+    const list = Array.from(userMap.values());
+    return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
   try {
@@ -191,12 +206,14 @@ const getAnalysisById = async (analysisId) => {
   if (!isFirebaseInitialized) {
     throw new Error('Firebase Admin SDK is not initialized.');
   }
-  if (!hasCredentials) {
-    logger.warn('Firebase', `⚠️ Running in fallback mode. Cannot read analysis ${analysisId} from Realtime Database.`);
-    return null;
-  }
   if (!analysisId || typeof analysisId !== 'string') {
     throw new Error('Database Validation Error: analysisId must be a non-empty string.');
+  }
+
+  // If in fallback mode without real credentials, return from local in-memory store
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Reading analysis ${analysisId} from local in-memory store.`);
+    return mockDatabaseStore.get(analysisId) || null;
   }
 
   try {
@@ -218,19 +235,56 @@ const getDashboardStats = async (userId) => {
   if (!isFirebaseInitialized) {
     throw new Error('Firebase Admin SDK is not initialized.');
   }
-  if (!hasCredentials) {
-    logger.warn('Firebase', '⚠️ Running in fallback mode. Returning empty developer stats.');
-    return {
-      totalAnalyses: 0,
-      highestScore: 0,
-      averageScore: 0,
-      analysesThisMonth: 0,
-      recentAnalysis: null,
-      trends: []
-    };
-  }
   if (!userId || typeof userId !== 'string') {
     throw new Error('Database Validation Error: userId must be a non-empty string.');
+  }
+
+  // If in fallback mode without real credentials, calculate from local in-memory store
+  if (!hasCredentials) {
+    logger.warn('Firebase', '⚠️ Running in fallback mode. Calculating stats from local in-memory store.');
+    const userMap = mockDatabaseStore.get(`user_${userId}`);
+    if (!userMap) {
+      return {
+        totalAnalyses: 0,
+        highestScore: 0,
+        averageScore: 0,
+        analysesThisMonth: 0,
+        recentAnalysis: null,
+        trends: []
+      };
+    }
+    const list = Array.from(userMap.values());
+    const sortedList = list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    const totalAnalyses = sortedList.length;
+    const highestScore = totalAnalyses > 0 ? Math.max(...sortedList.map(item => item.score)) : 0;
+    const sumScore = sortedList.reduce((sum, item) => sum + item.score, 0);
+    const averageScore = totalAnalyses > 0 ? Math.round(sumScore / totalAnalyses) : 0;
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const analysesThisMonth = sortedList.filter(item => {
+      const d = new Date(item.createdAt);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
+    
+    const recentAnalysis = sortedList[0] || null;
+    
+    const trends = sortedList.slice(0, 6).reverse().map(item => ({
+      name: item.resumeName,
+      score: item.score,
+      date: new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: '2-digit' })
+    }));
+
+    return {
+      totalAnalyses,
+      highestScore,
+      averageScore,
+      analysesThisMonth,
+      recentAnalysis,
+      trends
+    };
   }
 
   try {
@@ -301,15 +355,20 @@ const deleteAnalysis = async (analysisId, userId) => {
   if (!isFirebaseInitialized) {
     throw new Error('Firebase Admin SDK is not initialized.');
   }
-  if (!hasCredentials) {
-    logger.warn('Firebase', `⚠️ Running in fallback mode. Skipping database removal of analysis ${analysisId}.`);
-    return true;
-  }
   if (!analysisId || typeof analysisId !== 'string') {
     throw new Error('Database Validation Error: analysisId must be a non-empty string.');
   }
   if (!userId || typeof userId !== 'string') {
     throw new Error('Database Validation Error: userId must be a non-empty string.');
+  }
+
+  // If in fallback mode without real credentials, delete from local in-memory store
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Deleting analysis ${analysisId} from local in-memory store.`);
+    mockDatabaseStore.delete(analysisId);
+    const userMap = mockDatabaseStore.get(`user_${userId}`);
+    if (userMap) userMap.delete(analysisId);
+    return true;
   }
 
   try {

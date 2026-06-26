@@ -413,6 +413,29 @@
                     <button class="btn-remove-file" id="btn-remove-file" aria-label="Remove selected file">×</button>
                   </div>
 
+                  <!-- Target Job Role Dropdown -->
+                  <div class="select-wrapper" style="margin-bottom: 1.5rem; width: 100%;">
+                    <label for="target-role-select">Target Job Role <span style="color: #ef4444;">*</span></label>
+                    <select id="target-role-select" style="width: 100%;">
+                      <option value="" disabled selected>-- Select Target Job Role --</option>
+                      <option value="Software Engineer">Software Engineer</option>
+                      <option value="Frontend Developer">Frontend Developer</option>
+                      <option value="Backend Developer">Backend Developer</option>
+                      <option value="Full Stack Developer">Full Stack Developer</option>
+                      <option value="AI/ML Engineer">AI/ML Engineer</option>
+                      <option value="Data Scientist">Data Scientist</option>
+                      <option value="Data Analyst">Data Analyst</option>
+                      <option value="DevOps Engineer">DevOps Engineer</option>
+                      <option value="Cloud Engineer">Cloud Engineer</option>
+                      <option value="Mobile Developer">Mobile Developer</option>
+                      <option value="Cybersecurity Analyst">Cybersecurity Analyst</option>
+                      <option value="QA Engineer">QA Engineer</option>
+                      <option value="Product Manager">Product Manager</option>
+                      <option value="UI/UX Designer">UI/UX Designer</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
                   <button class="btn-analyze" id="btn-analyze" disabled>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -434,7 +457,6 @@
                   <button class="results-tab active" id="tab-report">ATS Analysis</button>
                   <button class="results-tab" id="tab-skillgap">Skill Gap Analysis</button>
                   <button class="results-tab" id="tab-interview">Interview Preparation</button>
-                  <button class="results-tab" id="tab-rawtext">Raw Extracted Text</button>
                 </div>
 
                 <!-- Awaiting Action Empty State -->
@@ -448,6 +470,42 @@
                   </div>
                   <h3>Select or Upload a Resume</h3>
                   <p>Please select an analysis from your history tab or upload a new PDF resume on the left to view metrics, keywords gap, and prep questions.</p>
+                </div>
+
+                <!-- Permanent Error State Card (For non-resume documents) -->
+                <div class="error-state-card" id="error-state-card" style="display: none;">
+                  <div class="error-card-header">
+                    <span class="error-card-icon">❌</span>
+                    <h3>ATS Analysis Unavailable</h3>
+                  </div>
+                  <div class="error-card-body">
+                    <p class="error-intro" id="error-intro">The uploaded file was detected as a non-resume document.</p>
+                    
+                    <div class="error-details" id="error-detected-type-container">
+                      <span class="details-label">Detected Type:</span>
+                      <span class="details-value" id="error-detected-type">Unknown</span>
+                    </div>
+                    
+                    <div class="error-info-box">
+                      <span class="info-title">ATS analysis only works with:</span>
+                      <ul>
+                        <li>Resume</li>
+                        <li>CV</li>
+                      </ul>
+                    </div>
+                    
+                    <p class="error-cta-text">Please upload a professional resume in PDF format.</p>
+                  </div>
+                  <div class="error-card-actions">
+                    <button class="btn-primary" id="btn-error-upload-another">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem; vertical-align: middle;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      Upload Another Resume
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Loading State Skeleton Screen -->
@@ -558,33 +616,18 @@
                       <h3>Missing Relevant Keywords</h3>
                       <div class="tag-cloud" id="res-missing-keywords-tags"></div>
                     </div>
-
                     <div class="keywords-panel" id="res-missing-sections-panel">
                       <h3>Missing Essential Sections</h3>
                       <div class="tag-cloud" id="res-missing-sections-tags" style="color: #ef4444;"></div>
                     </div>
                   </div>
                 </div>
-
+                
                 <!-- TAB 2: Skill Gap Analysis -->
                 <div class="results-container" id="skillgap-dashboard" style="display: none;">
-                  <div class="pipeline-card">
-                    <h2 class="card-title">Skill Gap Analysis Tool</h2>
-                    <p class="card-desc">Compare your resume against industry standard expectations for a target role, and get a curated learning roadmap to bridge any gaps.</p>
-                    
-                    <div class="role-selector-row">
-                      <div class="select-wrapper">
-                        <label for="select-target-role">Target Job Role</label>
-                        <select id="select-target-role">
-                          <option value="AI Engineer">AI Engineer</option>
-                          <option value="Machine Learning Engineer">Machine Learning Engineer</option>
-                          <option value="Data Scientist">Data Scientist</option>
-                          <option value="Frontend Developer">Frontend Developer</option>
-                          <option value="Full Stack Developer">Full Stack Developer</option>
-                        </select>
-                      </div>
-                      <button class="btn-primary" id="btn-run-skillgap">Run Gap Analysis</button>
-                    </div>
+                  <div class="pipeline-card" style="margin-bottom: 1.5rem;">
+                    <h2 class="card-title">Skill Gap Analysis</h2>
+                    <p class="card-desc">Compare your resume against industry standard expectations for target role: <strong id="skillgap-active-role" style="color: var(--emerald); font-weight: 600;">Software Engineer</strong>.</p>
                   </div>
 
                   <div class="loader-container" id="skillgap-loader" style="display: none; padding: 2rem 0;">
@@ -624,10 +667,9 @@
 
                 <!-- TAB 3: Interview Preparation -->
                 <div class="results-container" id="interview-dashboard" style="display: none;">
-                  <div class="pipeline-card">
-                    <h2 class="card-title">Interview Questions Generator</h2>
-                    <p class="card-desc">Generate personalized interview questions based directly on your skills, experience details, and projects to prepare for recruiter screens.</p>
-                    <button class="btn-primary" id="btn-run-interview" style="width: auto; padding: 0.75rem 2rem;">Generate Interview Questions</button>
+                  <div class="pipeline-card" style="margin-bottom: 1.5rem;">
+                    <h2 class="card-title">Interview Preparation</h2>
+                    <p class="card-desc">Tailored interview questions based on your resume and target role: <strong id="interview-active-role" style="color: var(--emerald); font-weight: 600;">Software Engineer</strong>.</p>
                   </div>
 
                   <div class="loader-container" id="interview-loader" style="display: none; padding: 2rem 0;">
@@ -646,6 +688,10 @@
                         <ul class="q-list" id="project-questions-list"></ul>
                       </div>
                       <div class="question-card">
+                        <div class="q-header skillgap"><span>Skill Gap Questions</span></div>
+                        <ul class="q-list" id="skillgap-questions-list"></ul>
+                      </div>
+                      <div class="question-card">
                         <div class="q-header behavioral"><span>Behavioral Questions</span></div>
                         <ul class="q-list" id="behavioral-questions-list"></ul>
                       </div>
@@ -657,22 +703,7 @@
                   </div>
                 </div>
 
-                <!-- TAB 4: Raw Extracted Text -->
-                <div class="results-container" id="raw-text-container" style="display: none;">
-                  <div class="results-header" style="border: none; margin-bottom: 0;">
-                    <h2 id="raw-filename" style="font-size: 1.1rem; font-family: 'Fira Code', monospace; background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">test_resume.pdf</h2>
-                    <button class="btn-copy" id="btn-copy-text" aria-label="Copy extracted text">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                      </svg>
-                      Copy Text
-                    </button>
-                  </div>
-                  <div class="text-content-card">
-                    <pre id="extracted-text-content">Parsed content goes here...</pre>
-                  </div>
-                </div>
+
 
               </section>
             </div>

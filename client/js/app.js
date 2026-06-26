@@ -56,6 +56,71 @@ const escapeHTML = (str) => {
   );
 };
 
+/**
+ * Translates Firebase Auth error codes into polite, human-readable instructions.
+ * Supports both standard credential flow and Google popup/redirect oauth flows.
+ * @param {Error} error - The Firebase error object.
+ * @returns {string} User-friendly error message.
+ */
+const getFriendlyAuthErrorMessage = (error) => {
+  if (!error) return 'An unknown error occurred during authentication.';
+  
+  const code = error.code;
+  if (code) {
+    switch (code) {
+      // Google Sign-In & Popup Errors
+      case 'auth/popup-closed-by-user':
+        return 'Sign-in was cancelled. Please keep the Google sign-in window open to complete the process.';
+      case 'auth/popup-blocked':
+        return 'The sign-in popup was blocked by your browser. Please allow popups for this site and try again.';
+      case 'auth/cancelled-popup-request':
+        return 'The sign-in request was cancelled as another authentication attempt was initiated.';
+      case 'auth/unauthorized-domain':
+        return 'This domain is not authorized for Google Sign-In. Please add localhost/domain to the Authorized Domains in the Firebase Console.';
+      case 'auth/operation-not-allowed':
+        return 'Google Sign-In is not enabled. Please enable it in the Firebase Console settings.';
+      case 'auth/network-request-failed':
+        return 'A network error occurred. Please check your internet connection and try again.';
+      
+      // Email & Password Auth Errors
+      case 'auth/email-already-in-use':
+        return 'This email address is already registered. Please sign in instead.';
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/weak-password':
+        return 'Your password is too weak. Please use at least 6 characters.';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'Incorrect email or password. Please check your credentials and try again.';
+      case 'auth/user-disabled':
+        return 'This account has been disabled. Please contact support.';
+      case 'auth/too-many-requests':
+        return 'Too many sign-in attempts. Access has been temporarily disabled. Please try again later.';
+      default:
+        break;
+    }
+  }
+
+  // Fallback pattern matching on the message string if code is not directly available
+  const msg = error.message || '';
+  if (msg.includes('auth/popup-closed-by-user')) {
+    return 'Sign-in was cancelled. Please keep the Google sign-in window open to complete the process.';
+  }
+  if (msg.includes('auth/popup-blocked')) {
+    return 'The sign-in popup was blocked by your browser. Please allow popups for this site.';
+  }
+  if (msg.includes('auth/unauthorized-domain')) {
+    return 'This domain is not authorized for Google Sign-In. Please add localhost/domain to the Authorized Domains in the Firebase Console.';
+  }
+  if (msg.includes('auth/invalid-credential') || msg.includes('auth/wrong-password') || msg.includes('auth/user-not-found')) {
+    return 'Incorrect email or password. Please check your credentials and try again.';
+  }
+
+  // Clean up the Firebase raw prefix if present
+  return msg.replace(/^Firebase:\s*/i, '');
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   // DOM Panels
   const authPanel = document.getElementById('auth-panel');
@@ -103,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const emptyState = document.getElementById('empty-state');
   const loader = document.getElementById('loader');
+  const errorStateCard = document.getElementById('error-state-card');
   
   // Dashboard Tabs
   const resultsTabs = document.getElementById('results-tabs');
@@ -134,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const previewFileSize = document.getElementById('preview-file-size');
   const btnRemoveFile = document.getElementById('btn-remove-file');
   const btnAnalyze = document.getElementById('btn-analyze');
+  const targetRoleSelect = document.getElementById('target-role-select');
 
   // Results Dashboard Elements
   const resFilename = document.getElementById('res-filename');
@@ -165,6 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const interviewResults = document.getElementById('interview-results');
   const technicalQuestionsList = document.getElementById('technical-questions-list');
   const projectQuestionsList = document.getElementById('project-questions-list');
+  const skillgapQuestionsList = document.getElementById('skillgap-questions-list');
   const behavioralQuestionsList = document.getElementById('behavioral-questions-list');
   const hrQuestionsList = document.getElementById('hr-questions-list');
 
@@ -212,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   let selectedFile = null;
+  let activeAnalysis = null; // Stores currently active analysis record
   let activeAnalysisText = ''; // Stores active analysis text to feed skill gap & interview
   let currentAuthMode = 'login';
   let cachedHistory = []; // Stores all fetched user analyses
@@ -241,15 +310,33 @@ document.addEventListener('DOMContentLoaded', () => {
     formatting: { name: 'Structure & Formatting', max: 5, color: 'blue' }
   };
 
-  // Toast notifier
+  // Toast notifier with cancellation and custom duration
+  let toastTimeout = null;
   function showToast(message, type = 'success') {
-    if (toastMessage) toastMessage.textContent = message;
+    if (toastTimeout) {
+      clearTimeout(toastTimeout);
+    }
+    
+    if (toastMessage) {
+      toastMessage.textContent = message;
+      toastMessage.style.whiteSpace = 'pre-line';
+    }
+    
     if (toastNotification) {
-      toastNotification.style.borderLeftColor = type === 'success' ? 'var(--emerald)' : 'var(--rose)';
+      if (type === 'error') {
+        toastNotification.style.borderLeftColor = 'var(--rose)';
+        toastNotification.classList.add('toast-error');
+      } else {
+        toastNotification.style.borderLeftColor = 'var(--emerald)';
+        toastNotification.classList.remove('toast-error');
+      }
+      
       toastNotification.style.display = 'block';
-      setTimeout(() => {
+      
+      const duration = type === 'error' ? 8000 : 3000;
+      toastTimeout = setTimeout(() => {
         toastNotification.style.display = 'none';
-      }, 3000);
+      }, duration);
     }
   }
 
@@ -453,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hash === 'dashboard') {
       loadDashboardData();
     } else if (hash === 'history') {
-      loadHistoryCatalog();
+      loadAnalysisHistory();
     } else if (hash === 'compare') {
       loadCompareData();
     } else if (hash === 'profile') {
@@ -496,6 +583,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (loader) loader.style.display = 'none';
       resetFileSelection();
       cachedHistory = [];
+      activeAnalysis = null;
+      activeAnalysisText = '';
 
       window.location.hash = 'login';
     }
@@ -1486,7 +1575,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       authForm.reset();
     } catch (error) {
-      showToast(error.message, 'error');
+      showToast(getFriendlyAuthErrorMessage(error), 'error');
     } finally {
       btnAuthSubmit.removeAttribute('disabled');
       btnAuthSubmit.textContent = currentAuthMode === 'login' ? 'Sign In' : 'Register';
@@ -1520,7 +1609,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       showToast('Signed in with Google!');
     } catch (error) {
-      showToast(error.message, 'error');
+      showToast(getFriendlyAuthErrorMessage(error), 'error');
     } finally {
       btnGoogle.removeAttribute('disabled');
     }
@@ -1544,8 +1633,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabs = [
     { button: tabReport, container: resultsDashboard },
     { button: tabSkillGap, container: skillgapDashboard },
-    { button: tabInterview, container: interviewDashboard },
-    { button: tabRawText, container: rawTextContainer }
+    { button: tabInterview, container: interviewDashboard }
   ];
 
   tabs.forEach(tab => {
@@ -1557,11 +1645,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         tab.button.classList.add('active');
         tab.container.style.display = 'flex';
-        
-        // Explicit grid flex displays for raw text
-        if (tab.container === rawTextContainer) {
-          tab.container.style.display = 'block';
-        }
       });
     }
   });
@@ -1616,7 +1699,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (previewFileSize) previewFileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
     if (filePreview) filePreview.style.display = 'flex';
     if (dropZone) dropZone.style.display = 'none';
-    if (btnAnalyze) btnAnalyze.removeAttribute('disabled');
+    checkAnalyzeButtonState();
+  }
+
+  if (targetRoleSelect) {
+    targetRoleSelect.addEventListener('change', () => {
+      checkAnalyzeButtonState();
+    });
+  }
+
+  function checkAnalyzeButtonState() {
+    if (!btnAnalyze) return;
+    const hasFile = selectedFile !== null;
+    const hasRole = targetRoleSelect && targetRoleSelect.value !== '';
+    if (hasFile && hasRole) {
+      btnAnalyze.removeAttribute('disabled');
+    } else {
+      btnAnalyze.setAttribute('disabled', 'true');
+    }
   }
 
   if (btnRemoveFile) {
@@ -1631,13 +1731,53 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fileInput) fileInput.value = '';
     if (filePreview) filePreview.style.display = 'none';
     if (dropZone) dropZone.style.display = 'flex';
-    if (btnAnalyze) btnAnalyze.setAttribute('disabled', 'true');
+    if (targetRoleSelect) targetRoleSelect.value = '';
+    checkAnalyzeButtonState();
+  }
+
+  const btnErrorUploadAnother = document.getElementById('btn-error-upload-another');
+  if (btnErrorUploadAnother) {
+    btnErrorUploadAnother.addEventListener('click', () => {
+      if (errorStateCard) errorStateCard.style.display = 'none';
+      if (emptyState) emptyState.style.display = 'flex';
+      if (fileInput) fileInput.click();
+    });
+  }
+
+  function showErrorStateCard(documentType, errorCode) {
+    if (emptyState) emptyState.style.display = 'none';
+    if (resultsDashboard) resultsDashboard.style.display = 'none';
+    if (skillgapDashboard) skillgapDashboard.style.display = 'none';
+    if (interviewDashboard) interviewDashboard.style.display = 'none';
+    if (rawTextContainer) rawTextContainer.style.display = 'none';
+    if (resultsTabs) resultsTabs.style.display = 'none';
+    
+    if (errorStateCard) {
+      const errorIntro = document.getElementById('error-intro');
+      const errorDetectedTypeContainer = document.getElementById('error-detected-type-container');
+      const errorDetectedType = document.getElementById('error-detected-type');
+      
+      if (errorCode === 'EXTRACTION_FAILED' || documentType === 'Unknown' || !documentType) {
+        if (errorIntro) errorIntro.textContent = 'Unable to determine document type. Please upload a valid resume.';
+        if (errorDetectedTypeContainer) errorDetectedTypeContainer.style.display = 'none';
+      } else {
+        if (errorIntro) errorIntro.textContent = 'The uploaded file was detected as a non-resume document.';
+        if (errorDetectedTypeContainer) errorDetectedTypeContainer.style.display = 'block';
+        if (errorDetectedType) errorDetectedType.textContent = documentType;
+      }
+      
+      errorStateCard.style.display = 'flex';
+    }
   }
 
   // 7. Analyze Trigger
   if (btnAnalyze) {
     btnAnalyze.addEventListener('click', async () => {
-      if (!selectedFile) return;
+      const selectedRole = targetRoleSelect ? targetRoleSelect.value : '';
+      if (!selectedFile || !selectedRole) {
+        showToast('Please upload your resume and select a target job role before starting the analysis.', 'error');
+        return;
+      }
 
       if (emptyState) emptyState.style.display = 'none';
       if (resultsDashboard) resultsDashboard.style.display = 'none';
@@ -1645,12 +1785,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (interviewDashboard) interviewDashboard.style.display = 'none';
       if (rawTextContainer) rawTextContainer.style.display = 'none';
       if (resultsTabs) resultsTabs.style.display = 'none';
+      if (errorStateCard) errorStateCard.style.display = 'none';
       if (loader) loader.style.display = 'flex';
       btnAnalyze.setAttribute('disabled', 'true');
       if (btnRemoveFile) btnRemoveFile.setAttribute('disabled', 'true');
 
       const formData = new FormData();
       formData.append('resume', selectedFile);
+      formData.append('targetRole', selectedRole);
 
       let success = false;
       try {
@@ -1665,7 +1807,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || 'Analysis pipeline execution failed.');
+        if (!response.ok) {
+          const err = new Error(result.message || 'Analysis pipeline execution failed.');
+          err.code = result.code;
+          err.documentType = result.documentType;
+          throw err;
+        }
 
         // Render Dashboard
         renderAnalysisResults(result);
@@ -1678,12 +1825,17 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (error) {
         console.error('Analysis error:', error);
         showToast(error.message, 'error');
+        if (error.code === 'INVALID_DOCUMENT_TYPE' || error.code === 'EXTRACTION_FAILED') {
+          showErrorStateCard(error.documentType || 'Unknown', error.code);
+          resetFileSelection();
+          success = true; // Prevents showing empty state
+        }
       } finally {
         if (loader) loader.style.display = 'none';
         if (!success && emptyState) {
           emptyState.style.display = 'flex';
         }
-        btnAnalyze.removeAttribute('disabled');
+        checkAnalyzeButtonState();
         if (btnRemoveFile) btnRemoveFile.removeAttribute('disabled');
       }
     });
@@ -1691,13 +1843,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 8. Render Results to Bento Layout
   function renderAnalysisResults(analysis) {
+    console.log("Rendering analysis results:", analysis);
+    if (errorStateCard) errorStateCard.style.display = 'none';
+    
+    // Set active analysis session
+    activeAnalysis = analysis;
+    activeAnalysisText = analysis.extractedResumeText || analysis.extractedText || analysis.text || '';
+
+    // Restore target role dropdown selections
+    if (analysis.targetRole) {
+      if (targetRoleSelect) targetRoleSelect.value = analysis.targetRole;
+      if (selectTargetRole) selectTargetRole.value = analysis.targetRole;
+    }
+
+    // Set active target role labels in Skill Gap and Interview dashboards
+    const activeRoleLabel = analysis.targetRole || 'Software Engineer';
+    const sgActiveRole = document.getElementById('skillgap-active-role');
+    const ipActiveRole = document.getElementById('interview-active-role');
+    if (sgActiveRole) sgActiveRole.textContent = activeRoleLabel;
+    if (ipActiveRole) ipActiveRole.textContent = activeRoleLabel;
+    
     const { 
       resumeName, score, breakdown, explanations, strengths, 
-      weaknesses, recommendations, atsTips, rewriteSuggestions, 
-      missingKeywords, missingSections, text 
+      weaknesses, atsTips, rewriteSuggestions, 
+      missingKeywords, missingSections 
     } = analysis;
-
-    activeAnalysisText = text || ''; // Cache text locally
 
     // Show Report Tab default
     tabs.forEach(t => {
@@ -1854,13 +2024,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Raw Text panel
     if (rawFilename) rawFilename.textContent = resumeName;
-    if (extractedTextContent) extractedTextContent.textContent = text || '(No text extracted)';
+    if (extractedTextContent) extractedTextContent.textContent = activeAnalysisText || '(No text extracted)';
 
     // Copy to clipboard
     if (btnCopyText) {
       btnCopyText.onclick = async () => {
         try {
-          await navigator.clipboard.writeText(text);
+          await navigator.clipboard.writeText(activeAnalysisText);
           const originalHTML = btnCopyText.innerHTML;
           btnCopyText.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
@@ -1933,88 +2103,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
     renderQuestionsList(technicalQuestionsList, interviewPrep.technical);
     renderQuestionsList(projectQuestionsList, interviewPrep.projectBased);
+    renderQuestionsList(skillgapQuestionsList, interviewPrep.skillGap);
     renderQuestionsList(behavioralQuestionsList, interviewPrep.behavioral);
     renderQuestionsList(hrQuestionsList, interviewPrep.hrQuestions);
 
     interviewResults.style.display = 'block';
   }
 
-  // 9. Skill Gap compare trigger
-  if (btnRunSkillgap) {
-    btnRunSkillgap.addEventListener('click', async () => {
-      if (!activeAnalysisText) {
-        showToast('No active resume loaded.', 'error');
-        return;
-      }
-      const role = selectTargetRole ? selectTargetRole.value : '';
-
-      btnRunSkillgap.setAttribute('disabled', 'true');
-      if (skillgapLoader) skillgapLoader.style.display = 'flex';
-      if (skillgapResults) skillgapResults.style.display = 'none';
-
-      try {
-        const user = auth.currentUser;
-        if (!user) throw new Error('Authorization required.');
-        const idToken = await user.getIdToken();
-
-        const response = await fetch(`${API_BASE}/skills/gap`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}` 
-          },
-          body: JSON.stringify({
-            resumeText: activeAnalysisText,
-            targetRole: role
-          })
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Skill gap comparison failed.');
-
-        // Render Tags
-        renderTagsCloud(matchedSkillsTags, data.matchedSkills, 'green');
-        renderTagsCloud(missingSkillsTags, data.missingSkills, 'red');
-        renderTagsCloud(recommendedSkillsTags, data.recommendedSkills, 'blue');
-
-        // Draw timeline roadmap
-        if (roadmapTimeline) {
-          roadmapTimeline.innerHTML = '';
-          if (data.learningRoadmap) {
-            data.learningRoadmap.forEach((milestone, idx) => {
-              const node = document.createElement('div');
-              node.className = 'timeline-node';
-              
-              // Parse Phase and Description details
-              const parts = milestone.split(':');
-              const phaseTitle = parts[0] || `Phase ${idx + 1}`;
-              const phaseDesc = parts.slice(1).join(':') || 'Bridge technical competencies.';
-
-              node.innerHTML = `
-                <div class="timeline-node-title">${escapeHTML(phaseTitle)}</div>
-                <div class="timeline-node-desc">${escapeHTML(phaseDesc)}</div>
-              `;
-              roadmapTimeline.appendChild(node);
-            });
-          }
-        }
-
-        if (skillgapResults) skillgapResults.style.display = 'block';
-        showToast('Skill gap analysis completed!');
-      } catch (error) {
-        showToast(error.message, 'error');
-      } finally {
-        if (skillgapLoader) skillgapLoader.style.display = 'none';
-        btnRunSkillgap.removeAttribute('disabled');
-      }
-    });
-  }
+  // 9. Skill Gap compare trigger has been unified and is now automatic
 
   function renderTagsCloud(container, list, colorClass) {
     if (!container) return;
     container.innerHTML = '';
     if (!list || list.length === 0) {
-      container.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-muted);">None detected.</span>';
+      if (colorClass === 'green') {
+        container.innerHTML = '<span style="font-size: 0.85rem; color: var(--text-muted); font-style: italic; display: block; width: 100%;">No matched skills detected for this target role.</span>';
+      } else {
+        container.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-muted);">None detected.</span>';
+      }
       return;
     }
     
@@ -2039,53 +2145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 10. Generate Interview Questions trigger
-  if (btnRunInterview) {
-    btnRunInterview.addEventListener('click', async () => {
-      if (!activeAnalysisText) {
-        showToast('No active resume loaded.', 'error');
-        return;
-      }
-
-      btnRunInterview.setAttribute('disabled', 'true');
-      if (interviewLoader) interviewLoader.style.display = 'flex';
-      if (interviewResults) interviewResults.style.display = 'none';
-
-      try {
-        const user = auth.currentUser;
-        if (!user) throw new Error('Authorization required.');
-        const idToken = await user.getIdToken();
-
-        const response = await fetch(`${API_BASE}/interview/questions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`
-          },
-          body: JSON.stringify({
-            resumeText: activeAnalysisText
-          })
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Interview questions generation failed.');
-
-        // Render Categories
-        renderQuestionsList(technicalQuestionsList, data.technical);
-        renderQuestionsList(projectQuestionsList, data.projectBased);
-        renderQuestionsList(behavioralQuestionsList, data.behavioral);
-        renderQuestionsList(hrQuestionsList, data.hrQuestions);
-
-        if (interviewResults) interviewResults.style.display = 'block';
-        showToast('Interview questions generated successfully!');
-      } catch (error) {
-        showToast(error.message, 'error');
-      } finally {
-        if (interviewLoader) interviewLoader.style.display = 'none';
-        btnRunInterview.removeAttribute('disabled');
-      }
-    });
-  }
+  // 10. Generate Interview Questions trigger has been unified and is now automatic
 
   function renderQuestionsList(container, list) {
     if (!container) return;

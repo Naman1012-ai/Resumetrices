@@ -45,7 +45,7 @@ module.exports = {
     MODEL_ID: process.env.OPENROUTER_MODEL_ID || 'nvidia/nemotron-3-ultra-550b-a55b:free',
     FALLBACK_MODEL_ID: process.env.OPENROUTER_FALLBACK_MODEL_ID || 'openrouter/free',
     MAX_RETRIES: 2,
-    MAX_TOKENS: 800,
+    MAX_TOKENS: 2500,
     TEMPERATURE: 0.3,
     REQUEST_TIMEOUT_MS: 15000,  // 15 second timeout per request
     BACKOFF_BASE_MS: 1500

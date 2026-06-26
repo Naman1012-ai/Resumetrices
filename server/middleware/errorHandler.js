@@ -77,6 +77,7 @@ const errorHandler = (err, req, res, next) => {
     status: 'error',
     code: errorCode,
     message: err.message || 'An internal server error occurred.',
+    ...(err.documentType && { documentType: err.documentType }),
     // Return stack trace only in local development
     ...(nodeEnv === 'development' && { stack: err.stack }),
     timestamp: new Date().toISOString()

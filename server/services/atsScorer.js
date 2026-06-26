@@ -7,6 +7,7 @@
 
 const constants = require('../config/constants');
 const logger = require('../utils/logger');
+const rolesConfig = require('../config/rolesConfig');
 
 const { SCORE_WEIGHTS } = constants;
 
@@ -56,8 +57,14 @@ const getKeywordRegex = (keyword) => {
  * @param {string} text - Raw resume text content.
  * @returns {object} - Scored results, including breakdown, explanations, strengths, weaknesses, recommendations, and missingSections.
  */
-const scoreResume = (text) => {
+const scoreResume = (text, targetRole = 'Software Engineer') => {
   const normalizedText = text || '';
+
+  // Resolve Target Role Configuration
+  const role = rolesConfig[targetRole] || rolesConfig['Other'];
+  const essentialSkills = role.essential || [];
+  const recommendedSkills = role.recommended || [];
+  const roleSkills = [...essentialSkills, ...recommendedSkills];
   
   const breakdown = {
     contact: 0,
@@ -184,16 +191,30 @@ const scoreResume = (text) => {
   // ----------------------------------------------------
   const maxSkills = SCORE_WEIGHTS.skills;
   const hasSkillsHeader = /skills|technologies|languages|frameworks|tools|competencies/i.test(normalizedText);
-  let matchedSkillsCount = 0;
+  let essentialMatched = 0;
+  let recommendedMatched = 0;
   const matchedSkillsList = [];
+  const missingSkillsFromEssential = [];
 
-  techKeywords.forEach(keyword => {
-    const regex = getKeywordRegex(keyword);
+  essentialSkills.forEach(skill => {
+    const regex = getKeywordRegex(skill);
     if (regex.test(normalizedText)) {
-      matchedSkillsCount++;
-      matchedSkillsList.push(keyword);
+      essentialMatched++;
+      matchedSkillsList.push(skill);
+    } else {
+      missingSkillsFromEssential.push(skill);
     }
   });
+
+  recommendedSkills.forEach(skill => {
+    const regex = getKeywordRegex(skill);
+    if (regex.test(normalizedText)) {
+      recommendedMatched++;
+      matchedSkillsList.push(skill);
+    }
+  });
+
+  const matchedSkillsCount = matchedSkillsList.length;
 
   if (!hasSkillsHeader) {
     breakdown.skills = 0;
@@ -201,24 +222,21 @@ const scoreResume = (text) => {
     recommendations.push('Create a dedicated "Skills" section to help ATS scanners index your technical proficiencies.');
     explanations.skills = 'Deducted all points because no dedicated Skills section header was found.';
   } else {
-    if (matchedSkillsCount >= 15) {
-      breakdown.skills = maxSkills;
-      strengths.push(`Excellent technical skill keyword density (${matchedSkillsCount} skills detected).`);
-      explanations.skills = `Awarded 15 points. Found strong tech keywords density: ${matchedSkillsList.slice(0, 8).join(', ')}, etc.`;
-    } else if (matchedSkillsCount >= 8) {
-      breakdown.skills = Math.round(maxSkills * 0.75);
-      recommendations.push('List more technical skills, languages, frameworks, or databases relevant to your target industry to increase keyword density.');
-      explanations.skills = `Awarded 11 points. Dedicated section present, but keyword density is average (${matchedSkillsCount} skills found).`;
-    } else if (matchedSkillsCount >= 3) {
-      breakdown.skills = Math.round(maxSkills * 0.45);
-      weaknesses.push('Low technical skill keyword density.');
-      recommendations.push('Significantly expand your technical skills catalog to align with target role requirements.');
-      explanations.skills = `Awarded 7 points. Found only a few technical keywords: ${matchedSkillsList.join(', ')}.`;
+    // Role-specific calculation
+    let skillsScore = (essentialMatched * 1.5) + (recommendedMatched * 1.0);
+    skillsScore = Math.min(maxSkills, Math.round(skillsScore));
+    breakdown.skills = skillsScore;
+
+    if (skillsScore >= 12) {
+      strengths.push(`Excellent technical skill keyword density for the ${targetRole} role (${matchedSkillsCount} matching skills detected).`);
+      explanations.skills = `Awarded ${skillsScore} points. Strong skill density for ${targetRole}: ${matchedSkillsList.slice(0, 6).join(', ')}, etc.`;
+    } else if (skillsScore >= 7) {
+      recommendations.push(`List more technologies relevant to the ${targetRole} role, such as: ${missingSkillsFromEssential.slice(0, 3).join(', ')}.`);
+      explanations.skills = `Awarded ${skillsScore} points. Skills section present, but has average alignment with the ${targetRole} profile (${matchedSkillsCount} matched).`;
     } else {
-      breakdown.skills = Math.round(maxSkills * 0.2);
-      weaknesses.push('Technical skills section is empty or contains almost no recognizable developer keywords.');
-      recommendations.push('Detail specific technologies (e.g. Python, SQL, Git) rather than generic competencies in your skills section.');
-      explanations.skills = 'Awarded 3 points. Dedicated section header exists, but almost no standard tech keywords were scanned.';
+      weaknesses.push(`Low skill coverage for the targeted ${targetRole} role.`);
+      recommendations.push(`Align your skills section with target ${targetRole} expectations by learning and listing: ${missingSkillsFromEssential.slice(0, 4).join(', ')}.`);
+      explanations.skills = `Awarded ${skillsScore} points. Found very few skills matching the ${targetRole} requirements.`;
     }
   }
 
@@ -259,14 +277,14 @@ const scoreResume = (text) => {
 
     // Technologies mentioned in projects
     let projTechCount = 0;
-    techKeywords.forEach(keyword => {
+    roleSkills.forEach(keyword => {
       if (getKeywordRegex(keyword).test(projectsText)) projTechCount++;
     });
-    if (projTechCount >= 4) {
+    if (projTechCount >= 3) {
       projectsScore += 4;
       projectExplanations.push('Technologies details listed (+4)');
     } else {
-      recommendations.push('Mention the exact technologies and frameworks used inside each project description.');
+      recommendations.push(`Mention specific ${targetRole} technologies used inside your project descriptions (e.g. ${essentialSkills.slice(0, 2).join(', ')}).`);
     }
 
     // Quantified Achievements / Metrics check in projects
@@ -493,7 +511,8 @@ const scoreResume = (text) => {
     strengths,
     weaknesses,
     recommendations,
-    missingSections
+    missingSections,
+    detectedSkills: matchedSkillsList
   };
 };
 
