@@ -1014,15 +1014,17 @@ h1, h2, h3, h4, h5 {
   margin-top: 0.2rem;
 }
 
-/* Interview Prep Professional Interactive Flashcard Deck */
+/* Interview Prep Studio Interactive Flashcard Deck */
 .interview-results {
   margin-top: 1.5rem;
+  width: 100%;
 }
 
 .interview-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
+  width: 100%;
 }
 
 @media (min-width: 1400px) {
@@ -1034,10 +1036,11 @@ h1, h2, h3, h4, h5 {
 @media (max-width: 900px) {
   .interview-grid {
     grid-template-columns: 1fr;
+    gap: 1.25rem;
   }
 }
 
-/* Flashcard Container Box */
+/* Flashcard Column Deck Container Box */
 .question-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -1049,15 +1052,16 @@ h1, h2, h3, h4, h5 {
   display: flex;
   flex-direction: column;
   transition: var(--transition-smooth);
+  width: 100%;
 }
 
 .question-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
 }
 
 .q-header {
-  padding: 0.85rem 1.25rem;
+  padding: 0.9rem 1.25rem;
   font-size: 0.85rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -1079,71 +1083,155 @@ h1, h2, h3, h4, h5 {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
   padding: 1rem;
   flex: 1;
+  width: 100%;
 }
 
-/* Individual Interactive Question Flashcard */
-.q-item {
-  background: rgba(255, 255, 255, 0.015);
+/* Individual Interactive Studio Flashcard */
+.flashcard-item {
+  background: linear-gradient(135deg, rgba(31, 41, 55, 0.6) 0%, rgba(17, 24, 39, 0.8) 100%);
   border: 1px solid var(--border-color);
-  border-left: 4px solid var(--emerald);
-  border-radius: 0.65rem;
-  padding: 0.9rem 1.1rem;
-  font-size: 0.85rem;
-  color: var(--text-main);
+  border-left: 5px solid var(--emerald);
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.25rem;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 0.85rem;
   transition: var(--transition-smooth);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.question-card:has(.technical) .q-item { border-left-color: var(--emerald); }
-.question-card:has(.project) .q-item { border-left-color: var(--blue); }
-.question-card:has(.skillgap) .q-item { border-left-color: var(--rose); }
-.question-card:has(.behavioral) .q-item { border-left-color: var(--purple); }
-.question-card:has(.hr) .q-item { border-left-color: var(--amber); }
+.question-card:has(.technical) .flashcard-item { border-left-color: var(--emerald); }
+.question-card:has(.project) .flashcard-item { border-left-color: var(--blue); }
+.question-card:has(.skillgap) .flashcard-item { border-left-color: var(--rose); }
+.question-card:has(.behavioral) .flashcard-item { border-left-color: var(--purple); }
+.question-card:has(.hr) .flashcard-item { border-left-color: var(--amber); }
 
-.q-item:last-child {
-  border-bottom: 1px solid var(--border-color);
+.flashcard-item:hover {
+  background: linear-gradient(135deg, rgba(37, 50, 69, 0.8) 0%, rgba(24, 34, 53, 0.9) 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
 }
 
-.q-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+.flashcard-badge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.q-item-text {
-  flex: 1;
-  line-height: 1.5;
+.flashcard-category-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+.flashcard-hint-tag {
+  font-size: 0.7rem;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
-.btn-copy-q {
+.flashcard-prompt {
+  font-size: 0.925rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.flashcard-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  margin-top: 0.25rem;
+}
+
+.btn-flashcard-toggle {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: var(--text-muted);
+  color: var(--text-link);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
   cursor: pointer;
-  padding: 0.35rem 0.5rem;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.4rem;
   transition: var(--transition-smooth);
-  flex-shrink: 0;
 }
 
-.btn-copy-q:hover {
+.btn-flashcard-toggle:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
   color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+}
+
+.btn-flashcard-toggle .chevron-icon {
+  transition: transform 0.3s ease;
+}
+
+.flashcard-item.expanded .btn-flashcard-toggle .chevron-icon {
+  transform: rotate(180deg);
+}
+
+.flashcard-back {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  margin-top: 0.5rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.flashcard-back-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--emerald);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+
+.flashcard-back-tips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.flashcard-back-tips li {
+  font-size: 0.8rem;
+  color: var(--text-main);
+  line-height: 1.4;
+  padding-left: 0.85rem;
+  position: relative;
+}
+
+.flashcard-back-tips li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--emerald);
+  font-weight: bold;
 }
 
 .btn-copy-q:hover {
@@ -1259,7 +1347,7 @@ body::-webkit-scrollbar-track {
 /* Dashboard Layout Grid */
 .dashboard-layout {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 250px 1fr;
   gap: 1.5rem;
   width: 100%;
   align-items: start;
@@ -2114,12 +2202,12 @@ body::-webkit-scrollbar-track {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Dashboard Layout Override */
-.dashboard-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 2rem;
-  width: 100%;
+/* Dashboard Layout Responsive Override */
+@media (min-width: 1025px) {
+  .dashboard-layout {
+    grid-template-columns: 250px 1fr;
+    gap: 1.5rem;
+  }
 }
 
 /* Auth Panel */
@@ -3426,90 +3514,62 @@ textarea:focus-visible {
   box-sizing: border-box !important;
 }
 
-/* Mobile & Small Viewport fixes (<= 480px) */
-@media (max-width: 480px) {
-  /* Layout Paddings */
-  .main-content {
-    padding: 0 0.75rem !important;
-    margin: 1rem auto !important;
-  }
-  
-  .panel {
-    padding: 1.25rem 1rem !important;
-  }
-  
-  /* Header UI scaling */
-  .header-container {
-    padding: 0.75rem 0.75rem !important;
-    gap: 0.75rem !important;
-  }
-  
-  .logo-text {
-    font-size: 1.05rem !important;
-  }
-  
-  .logo-icon {
-    width: 2rem !important;
-    height: 2rem !important;
-    font-size: 1rem !important;
-  }
-  
-  .user-profile .user-display-name {
-    display: none !important;
-  }
-  
-  .user-profile {
-    gap: 0.5rem !important;
-  }
-  
-  .server-status {
-    font-size: 0.75rem !important;
-  }
-
-  /* Welcome Card */
-  .dashboard-welcome-card {
+/* Comprehensive Responsive Overrides & Mobile Full-Width Utilization */
+@media (max-width: 1024px) {
+  .dashboard-layout {
+    display: flex !important;
     flex-direction: column !important;
-    align-items: flex-start !important;
+    grid-template-columns: none !important;
+    width: 100% !important;
     gap: 1.25rem !important;
-    padding: 1.5rem 1.25rem !important;
   }
   
-  .welcome-card-content {
+  .main-page-container {
+    width: 100% !important;
+    min-width: 0 !important;
     max-width: 100% !important;
-  }
-  
-  .welcome-card-icon-area {
-    width: 3.5rem !important;
-    height: 3.5rem !important;
-  }
-  
-  /* Recent Feedback Snippet flex wrap */
-  .recent-header {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 1rem !important;
-  }
-  
-  .recent-score-circle {
-    align-self: flex-start !important;
-  }
-  
-  /* Form Inputs and Selects */
-  .select-wrapper {
-    min-width: 100% !important;
-  }
-
-  /* Toast notification position for mobile */
-  .toast-notification {
-    left: 1rem !important;
-    right: 1rem !important;
-    bottom: 1rem !important;
-    text-align: center !important;
   }
 }
 
-/* Tablet & Mobile Selector wrapping (<= 768px) */
 @media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden !important;
+    width: 100% !important;
+  }
+
+  .main-content {
+    padding: 0 0.75rem !important;
+    margin: 0.75rem auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dashboard-layout, .main-page-container, .page-view, .panel,
+  .dashboard-main-grid, .new-analysis-layout-grid, .dashboard-stats-grid,
+  .analytics-bento-grid, .history-cards-grid, .interview-grid, .skills-columns-grid,
+  .profile-layout-grid, .dashboard-details-grid, .tags-row-grid, .breakdown-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .panel, .analytics-card, .list-panel, .keywords-panel, .skill-col, .question-card, .history-card, .feature-action-panel {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 1.25rem 1rem !important;
+  }
+
+  .dashboard-stats-grid .analytics-card {
+    width: 100% !important;
+  }
+
   /* Resume Comparison Selectors Stacking */
   .compare-selectors-row {
     flex-direction: column !important;
@@ -3534,16 +3594,88 @@ textarea:focus-visible {
     align-items: flex-start !important;
     gap: 1rem !important;
   }
-  
-  /* Profile layout grid consolidation */
-  .profile-layout-grid {
-    grid-template-columns: 1fr !important;
-    gap: 1.5rem !important;
+}
+
+/* Mobile & Small Viewport fixes (<= 480px) */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0 0.5rem !important;
   }
   
-  /* Bento Grid stacking */
-  .breakdown-grid {
-    grid-template-columns: 1fr !important;
+  .panel {
+    padding: 1rem 0.75rem !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  /* Header UI scaling */
+  .header-container {
+    padding: 0.6rem 0.5rem !important;
+    gap: 0.5rem !important;
+  }
+  
+  .logo-text {
+    font-size: 1rem !important;
+  }
+  
+  .logo-icon {
+    width: 1.85rem !important;
+    height: 1.85rem !important;
+    font-size: 0.9rem !important;
+  }
+  
+  .user-profile .user-display-name {
+    display: none !important;
+  }
+  
+  .user-profile {
+    gap: 0.35rem !important;
+  }
+  
+  .server-status {
+    font-size: 0.7rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+
+  /* Welcome Card */
+  .dashboard-welcome-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+    padding: 1.25rem 1rem !important;
+  }
+  
+  .welcome-card-content {
+    max-width: 100% !important;
+  }
+  
+  .welcome-card-icon-area {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  
+  /* Recent Feedback Snippet flex wrap */
+  .recent-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+  
+  .recent-score-circle {
+    align-self: flex-start !important;
+  }
+  
+  /* Form Inputs and Selects */
+  .select-wrapper {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Toast notification position for mobile */
+  .toast-notification {
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    bottom: 0.5rem !important;
+    text-align: center !important;
   }
 }
 

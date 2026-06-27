@@ -2101,11 +2101,35 @@ document.addEventListener('DOMContentLoaded', () => {
   function displayInterviewPrep(interviewPrep) {
     if (!interviewPrep || !interviewResults) return;
     
-    renderQuestionsList(technicalQuestionsList, interviewPrep.technical);
-    renderQuestionsList(projectQuestionsList, interviewPrep.projectBased);
-    renderQuestionsList(skillgapQuestionsList, interviewPrep.skillGap);
-    renderQuestionsList(behavioralQuestionsList, interviewPrep.behavioral);
-    renderQuestionsList(hrQuestionsList, interviewPrep.hrQuestions);
+    renderQuestionsList(technicalQuestionsList, interviewPrep.technical, 'Technical Question', [
+      'State technical definition & architecture trade-offs.',
+      'Provide a concrete code or algorithm example.',
+      'Explain performance, complexity (Big-O), or memory implications.'
+    ]);
+    
+    renderQuestionsList(projectQuestionsList, interviewPrep.projectBased, 'Project Scenario', [
+      'Structure using STAR framework (Situation, Task, Action, Result).',
+      'Quantify technical impact with scale metrics (e.g., latency, throughput).',
+      'Detail specific tools, frameworks, and role responsibilities.'
+    ]);
+
+    renderQuestionsList(skillgapQuestionsList, interviewPrep.skillGap, 'Skill Bridge', [
+      'Acknowledge skill gap proactively with confidence.',
+      'Highlight closely related concepts or frameworks you already master.',
+      'Outline your structured self-learning plan and timeline.'
+    ]);
+
+    renderQuestionsList(behavioralQuestionsList, interviewPrep.behavioral, 'Behavioral', [
+      'Detail a specific high-stakes engineering situation.',
+      'Focus on proactive collaboration and conflict resolution.',
+      'Conclude with quantifiable outcomes and personal key learnings.'
+    ]);
+
+    renderQuestionsList(hrQuestionsList, interviewPrep.hrQuestions, 'Culture & Fit', [
+      'Align career trajectory directly with target role requirements.',
+      'Emphasize continuous technical growth and team leadership.',
+      'Keep response engaging, authentic, and under 90 seconds.'
+    ]);
 
     interviewResults.style.display = 'block';
   }
@@ -2147,37 +2171,77 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 10. Generate Interview Questions trigger has been unified and is now automatic
 
-  function renderQuestionsList(container, list) {
+  function renderQuestionsList(container, list, categoryLabel = 'Question', strategyTips = []) {
     if (!container) return;
     container.innerHTML = '';
     if (!list || list.length === 0) {
-      container.innerHTML = '<li class="q-item"><span class="q-item-text" style="color: var(--text-muted);">None generated.</span></li>';
+      container.innerHTML = '<li class="flashcard-item"><span class="flashcard-prompt" style="color: var(--text-muted);">No interview flashcards generated for this category.</span></li>';
       return;
     }
 
-    list.forEach(q => {
+    list.forEach((q, idx) => {
       const li = document.createElement('li');
-      li.className = 'q-item';
+      li.className = 'flashcard-item';
       
+      const defaultTips = strategyTips.length > 0 ? strategyTips : [
+        'Structure using STAR framework.',
+        'Highlight direct engineering accomplishments.',
+        'Keep answer concise and impactful.'
+      ];
+
+      const tipsHTML = defaultTips.map(tip => `<li>${escapeHTML(tip)}</li>`).join('');
+
       li.innerHTML = `
-        <span class="q-item-text">${escapeHTML(q)}</span>
-        <button class="btn-copy-q" title="Copy Flashcard Question">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
-        </button>
+        <div class="flashcard-badge-row">
+          <span class="flashcard-category-badge">${escapeHTML(categoryLabel)} #${idx + 1}</span>
+          <span class="flashcard-hint-tag">💡 Adaptive Practice Flashcard</span>
+        </div>
+        <div class="flashcard-prompt">${escapeHTML(q)}</div>
+        <div class="flashcard-actions">
+          <button class="btn-flashcard-toggle">
+            <span>Answer Strategy</span>
+            <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <button class="btn-copy-q" title="Copy Flashcard Question">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+        </div>
+        <div class="flashcard-back" style="display: none;">
+          <div class="flashcard-back-title">🎯 Key Answer Points:</div>
+          <ul class="flashcard-back-tips">
+            ${tipsHTML}
+          </ul>
+        </div>
       `;
 
+      // Toggle Answer Strategy Accordion
+      const toggleBtn = li.querySelector('.btn-flashcard-toggle');
+      const flashcardBack = li.querySelector('.flashcard-back');
+      
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isExpanded = flashcardBack.style.display === 'block';
+        flashcardBack.style.display = isExpanded ? 'none' : 'block';
+        if (isExpanded) {
+          li.classList.remove('expanded');
+          toggleBtn.querySelector('span').textContent = 'Answer Strategy';
+        } else {
+          li.classList.add('expanded');
+          toggleBtn.querySelector('span').textContent = 'Hide Strategy';
+        }
+      });
+
+      // Copy Action
       const copyBtn = li.querySelector('.btn-copy-q');
-      copyBtn.addEventListener('click', async () => {
+      copyBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
         try {
           await navigator.clipboard.writeText(q);
           showToast('Flashcard question copied to clipboard!');
           
           const originalHTML = copyBtn.innerHTML;
           copyBtn.innerHTML = `
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           `;
@@ -2189,7 +2253,7 @@ document.addEventListener('DOMContentLoaded', () => {
             copyBtn.style.borderColor = '';
             copyBtn.style.background = '';
           }, 1500);
-        } catch (e) {
+        } catch (err) {
           showToast('Failed to copy question.', 'error');
         }
       });
