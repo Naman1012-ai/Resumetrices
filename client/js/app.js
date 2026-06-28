@@ -17,6 +17,7 @@ import {
   updateProfile
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { initSpeedInsights } from './speed-insights.js';
 
 // Global Error Logging & Unhandled Promise Rejections Catchers
 window.addEventListener('error', (event) => {
@@ -122,6 +123,9 @@ const getFriendlyAuthErrorMessage = (error) => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize Vercel Speed Insights for performance monitoring
+  initSpeedInsights();
+  
   // DOM Panels
   const authPanel = document.getElementById('auth-panel');
   const dashboardLayout = document.getElementById('dashboard-layout');
