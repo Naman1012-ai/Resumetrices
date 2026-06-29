@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ATS Pilot - Premium ATS Optimization Dashboard</title>
-  <meta name="description" content="Free online ATS Pilot. Upload your CV in PDF format and get instant analysis on ATS compatibility, skills alignment, formatting, and key strengths.">
+  <title>Resumetrices - Premium ATS Optimization Dashboard</title>
+  <meta name="description" content="Free online Resumetrices. Upload your CV in PDF format and get instant analysis on ATS compatibility, skills alignment, formatting, and key strengths.">
   <link rel="stylesheet" href="css/style.css">
   
   
@@ -17,22 +17,44 @@
     <div class="header-container">
       <div style="display: flex; align-items: center; gap: 0.75rem;">
         <a href="index.html" class="logo-link" id="logo-home">
-          <img src="logo.png" alt="ATS Pilot Logo" class="logo-img" style="height: 32px; width: 32px; object-fit: contain;">
-          <span class="logo-text">ATS Pilot</span>
+          <img src="logo.png" alt="Resumetrices Logo" class="logo-img" style="height: 32px; width: 32px; object-fit: contain;">
+          <span class="logo-text">Resumetrices</span>
         </a>
       </div>
       <div style="display: flex; align-items: center; gap: 1.5rem;">
+        <button class="public-hamburger" id="public-hamburger" aria-label="Open navigation menu" style="display: none; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem; cursor: pointer; color: var(--text-main);">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
         <nav class="public-nav" id="public-nav" style="display: flex; gap: 1.25rem; align-items: center; margin-right: 1rem;">
           <a href="#" class="pub-nav-link">Home</a>
           <a href="#features" class="pub-nav-link">Features</a>
           <a href="#how-it-works" class="pub-nav-link">How It Works</a>
           <a href="#faq" class="pub-nav-link">FAQ</a>
           <a href="login.html" class="pub-nav-link btn-login-nav">Login</a>
-          <a href="#landing-scan-section" class="pub-nav-link btn-get-started-nav" style="background: var(--grad-primary); color: #fff; padding: 0.5rem 1.25rem; border-radius: 9999px; font-weight: 600; text-decoration: none; box-shadow: var(--glow-emerald); transition: var(--transition-smooth);">Get Started</a>
+          <a href="signup.html" class="pub-nav-link btn-get-started-nav" style="background: var(--grad-primary); color: #fff; padding: 0.5rem 1.25rem; border-radius: 9999px; font-weight: 600; text-decoration: none; box-shadow: var(--glow-emerald); transition: var(--transition-smooth);">Get Started</a>
         </nav>
       </div>
     </div>
   </header>
+
+  <!-- Mobile Navigation Drawer -->
+  <div id="mobile-nav-drawer" class="mobile-nav-drawer" style="display: none; position: fixed; inset: 0; z-index: 999; background: rgba(3, 7, 18, 0.92); backdrop-filter: blur(12px);">
+    <div style="display: flex; flex-direction: column; padding: 2rem; gap: 0.25rem; max-width: 320px; margin-left: auto; height: 100%; background: var(--bg-card, #0f172a); border-left: 1px solid var(--border-color, #1e293b); box-shadow: -8px 0 30px rgba(0,0,0,0.5);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <span style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">Menu</span>
+        <button id="mobile-nav-close" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <a href="#" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">Home</a>
+      <a href="#features" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">Features</a>
+      <a href="#how-it-works" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">How It Works</a>
+      <a href="#faq" class="mobile-nav-link" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); color: var(--text-main, #e2e8f0); font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: background 200ms;">FAQ</a>
+      <div style="border-top: 1px solid var(--border-color, #1e293b); margin: 1rem 0;"></div>
+      <a href="login.html" class="mobile-nav-link">Login</a>
+      <a href="signup.html" class="mobile-nav-link btn-get-started-nav" style="padding: 0.85rem 1rem; border-radius: var(--radius-md, 8px); background: var(--grad-primary, linear-gradient(135deg, #10b981, #059669)); color: #fff; font-weight: 700; font-size: 0.95rem; text-decoration: none; text-align: center; margin-top: 0.5rem;">Get Started</a>
+    </div>
+  </div>
 
   <main class="main-content">
     <div id="landing-container" class="landing-container">
@@ -48,7 +70,7 @@
             Powered by AI
           </span>
           <h1>Your Co-Pilot for landing more <span class="highlight-text">tech interviews</span></h1>
-          <p class="hero-tagline">Land your dream software role. ATS Pilot scans your resume layout, detects skill alignment gaps, estimates realistic compatibility scores, and generates customized interview preparation questions.</p>
+          <p class="hero-tagline">Land your dream software role. Resumetrices scans your resume layout, detects skill alignment gaps, estimates realistic compatibility scores, and generates customized interview preparation questions.</p>
           <div class="hero-cta-group">
             <a href="#landing-scan-section" class="btn-cta-primary">Scan Your Resume Free</a>
           </div>
@@ -105,7 +127,7 @@
       <!-- RESUME SCAN TERMINAL -->
       <section class="landing-scan-section" id="landing-scan-section">
         <div class="public-upload-card" id="landing-upload-section" style="max-width: 680px; margin: 0 auto;">
-          <h3>ATS Pilot CV Scanner</h3>
+          <h3>Resumetrices CV Scanner</h3>
           <p>Upload your PDF resume to check your ATS compatibility instantly in memory.</p>
           
           <div class="landing-dropzone" id="landing-drop-zone" tabindex="0" role="button" aria-label="Upload resume file, PDF format only, maximum 5 megabytes.">
@@ -257,10 +279,10 @@
       <footer class="landing-footer">
         <div class="footer-content">
           <div class="footer-brand" style="display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
-            <img src="logo.png" alt="ATS Pilot Logo" class="logo-img" style="height: 28px; width: 28px; object-fit: contain;">
-            <span>ATS Pilot</span>
+            <img src="logo.png" alt="Resumetrices Logo" class="logo-img" style="height: 28px; width: 28px; object-fit: contain;">
+            <span>Resumetrices</span>
           </div>
-          <p>© 2026 ATS Pilot. All rights reserved. Land your dream role with intelligent insights.</p>
+          <p>© 2026 Resumetrices. All rights reserved. Land your dream role with intelligent insights.</p>
         </div>
       </footer>
     </div>
@@ -396,5 +418,23 @@
   </main>
 
   <script type="module" src="js/landing.js"></script>
+  <script>
+    // Mobile Navigation Drawer Toggle
+    document.addEventListener('DOMContentLoaded', () => {
+      const hamburger = document.getElementById('public-hamburger');
+      const drawer = document.getElementById('mobile-nav-drawer');
+      const closeBtn = document.getElementById('mobile-nav-close');
+      if (hamburger && drawer) {
+        hamburger.addEventListener('click', () => { drawer.style.display = 'block'; });
+        if (closeBtn) closeBtn.addEventListener('click', () => { drawer.style.display = 'none'; });
+        // Close drawer when clicking overlay background
+        drawer.addEventListener('click', (e) => { if (e.target === drawer) drawer.style.display = 'none'; });
+        // Close drawer when clicking any nav link
+        drawer.querySelectorAll('.mobile-nav-link').forEach(link => {
+          link.addEventListener('click', () => { drawer.style.display = 'none'; });
+        });
+      }
+    });
+  </script>
 </body>
 </html>

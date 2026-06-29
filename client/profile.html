@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Profile - ATS Pilot</title>
+  <title>User Profile - Resumetrices</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/profile.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
@@ -173,6 +173,22 @@
       <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
         <button id="btn-rename-cancel" style="padding: 0.6rem 1.25rem; font-size: 0.85rem; border-radius: var(--radius-md); background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid var(--border-color); cursor: pointer; font-weight: 600; transition: all 200ms;">Cancel</button>
         <button id="btn-rename-confirm" style="padding: 0.6rem 1.25rem; font-size: 0.85rem; border-radius: var(--radius-md); background: var(--emerald); color: #030712; border: none; cursor: pointer; font-weight: 700; transition: all 200ms; min-width: 90px;">Rename</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-confirm-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(8px); z-index: 500; align-items: center; justify-content: center; padding: 1.5rem;">
+    <div class="modal-card" style="width: 100%; max-width: 450px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 2rem; box-shadow: var(--shadow-modal);">
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+        <span style="font-size: 1.5rem; color: var(--rose, #f43f5e);">⚠</span>
+        <h3 style="font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--text-main);">Delete Analysis Report?</h3>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5;">Are you absolutely sure you want to permanently delete this analysis report? This action is irreversible and all associated data will be lost.</p>
+      
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button id="btn-delete-cancel" style="padding: 0.6rem 1.25rem; font-size: 0.85rem; border-radius: var(--radius-md); background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid var(--border-color); cursor: pointer; font-weight: 600; transition: all 200ms;">Cancel</button>
+        <button id="btn-delete-confirm-submit" style="padding: 0.6rem 1.25rem; font-size: 0.85rem; border-radius: var(--radius-md); background: var(--rose, #f43f5e); color: #fff; border: none; cursor: pointer; font-weight: 700; transition: all 200ms; min-width: 90px; box-shadow: 0 4px 12px rgba(244, 63, 94, 0.25);">Delete</button>
       </div>
     </div>
   </div>

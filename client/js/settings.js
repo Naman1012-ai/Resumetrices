@@ -44,11 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmPasswordInput = document.getElementById('confirm-password');
   const btnUpdatePassword = document.getElementById('btn-update-password');
 
-  // Integrations
-  const googleLinkEmail = document.getElementById('google-link-email');
-  const googleLinkStatus = document.getElementById('google-link-status');
-  const githubLinkEmail = document.getElementById('github-link-email');
-  const githubLinkStatus = document.getElementById('github-link-status');
+
 
   // Preferences
   const themeToggle = document.getElementById('theme-toggle');
@@ -108,38 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteConfirmEmailPlaceholder.textContent = userEmail;
     }
 
-    // Reset status indicators
-    if (googleLinkEmail) googleLinkEmail.textContent = 'Not Connected';
-    if (googleLinkStatus) {
-      googleLinkStatus.textContent = 'Disconnected';
-      googleLinkStatus.style.color = 'var(--text-muted)';
-      googleLinkStatus.style.borderColor = 'var(--border-color)';
-    }
-    if (githubLinkEmail) githubLinkEmail.textContent = 'Not Connected';
-    if (githubLinkStatus) {
-      githubLinkStatus.textContent = 'Disconnected';
-      githubLinkStatus.style.color = 'var(--text-muted)';
-      githubLinkStatus.style.borderColor = 'var(--border-color)';
-    }
 
-    providers.forEach(p => {
-      if (p.providerId === 'google.com') {
-        if (googleLinkEmail) googleLinkEmail.textContent = p.email || userEmail;
-        if (googleLinkStatus) {
-          googleLinkStatus.textContent = 'Connected';
-          googleLinkStatus.style.color = 'var(--emerald)';
-          googleLinkStatus.style.borderColor = 'var(--emerald)';
-        }
-      }
-      if (p.providerId === 'github.com') {
-        if (githubLinkEmail) githubLinkEmail.textContent = p.email || userEmail;
-        if (githubLinkStatus) {
-          githubLinkStatus.textContent = 'Connected';
-          githubLinkStatus.style.color = 'var(--emerald)';
-          githubLinkStatus.style.borderColor = 'var(--emerald)';
-        }
-      }
-    });
 
     // Load theme setting
     const savedTheme = localStorage.getItem('theme') || 'dark';

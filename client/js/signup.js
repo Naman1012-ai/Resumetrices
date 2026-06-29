@@ -1,16 +1,68 @@
 import { auth, db, isMockMode } from './firebase-config.js';
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { showToast, getFriendlyAuthErrorMessage } from './utils.js';
 
 const googleProvider = new GoogleAuthProvider();
 
 document.addEventListener('DOMContentLoaded', () => {
+  let isRedirectProcessing = true;
+
+  // Handle Google redirect result
+  getRedirectResult(auth).then(async (result) => {
+    if (result && result.user) {
+      const user = result.user;
+      try {
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (!snapshot.exists()) {
+          await set(userRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (dbError) {
+        console.error('Database user profile creation failed:', dbError);
+      }
+      showToast('Signed in with Google!');
+      redirectUser();
+    } else {
+      isRedirectProcessing = false;
+      if (auth.currentUser) {
+        redirectUser();
+      }
+    }
+  }).catch((error) => {
+    isRedirectProcessing = false;
+    if (error.code && error.code !== 'auth/popup-closed-by-user') {
+      showToast(getFriendlyAuthErrorMessage(error), 'error');
+    }
+  });
+
   const signupForm = document.getElementById('signup-form');
   const emailInput = document.getElementById('auth-email');
   const passwordInput = document.getElementById('auth-password');
   const btnGoogle = document.getElementById('btn-google');
   const btnSubmit = signupForm.querySelector('button[type="submit"]');
+  const authErrorMsg = document.getElementById('auth-error-msg');
+
+  // Clear warning when user re-focuses or edits
+  const clearError = () => {
+    if (authErrorMsg) {
+      authErrorMsg.textContent = '';
+      authErrorMsg.style.display = 'none';
+    }
+  };
+  if (emailInput) {
+    emailInput.addEventListener('focus', clearError);
+    emailInput.addEventListener('input', clearError);
+  }
+  if (passwordInput) {
+    passwordInput.addEventListener('focus', clearError);
+    passwordInput.addEventListener('input', clearError);
+  }
 
   function redirectUser() {
     const pendingFile = sessionStorage.getItem('pendingFileBase64');
@@ -24,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Already logged in?
   auth.onAuthStateChanged((user) => {
-    if (user) {
+    if (user && !isRedirectProcessing) {
       redirectUser();
     }
   });
@@ -63,7 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Account registered successfully!');
       // auth state listener will handle redirect
     } catch (error) {
-      showToast(getFriendlyAuthErrorMessage(error), 'error');
+      const errorMsg = getFriendlyAuthErrorMessage(error);
+      if (authErrorMsg) {
+        authErrorMsg.textContent = errorMsg;
+        authErrorMsg.style.display = 'block';
+      } else {
+        showToast(errorMsg, 'error');
+      }
       btnSubmit.removeAttribute('disabled');
       btnSubmit.textContent = 'Register';
     }
@@ -81,26 +139,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const userCredential = await signInWithPopup(auth, googleProvider);
-      const user = userCredential.user;
-
-      try {
-        const userRef = ref(db, `users/${user.uid}`);
-        const snapshot = await get(userRef);
-        if (!snapshot.exists()) {
-          await set(userRef, {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || user.email.split('@')[0],
-            createdAt: new Date().toISOString()
-          });
-        }
-      } catch (dbError) {
-        console.error("Database user profile creation failed:", dbError);
-      }
-
-      showToast('Signed in with Google!');
-      // auth state listener will handle redirect
+      await signInWithRedirect(auth, googleProvider);
+      return; // Redirect will handle the rest
     } catch (error) {
       showToast(getFriendlyAuthErrorMessage(error), 'error');
       btnGoogle.removeAttribute('disabled');

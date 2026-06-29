@@ -175,13 +175,24 @@ const FirebaseService = {
           { skill: 'Kubernetes', gapType: 'Technical', recommendation: 'Deploy a cluster to Minikube.' },
           { skill: 'AWS Lambda', gapType: 'Technical', recommendation: 'Write serverless function handlers.' }
         ],
-        interviewPrep: [
-          { question: 'What is the difference between Docker and a VM?', answer: 'Containers share the host OS kernel, while VMs run a full guest OS.' },
-          { question: 'Explain React Server Components.', answer: 'Components that render on the server, saving bundle size.' },
-          { question: 'Explain your experience with Python.', answer: 'Lead backend developer implementing Django microservices.' },
-          { question: 'Describe a time you solved a hard technical bottleneck.', answer: 'Optimized DB queries, improving read times by 40%.' },
-          { question: 'Why are you leaving your current role?', answer: 'Seeking new challenges in advanced cloud scaling.' }
-        ]
+        interviewPrep: {
+          technical: [
+            { question: 'What is the difference between Docker and a VM?', answer: 'Containers share the host OS kernel, while VMs run a full guest OS.' },
+            { question: 'Explain React Server Components.', answer: 'Components that render on the server, saving bundle size.' }
+          ],
+          projectBased: [
+            { question: 'Walk through the architecture of a project you led.', answer: 'Designed a microservices architecture using Docker and Kubernetes for horizontal scaling.' }
+          ],
+          domainKnowledge: [
+            { question: 'Explain your experience with Python.', answer: 'Lead backend developer implementing Django microservices.' }
+          ],
+          behavioral: [
+            { question: 'Describe a time you solved a hard technical bottleneck.', answer: 'Optimized DB queries, improving read times by 40%.' }
+          ],
+          hrQuestions: [
+            { question: 'Why are you leaving your current role?', answer: 'Seeking new challenges in advanced cloud scaling.' }
+          ]
+        }
       };
       analysisCache.set(analysisId, mockResult);
       return mockResult;

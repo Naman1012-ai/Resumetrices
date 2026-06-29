@@ -1219,7 +1219,7 @@ The JSON response must conform exactly to this schema:
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
     'HTTP-Referer': env.CLIENT_URL,
-    'X-Title': 'ATS Pilot'
+    'X-Title': 'Resumetrices'
   };
   const t_dispatch_finish = Date.now();
 
@@ -1387,7 +1387,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': env.CLIENT_URL,
-        'X-Title': 'ATS Pilot'
+        'X-Title': 'Resumetrices'
       },
       body: JSON.stringify({
         model: model,
@@ -1530,7 +1530,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': env.CLIENT_URL,
-        'X-Title': 'ATS Pilot'
+        'X-Title': 'Resumetrices'
       },
       body: JSON.stringify({
         model: model,
@@ -1662,7 +1662,7 @@ Your response must contain ONLY the category name. Do not include explanation, m
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': env.CLIENT_URL,
-          'X-Title': 'ATS Pilot'
+          'X-Title': 'Resumetrices'
         },
         body: JSON.stringify({
           model: currentModel,

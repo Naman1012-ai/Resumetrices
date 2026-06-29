@@ -1,7 +1,7 @@
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
 
-/* CSS Variables for design tokens (ATS Pilot Premium OLED Dark Theme) */
+/* CSS Variables for design tokens (Resumetrices Premium OLED Dark Theme) */
 :root {
   /* Brand color tokens */
   --primary: #10b981; /* Emerald */

@@ -1,6 +1,6 @@
 import { db, auth, isMockMode } from './firebase-config.js';
 import { ref, get, update, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { escapeHTML, showToast, mapFriendlyErrorMessage, getFriendlyAuthErrorMessage } from './utils.js';
 import { API_BASE } from './api.js';
 
@@ -13,6 +13,46 @@ window.appState = {
 
 
 document.addEventListener('DOMContentLoaded', () => {
+  let isRedirectProcessing = true;
+
+  function redirectUser() {
+    const mockParam = isMockMode ? '?mock=true' : '';
+    window.location.href = `dashboard.html${mockParam}`;
+  }
+
+  // Handle Google redirect result
+  getRedirectResult(auth).then(async (result) => {
+    if (result && result.user) {
+      const user = result.user;
+      try {
+        const userRef = ref(db, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        if (!snapshot.exists()) {
+          await set(userRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (dbError) {
+        console.error('Database user profile creation failed:', dbError);
+      }
+      showToast('Signed in with Google!');
+      redirectUser();
+    } else {
+      isRedirectProcessing = false;
+      if (auth.currentUser && !window.appState.activeAnalysis) {
+        redirectUser();
+      }
+    }
+  }).catch((error) => {
+    isRedirectProcessing = false;
+    if (error.code && error.code !== 'auth/popup-closed-by-user') {
+      showToast(getFriendlyAuthErrorMessage(error), 'error');
+    }
+  });
+
   const landingFileInput = document.getElementById('landing-file-input');
   const landingDropZone = document.getElementById('landing-drop-zone');
   const landingFilePreview = document.getElementById('landing-file-preview');
@@ -55,9 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // If user is already logged in, redirect them to dashboard
   auth.onAuthStateChanged((user) => {
-    if (user && !window.appState.activeAnalysis) {
-      const mockParam = isMockMode ? '?mock=true' : '';
-      window.location.href = `dashboard.html${mockParam}`;
+    if (user && !window.appState.activeAnalysis && !isRedirectProcessing) {
+      redirectUser();
     }
   });
 
@@ -488,9 +527,8 @@ document.addEventListener('DOMContentLoaded', () => {
           user = { uid: 'mock_user_123', email: 'demo@atspilot.co' };
           showToast('Google Mock Sign-In successful!');
         } else {
-          const userCredential = await signInWithPopup(auth, googleProvider);
-          user = userCredential.user;
-          showToast('Signed in with Google!');
+          await signInWithRedirect(auth, googleProvider);
+          return; // Redirect will handle the rest
         }
 
         await handleAuthSessionBridge(user);
@@ -562,4 +600,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Run initial loading
   checkServerHealth();
   loadPublicStats();
+
+  // Preserve mock param on login/signup links
+  if (isMockMode) {
+    document.querySelectorAll('.btn-login-nav, .btn-get-started-nav, .mobile-nav-link').forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && href.endsWith('.html')) {
+        link.setAttribute('href', href + '?mock=true');
+      }
+    });
+  }
 });

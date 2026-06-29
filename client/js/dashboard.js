@@ -189,14 +189,11 @@ async function loadDashboardData() {
             <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">${dateStr}</td>
             <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color); font-weight: 700;">${item.score}/100</td>
             <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color);">${getStatusBadge(item.score)}</td>
-            <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color); text-align: right;">
-              <button class="btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; width: auto; display: inline-flex;" onclick="viewHistoryItemFromDashboard('${item.analysisId}')">View</button>
-            </td>
           `;
           summaryBody.appendChild(tr);
         });
       } else {
-        summaryBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted); font-style: italic;">No analyses processed yet.</td></tr>';
+        summaryBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted); font-style: italic;">No analyses processed yet.</td></tr>';
       }
     }
 

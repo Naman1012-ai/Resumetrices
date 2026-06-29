@@ -41,6 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRenameCancel = document.getElementById('btn-rename-cancel');
   const btnRenameConfirm = document.getElementById('btn-rename-confirm');
 
+  // Delete Confirmation Modal Elements
+  const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+  const btnDeleteCancel = document.getElementById('btn-delete-cancel');
+  const btnDeleteConfirmSubmit = document.getElementById('btn-delete-confirm-submit');
+
   // Inline Save Status Indicators
   const nameSaveStatus = document.getElementById('name-save-status');
   const roleSaveStatus = document.getElementById('role-save-status');
@@ -48,36 +53,52 @@ document.addEventListener('DOMContentLoaded', () => {
   // State
   let activeRenameId = null;
   let activeRenameRow = null; // Reference to the <tr> element being renamed
+  let activeDeleteId = null;
+  let activeDeleteRow = null; // Reference to the <tr> element being deleted
   let currentInterviewPrep = null;
   let activeTab = 'technical';
+  let isProfileLoaded = false;
 
   /**
    * Flash an inline save status indicator next to an edit field.
-   * @param {HTMLElement} el - The status span element
-   * @param {'saving'|'saved'|'error'} state - The state to display
-   * @param {string} [message] - Optional custom text
+   * Clears itself after a delay.
    */
-  function flashStatus(el, state, message) {
-    if (!el) return;
-    el.classList.remove('saving', 'error');
-    if (state === 'saving') {
-      el.textContent = message || 'Saving...';
-      el.classList.add('saving');
-      el.style.opacity = '1';
-    } else if (state === 'saved') {
-      el.textContent = message || '✓ Saved';
-      el.style.opacity = '1';
-      setTimeout(() => { el.style.opacity = '0'; }, 2000);
-    } else if (state === 'error') {
-      el.textContent = message || '⚠ Error';
-      el.classList.add('error');
-      el.style.opacity = '1';
-      setTimeout(() => { el.style.opacity = '0'; }, 3000);
+  function flashStatus(element, status) {
+    if (!element) return;
+    element.style.opacity = '1';
+    if (status === 'saving') {
+      element.textContent = 'Saving...';
+      element.style.color = 'var(--text-muted)';
+    } else if (status === 'saved') {
+      element.textContent = '✓ Saved';
+      element.style.color = 'var(--emerald)';
+      setTimeout(() => { element.style.opacity = '0'; }, 2000);
+    } else if (status === 'error') {
+      element.textContent = '⚠ Error';
+      element.style.color = 'var(--danger)';
+      setTimeout(() => { element.style.opacity = '0'; }, 3000);
     }
   }
 
   // Load User Identity Data
   async function loadProfileData() {
+    // 1. Try to read from local memory cache first for instant Zero-Lag rendering
+    let cachedRoleTitle = 'Software Engineer';
+    let cachedAvatarUrl = '';
+    let cachedDisplayName = '';
+    
+    try {
+      const cached = sessionStorage.getItem('profile_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.roleTitle) cachedRoleTitle = parsed.roleTitle;
+        if (parsed.avatarUrl) cachedAvatarUrl = parsed.avatarUrl;
+        if (parsed.displayName) cachedDisplayName = parsed.displayName;
+      }
+    } catch (e) {
+      console.warn('Failed to parse profile cache:', e);
+    }
+
     // Wait for auth to resolve if currentUser is null (first-load race condition)
     let user = auth.currentUser;
     if (!user && !isMockMode) {
@@ -92,27 +113,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!user && !isMockMode) return;
 
-    let displayName = 'Demo Pilot';
-    let email = 'demo@atspilot.co';
-    let provider = 'password';
-    let creationTime = 'June 25, 2026';
-    let roleTitle = 'Software Engineer';
-    let avatarUrl = '';
+    let displayName = cachedDisplayName || (user ? (user.displayName || user.email.split('@')[0]) : 'Demo Pilot');
+    let email = user ? (user.email || 'N/A') : 'demo@atspilot.co';
+    let provider = user ? (user.providerData && user.providerData.length > 0 ? user.providerData[0].providerId : 'password') : 'password';
+    let creationTime = user && user.metadata && user.metadata.creationTime 
+      ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) 
+      : 'June 25, 2026';
+    let roleTitle = cachedRoleTitle;
+    let avatarUrl = cachedAvatarUrl || (user && user.photoURL ? user.photoURL : '');
 
+    // Optimistically Render all profile fields immediately (Zero-Lag UI)
+    if (profileDisplayName) profileDisplayName.textContent = displayName;
+    if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
+    if (profileEmail) profileEmail.textContent = email;
+    if (profileCreatedDate) profileCreatedDate.textContent = creationTime;
+    if (profileProvider) profileProvider.textContent = provider;
+    updateAvatarUI(displayName, avatarUrl);
+
+    // Call loadAnalysisHistory immediately after optimistic render so table content loads without lag
+    loadAnalysisHistory();
+
+    // 2. Fetch fresh details from RTDB in background without blocking the UI
     if (!isMockMode && user) {
-      displayName = user.displayName || user.email.split('@')[0];
-      email = user.email || 'N/A';
-      provider = user.providerData && user.providerData.length > 0 ? user.providerData[0].providerId : 'password';
-      creationTime = user.metadata && user.metadata.creationTime 
-        ? new Date(user.metadata.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) 
-        : 'N/A';
-
-      // Check auth user photoURL first (set by updateProfile)
-      if (user.photoURL) {
-        avatarUrl = user.photoURL;
-      }
-      
-      // Fetch role and avatar from RTDB with a timeout to prevent indefinite hanging
       try {
         const userRef = ref(db, `users/${user.uid}/profile`);
         const snapshot = await Promise.race([
@@ -121,25 +143,31 @@ document.addEventListener('DOMContentLoaded', () => {
         ]);
         if (snapshot.exists()) {
           const val = snapshot.val();
-          if (val.roleTitle) roleTitle = val.roleTitle;
-          // RTDB avatarUrl (Base64) takes priority over auth photoURL
-          if (val.avatarUrl) avatarUrl = val.avatarUrl;
+          let needsUpdate = false;
+          
+          if (val.roleTitle && val.roleTitle !== roleTitle) {
+            roleTitle = val.roleTitle;
+            if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
+            needsUpdate = true;
+          }
+          if (val.displayName && val.displayName !== displayName) {
+            displayName = val.displayName;
+            if (profileDisplayName) profileDisplayName.textContent = displayName;
+            needsUpdate = true;
+          }
+          if (val.avatarUrl && val.avatarUrl !== avatarUrl) {
+            avatarUrl = val.avatarUrl;
+            updateAvatarUI(displayName, avatarUrl);
+            needsUpdate = true;
+          }
+          
+          // Write to local cache on change
+          sessionStorage.setItem('profile_cache', JSON.stringify({ roleTitle, avatarUrl, displayName }));
         }
       } catch (err) {
-        console.warn('Profile metadata fetch skipped (RTDB offline or timed out):', err.message);
-        // Continue rendering with auth-derived values — don't block the UI
+        console.warn('Background profile sync skipped:', err.message);
       }
     }
-
-    // Render all profile fields immediately
-    if (profileDisplayName) profileDisplayName.textContent = displayName;
-    if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
-    if (profileEmail) profileEmail.textContent = email;
-    if (profileCreatedDate) profileCreatedDate.textContent = creationTime;
-    if (profileProvider) profileProvider.textContent = provider;
-
-    updateAvatarUI(displayName, avatarUrl);
-    loadAnalysisHistory();
   }
 
   // Helper: Update Avatar Image/Placeholder
@@ -203,6 +231,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
           // Also update Auth user's photoURL for cross-session persistence
           await updateProfile(user, { photoURL: dataUrl });
+
+          // Update local session storage cache
+          try {
+            const cached = JSON.parse(sessionStorage.getItem('profile_cache') || '{}');
+            cached.avatarUrl = dataUrl;
+            sessionStorage.setItem('profile_cache', JSON.stringify(cached));
+          } catch (e) {
+            console.warn('Failed to update avatar cache:', e);
+          }
 
           showToast('Avatar photo updated successfully!', 'success');
         } catch (err) {
@@ -269,6 +306,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update DOM directly — zero reload
         if (profileDisplayName) profileDisplayName.textContent = newName;
 
+        // Update local session storage cache
+        try {
+          const cached = JSON.parse(sessionStorage.getItem('profile_cache') || '{}');
+          cached.displayName = newName;
+          sessionStorage.setItem('profile_cache', JSON.stringify(cached));
+        } catch (e) {
+          console.warn('Failed to update name cache:', e);
+        }
+
         if (profileNameDisplayContainer) profileNameDisplayContainer.style.display = 'flex';
         if (profileNameEditContainer) profileNameEditContainer.style.display = 'none';
         flashStatus(nameSaveStatus, 'saved');
@@ -330,6 +376,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update DOM directly — zero reload
         if (profileRoleTitle) profileRoleTitle.textContent = newRole;
+
+        // Update local session storage cache
+        try {
+          const cached = JSON.parse(sessionStorage.getItem('profile_cache') || '{}');
+          cached.roleTitle = newRole;
+          sessionStorage.setItem('profile_cache', JSON.stringify(cached));
+        } catch (e) {
+          console.warn('Failed to update role cache:', e);
+        }
 
         if (profileRoleDisplayContainer) profileRoleDisplayContainer.style.display = 'flex';
         if (profileRoleEditContainer) profileRoleEditContainer.style.display = 'none';
@@ -410,44 +465,27 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', (e) => {
           const triggerBtn = e.currentTarget;
-          const analysisId = triggerBtn.dataset.id;
-          const targetRow = triggerBtn.closest('tr');
-          if (confirm('Are you absolutely sure you want to delete this analysis report? This action cannot be undone.')) {
-            try {
-              await FirebaseService.deleteAnalysis(analysisId);
-              // Remove the row directly from the DOM — zero refresh
-              if (targetRow) {
-                targetRow.style.transition = 'opacity 300ms ease, transform 300ms ease';
-                targetRow.style.opacity = '0';
-                targetRow.style.transform = 'translateX(20px)';
-                setTimeout(() => {
-                  targetRow.remove();
-                  // If table is now empty, show empty state
-                  if (historyTableBody && historyTableBody.children.length === 0) {
-                    historyTableBody.innerHTML = `
-                      <tr>
-                        <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No parsed analyses found.</td>
-                      </tr>
-                    `;
-                  }
-                }, 300);
-              }
-              showToast('Analysis deleted successfully.');
-            } catch (err) {
-              showToast(err.message || 'Failed to delete analysis.', 'error');
-            }
+          activeDeleteId = triggerBtn.dataset.id;
+          activeDeleteRow = triggerBtn.closest('tr');
+          if (deleteConfirmModal) {
+            deleteConfirmModal.style.display = 'flex';
           }
         });
       });
 
-      // Load interview prep suite from the latest report
-      const latestWithPrep = history.find(item => item.interviewPrep || item.domainKnowledge);
-      if (latestWithPrep) {
-        // Fetch full analysis to get full categories
-        const fullDetail = await FirebaseService.loadAnalysisById(latestWithPrep.analysisId);
-        currentInterviewPrep = fullDetail;
+      // Load interview prep suite from the latest analysis report
+      if (history.length > 0) {
+        try {
+          const fullDetail = await FirebaseService.loadAnalysisById(history[0].analysisId);
+          // Extract the nested interviewPrep object — the render function expects
+          // { technical: [...], projectBased: [...], behavioral: [...], hrQuestions: [...] }
+          currentInterviewPrep = fullDetail && fullDetail.interviewPrep ? fullDetail.interviewPrep : null;
+        } catch (prepErr) {
+          console.warn('Failed to load interview prep data:', prepErr.message);
+          currentInterviewPrep = null;
+        }
       } else {
         currentInterviewPrep = null;
       }
@@ -483,32 +521,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (renameStatus) { renameStatus.textContent = 'Saving...'; renameStatus.style.color = 'var(--amber, #f59e0b)'; }
     renameInput.style.borderColor = 'var(--border-color, #334155)';
 
-    try {
-      await FirebaseService.renameAnalysis(activeRenameId, newName);
+    // Capture old states for optimistic rollback
+    let nameCell = null;
+    let rowRenameBtn = null;
+    let oldName = '';
+    let oldBtnName = '';
 
-      // In-place DOM patch — update the name cell in the row without reloading
-      if (activeRenameRow) {
-        const nameCell = activeRenameRow.querySelector('td:first-child');
-        if (nameCell) nameCell.textContent = newName;
-
-        // Also update the rename button's data-name attribute for future edits
-        const rowRenameBtn = activeRenameRow.querySelector('.rename-btn');
-        if (rowRenameBtn) rowRenameBtn.dataset.name = newName;
+    if (activeRenameRow) {
+      nameCell = activeRenameRow.querySelector('td:first-child');
+      rowRenameBtn = activeRenameRow.querySelector('.rename-btn');
+      if (nameCell) {
+        oldName = nameCell.textContent;
+        nameCell.textContent = newName; // Optimistic DOM Update
       }
+      if (rowRenameBtn) {
+        oldBtnName = rowRenameBtn.dataset.name || '';
+        rowRenameBtn.dataset.name = newName; // Optimistic Button Update
+      }
+    }
 
-      // Show success in modal briefly before closing
+    try {
+      // Show success in modal briefly (Optimistic visual response)
       if (renameStatus) { renameStatus.textContent = '✓ Renamed'; renameStatus.style.color = 'var(--emerald, #10b981)'; }
 
       // Close modal after a short delay so user sees the confirmation
       setTimeout(() => {
         renameModal.style.display = 'none';
-        activeRenameId = null;
-        activeRenameRow = null;
-      }, 400);
+      }, 300);
+
+      await FirebaseService.renameAnalysis(activeRenameId, newName);
+
+      // Clean up states on success
+      activeRenameId = null;
+      activeRenameRow = null;
 
     } catch (err) {
-      showToast(err.message || 'Failed to rename document.', 'error');
-      if (renameStatus) { renameStatus.textContent = '⚠ Failed — try again'; renameStatus.style.color = 'var(--rose, #f43f5e)'; }
+      // Rollback to previous state on failure
+      if (nameCell) nameCell.textContent = oldName;
+      if (rowRenameBtn) rowRenameBtn.dataset.name = oldBtnName;
+
+      showToast(err.message || 'Failed to rename document. Rolled back.', 'error');
+      if (renameStatus) { renameStatus.textContent = '⚠ Failed — rolled back'; renameStatus.style.color = 'var(--rose, #f43f5e)'; }
     } finally {
       if (btnRenameConfirm) { btnRenameConfirm.removeAttribute('disabled'); btnRenameConfirm.textContent = 'Rename'; }
     }
@@ -538,6 +591,61 @@ document.addEventListener('DOMContentLoaded', () => {
         renameModal.style.display = 'none';
         activeRenameId = null;
         activeRenameRow = null;
+      }
+    });
+  }
+
+  // Delete Modal Confirmation Handlers
+  if (btnDeleteCancel) {
+    btnDeleteCancel.addEventListener('click', () => {
+      if (deleteConfirmModal) deleteConfirmModal.style.display = 'none';
+      activeDeleteId = null;
+      activeDeleteRow = null;
+    });
+  }
+
+  if (btnDeleteConfirmSubmit) {
+    btnDeleteConfirmSubmit.addEventListener('click', async () => {
+      if (!activeDeleteId) return;
+      
+      btnDeleteConfirmSubmit.setAttribute('disabled', 'true');
+      btnDeleteConfirmSubmit.textContent = 'Deleting...';
+
+      try {
+        await FirebaseService.deleteAnalysis(activeDeleteId);
+
+        // Smoothly animate the row out of the DOM on success
+        if (activeDeleteRow) {
+          activeDeleteRow.style.transition = 'opacity 300ms ease, transform 300ms ease';
+          activeDeleteRow.style.opacity = '0';
+          activeDeleteRow.style.transform = 'translateX(20px)';
+          
+          const rowToRemove = activeDeleteRow;
+          setTimeout(() => {
+            rowToRemove.remove();
+            // If table is now empty, show empty state
+            if (historyTableBody && historyTableBody.children.length === 0) {
+              historyTableBody.innerHTML = `
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No parsed analyses found.</td>
+                </tr>
+              `;
+            }
+          }, 300);
+        }
+
+        showToast('Analysis deleted successfully.');
+        
+        // Close modal
+        if (deleteConfirmModal) deleteConfirmModal.style.display = 'none';
+        activeDeleteId = null;
+        activeDeleteRow = null;
+
+      } catch (err) {
+        showToast(err.message || 'Failed to delete analysis.', 'error');
+      } finally {
+        btnDeleteConfirmSubmit.removeAttribute('disabled');
+        btnDeleteConfirmSubmit.textContent = 'Delete';
       }
     });
   }
@@ -610,7 +718,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init
   auth.onAuthStateChanged((user) => {
-    if (user || isMockMode) {
+    if ((user || isMockMode) && !isProfileLoaded) {
+      isProfileLoaded = true;
       loadProfileData();
     }
   });

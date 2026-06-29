@@ -84,12 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
     targetRoleSelect.addEventListener('change', checkAnalyzeButtonState);
   }
 
-  // Hook dynamic redirect helper
-  window.viewHistoryItemFromDashboard = function(analysisId) {
-    const mockParam = isMockMode ? '&mock=true' : '';
-    window.location.href = `analysis.html?id=${analysisId}${mockParam}`;
-  };
-
   // Load mini uploads list
   async function loadRecentMiniList() {
     try {
@@ -132,10 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <span>${formatTimeAgo(item.createdAt)}</span>
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 1rem; flex-shrink: 0;">
-            <span style="font-size: 0.9rem; font-weight: 800; color: ${scoreColor};">${item.score}/100</span>
-            <button class="btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; width: auto;" onclick="viewHistoryItemFromDashboard('${item.analysisId}')">View</button>
-          </div>
+          <span style="font-size: 0.9rem; font-weight: 800; color: ${scoreColor}; flex-shrink: 0;">${item.score}/100</span>
         `;
         miniList.appendChild(card);
       });

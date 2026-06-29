@@ -47,8 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
               <span></span>
             </button>
             <a href="${getLinkUrl('dashboard.html')}" class="logo-link" id="logo-home">
-              <img src="logo.png" alt="ATS Pilot Logo" class="logo-img" style="height: 32px; width: 32px; object-fit: contain;">
-              <span class="logo-text">ATS Pilot</span>
+              <img src="logo.png" alt="Resumetrices Logo" class="logo-img" style="height: 32px; width: 32px; object-fit: contain;">
+              <span class="logo-text">Resumetrices</span>
             </a>
           </div>
           <div style="display: flex; align-items: center; gap: 1.5rem;">

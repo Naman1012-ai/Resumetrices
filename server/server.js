@@ -19,7 +19,7 @@ const NODE_ENV = env.NODE_ENV;
 
 // Start HTTP server
 const server = app.listen(PORT, () => {
-  logger.info('Server', `🚀 ATS Pilot Server Started!`);
+  logger.info('Server', `🚀 Resumetrices Server Started!`);
   logger.info('Server', `📢 Mode: ${NODE_ENV}`);
   logger.info('Server', `🌐 Server running on: http://localhost:${PORT}`);
 });
