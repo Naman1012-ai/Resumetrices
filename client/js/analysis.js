@@ -248,10 +248,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Floating Sidebar Section Index Scroll Spy & Click Handling
+  // Floating Sidebar Section Index Scroll Spy & Click Handling & link re-mapping
   const sidebarLinks = document.querySelectorAll('.report-section-index-sidebar .index-link');
   sidebarLinks.forEach(link => {
     const href = link.getAttribute('href');
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeId = urlParams.get('id') || sessionStorage.getItem('activeAnalysisId');
+    const mockParam = urlParams.get('mock') === 'true' ? '&mock=true' : '';
+    
+    if (activeId && !href.startsWith('analysis.html#')) {
+      link.href = `${href}?id=${activeId}${mockParam}`;
+    }
+
     if (href.startsWith('analysis.html#')) {
       link.addEventListener('click', (e) => {
         e.preventDefault();

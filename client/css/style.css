@@ -5624,4 +5624,13 @@ textarea:focus-visible {
 .btn-modal-close:hover {
   color: var(--rose);
 }
+
+.inline-rename-input:focus {
+  outline: 2px solid var(--emerald) !important;
+  outline-offset: 1px;
+  border-color: var(--emerald) !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25) !important;
+  background-color: rgba(16, 185, 129, 0.05) !important;
+}
+
 

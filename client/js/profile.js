@@ -2,7 +2,7 @@ import { auth, db, isMockMode } from './firebase-config.js';
 import { updateProfile } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { FirebaseService } from './api.js';
-import { showToast } from './utils.js';
+import { showToast, escapeHTML } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
@@ -225,9 +225,12 @@ document.addEventListener('DOMContentLoaded', () => {
           const user = auth.currentUser;
           if (!user) throw new Error('Authorization required.');
 
-          // Save Base64 to RTDB profile node
-          const avatarRef = ref(db, `users/${user.uid}/profile/avatarUrl`);
-          await set(avatarRef, dataUrl);
+          // Save Base64 to RTDB profile node and root central user document
+          await Promise.all([
+            set(ref(db, `users/${user.uid}/profile/avatarUrl`), dataUrl),
+            set(ref(db, `users/${user.uid}/avatarUrl`), dataUrl),
+            set(ref(db, `users/${user.uid}/photoURL`), dataUrl)
+          ]);
 
           // Also update Auth user's photoURL for cross-session persistence
           await updateProfile(user, { photoURL: dataUrl });
@@ -300,7 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Write to Firebase Auth and RTDB in parallel
         await Promise.all([
           updateProfile(user, { displayName: newName }),
-          set(ref(db, `users/${user.uid}/profile/displayName`), newName)
+          set(ref(db, `users/${user.uid}/profile/displayName`), newName),
+          set(ref(db, `users/${user.uid}/displayName`), newName)
         ]);
 
         // Update DOM directly — zero reload
@@ -372,7 +376,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = auth.currentUser;
         if (!user) throw new Error('Authorization required.');
 
-        await set(ref(db, `users/${user.uid}/profile/roleTitle`), newRole);
+        await Promise.all([
+          set(ref(db, `users/${user.uid}/profile/roleTitle`), newRole),
+          set(ref(db, `users/${user.uid}/roleTitle`), newRole),
+          set(ref(db, `users/${user.uid}/domain`), newRole),
+          set(ref(db, `users/${user.uid}/domainName`), newRole)
+        ]);
 
         // Update DOM directly — zero reload
         if (profileRoleTitle) profileRoleTitle.textContent = newRole;
@@ -439,41 +448,128 @@ document.addEventListener('DOMContentLoaded', () => {
         historyTableBody.appendChild(row);
       });
 
-      // Bind dynamic row actions
-      document.querySelectorAll('.view-insights-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const analysisId = e.currentTarget.dataset.id;
-          const mockParam = isMockMode ? '&mock=true' : '';
-          window.location.href = `analysis.html?id=${analysisId}${mockParam}`;
-        });
-      });
+      // Bind dynamic row actions via event delegation
+      if (historyTableBody && !historyTableBody.dataset.delegated) {
+        historyTableBody.dataset.delegated = 'true';
+        historyTableBody.addEventListener('click', async (e) => {
+          const viewBtn = e.target.closest('.view-insights-btn');
+          const renameBtn = e.target.closest('.rename-btn');
+          const deleteBtn = e.target.closest('.delete-btn');
+          const inlineSaveBtn = e.target.closest('.inline-save-btn');
+          const inlineCancelBtn = e.target.closest('.inline-cancel-btn');
 
-      document.querySelectorAll('.rename-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const triggerBtn = e.currentTarget;
-          activeRenameId = triggerBtn.dataset.id;
-          activeRenameRow = triggerBtn.closest('tr');
-          renameInput.value = triggerBtn.dataset.name;
-          // Reset modal state
-          const renameStatus = document.getElementById('rename-status');
-          if (renameStatus) { renameStatus.textContent = ''; renameStatus.style.color = 'var(--text-muted)'; }
-          if (btnRenameConfirm) { btnRenameConfirm.removeAttribute('disabled'); btnRenameConfirm.textContent = 'Rename'; }
-          renameModal.style.display = 'flex';
-          // Auto-select input text for fast editing
-          setTimeout(() => { renameInput.focus(); renameInput.select(); }, 50);
-        });
-      });
+          if (viewBtn) {
+            const analysisId = viewBtn.dataset.id;
+            const mockParam = isMockMode ? '&mock=true' : '';
+            window.location.href = `analysis.html?id=${analysisId}${mockParam}`;
+          }
 
-      document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const triggerBtn = e.currentTarget;
-          activeDeleteId = triggerBtn.dataset.id;
-          activeDeleteRow = triggerBtn.closest('tr');
-          if (deleteConfirmModal) {
-            deleteConfirmModal.style.display = 'flex';
+          if (renameBtn) {
+            const row = renameBtn.closest('tr');
+            if (!row || row.dataset.editing === 'true') return;
+
+            row.dataset.editing = 'true';
+            const nameCell = row.querySelector('td:first-child');
+            const actionsCell = row.querySelector('td:last-child');
+            if (!nameCell || !actionsCell) return;
+
+            const oldName = nameCell.textContent.trim();
+            row.dataset.oldName = oldName;
+            row.dataset.oldActions = actionsCell.innerHTML;
+
+            nameCell.innerHTML = `
+              <input type="text" class="inline-rename-input" placeholder="Enter new report name..." value="${escapeHTML(oldName)}" style="padding: 0.25rem 0.5rem; width: 100%; border-radius: var(--radius-md); border: 1px solid var(--emerald); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.85rem;">
+            `;
+
+            actionsCell.innerHTML = `
+              <div class="action-btn-row">
+                <button class="btn-table-action view inline-save-btn" style="background: var(--emerald); color: #030712; font-weight: 700;">Save</button>
+                <button class="btn-table-action delete inline-cancel-btn">Cancel</button>
+              </div>
+            `;
+
+            const input = nameCell.querySelector('.inline-rename-input');
+            input.focus();
+            input.select();
+
+            input.addEventListener('keydown', (evt) => {
+              if (evt.key === 'Enter') {
+                evt.preventDefault();
+                actionsCell.querySelector('.inline-save-btn').click();
+              }
+              if (evt.key === 'Escape') {
+                evt.preventDefault();
+                actionsCell.querySelector('.inline-cancel-btn').click();
+              }
+            });
+          }
+
+          if (inlineSaveBtn) {
+            const row = inlineSaveBtn.closest('tr');
+            if (!row) return;
+            
+            // Find the analysis ID from the dataset of the stored old actions
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = row.dataset.oldActions;
+            const refBtn = tempDiv.querySelector('[data-id]');
+            const analysisId = refBtn ? refBtn.dataset.id : null;
+
+            const input = row.querySelector('.inline-rename-input');
+            const nameCell = row.querySelector('td:first-child');
+            const actionsCell = row.querySelector('td:last-child');
+            if (!input || !nameCell || !actionsCell || !analysisId) return;
+
+            const newName = input.value.trim();
+            if (!newName) {
+              showToast('Name cannot be empty.', 'error');
+              return;
+            }
+
+            input.disabled = true;
+            inlineSaveBtn.disabled = true;
+            inlineSaveBtn.textContent = 'Saving...';
+
+            try {
+              await FirebaseService.renameAnalysis(analysisId, newName);
+              nameCell.textContent = newName;
+              row.dataset.editing = 'false';
+
+              // Restore actions HTML and update the data-name attribute on rename-btn
+              actionsCell.innerHTML = row.dataset.oldActions;
+              const newRenameBtn = actionsCell.querySelector('.rename-btn');
+              if (newRenameBtn) newRenameBtn.dataset.name = newName;
+
+              showToast('Analysis renamed successfully!', 'success');
+            } catch (err) {
+              showToast(err.message || 'Failed to rename document.', 'error');
+              // Revert
+              nameCell.textContent = row.dataset.oldName;
+              actionsCell.innerHTML = row.dataset.oldActions;
+              row.dataset.editing = 'false';
+            }
+          }
+
+          if (inlineCancelBtn) {
+            const row = inlineCancelBtn.closest('tr');
+            if (!row) return;
+            const nameCell = row.querySelector('td:first-child');
+            const actionsCell = row.querySelector('td:last-child');
+            if (!nameCell || !actionsCell) return;
+
+            nameCell.textContent = row.dataset.oldName;
+            actionsCell.innerHTML = row.dataset.oldActions;
+            row.dataset.editing = 'false';
+          }
+
+          if (deleteBtn) {
+            activeDeleteId = deleteBtn.dataset.id;
+            activeDeleteRow = deleteBtn.closest('tr');
+            if (deleteConfirmModal) {
+              deleteConfirmModal.style.display = 'flex';
+            }
           }
         });
-      });
+      }
 
       // Load interview prep suite from the latest analysis report
       if (history.length > 0) {
@@ -499,100 +595,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </tr>
       `;
     }
-  }
-
-  // Rename — Core Save Logic (shared by button click and Enter key)
-  async function executeRename() {
-    const newName = renameInput.value.trim();
-    const renameStatus = document.getElementById('rename-status');
-
-    if (!newName) {
-      if (renameStatus) { renameStatus.textContent = 'Name cannot be empty.'; renameStatus.style.color = 'var(--rose, #f43f5e)'; }
-      renameInput.style.borderColor = 'var(--rose, #f43f5e)';
-      return;
-    }
-    if (!activeRenameId) {
-      showToast('No document selected for renaming.', 'error');
-      return;
-    }
-
-    // Saving state
-    if (btnRenameConfirm) { btnRenameConfirm.setAttribute('disabled', 'true'); btnRenameConfirm.textContent = 'Saving...'; }
-    if (renameStatus) { renameStatus.textContent = 'Saving...'; renameStatus.style.color = 'var(--amber, #f59e0b)'; }
-    renameInput.style.borderColor = 'var(--border-color, #334155)';
-
-    // Capture old states for optimistic rollback
-    let nameCell = null;
-    let rowRenameBtn = null;
-    let oldName = '';
-    let oldBtnName = '';
-
-    if (activeRenameRow) {
-      nameCell = activeRenameRow.querySelector('td:first-child');
-      rowRenameBtn = activeRenameRow.querySelector('.rename-btn');
-      if (nameCell) {
-        oldName = nameCell.textContent;
-        nameCell.textContent = newName; // Optimistic DOM Update
-      }
-      if (rowRenameBtn) {
-        oldBtnName = rowRenameBtn.dataset.name || '';
-        rowRenameBtn.dataset.name = newName; // Optimistic Button Update
-      }
-    }
-
-    try {
-      // Show success in modal briefly (Optimistic visual response)
-      if (renameStatus) { renameStatus.textContent = '✓ Renamed'; renameStatus.style.color = 'var(--emerald, #10b981)'; }
-
-      // Close modal after a short delay so user sees the confirmation
-      setTimeout(() => {
-        renameModal.style.display = 'none';
-      }, 300);
-
-      await FirebaseService.renameAnalysis(activeRenameId, newName);
-
-      // Clean up states on success
-      activeRenameId = null;
-      activeRenameRow = null;
-
-    } catch (err) {
-      // Rollback to previous state on failure
-      if (nameCell) nameCell.textContent = oldName;
-      if (rowRenameBtn) rowRenameBtn.dataset.name = oldBtnName;
-
-      showToast(err.message || 'Failed to rename document. Rolled back.', 'error');
-      if (renameStatus) { renameStatus.textContent = '⚠ Failed — rolled back'; renameStatus.style.color = 'var(--rose, #f43f5e)'; }
-    } finally {
-      if (btnRenameConfirm) { btnRenameConfirm.removeAttribute('disabled'); btnRenameConfirm.textContent = 'Rename'; }
-    }
-  }
-
-  // Rename Confirmation Handlers
-  if (btnRenameCancel) {
-    btnRenameCancel.addEventListener('click', () => {
-      renameModal.style.display = 'none';
-      activeRenameId = null;
-      activeRenameRow = null;
-    });
-  }
-
-  if (btnRenameConfirm) {
-    btnRenameConfirm.addEventListener('click', executeRename);
-  }
-
-  // Enter key support on rename input
-  if (renameInput) {
-    renameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        executeRename();
-      }
-      if (e.key === 'Escape') {
-        renameModal.style.display = 'none';
-        activeRenameId = null;
-        activeRenameRow = null;
-      }
-    });
   }
 
   // Delete Modal Confirmation Handlers
@@ -667,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (activeTab === 'projectBased') {
       questions = prepData.projectBased || [];
     } else if (activeTab === 'domainKnowledge') {
-      questions = prepData.domainKnowledge || prepData.skillGap || [];
+      questions = (prepData.domainKnowledge && prepData.domainKnowledge.length > 0) ? prepData.domainKnowledge : (prepData.skillGap || []);
     } else if (activeTab === 'behavioral') {
       questions = prepData.behavioral || [];
     } else if (activeTab === 'hrQuestions') {

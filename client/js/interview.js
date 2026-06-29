@@ -127,7 +127,7 @@ async function renderInterviewReport(analysis) {
   } else {
     tech = prep.technical || [];
     proj = prep.projectBased || [];
-    gap = prep.domainKnowledge || prep.skillGap || [];
+    gap = (prep.domainKnowledge && prep.domainKnowledge.length > 0) ? prep.domainKnowledge : (prep.skillGap || []);
     beh = prep.behavioral || [];
     hr = prep.hrQuestions || [];
   }
@@ -135,7 +135,8 @@ async function renderInterviewReport(analysis) {
   // Update card header text dynamically
   const skillGapHeader = document.querySelector('.q-header.skillgap span');
   if (skillGapHeader) {
-    skillGapHeader.textContent = (prep.domainKnowledge || analysis.domainKnowledge) ? 'Domain Knowledge Benchmarks' : 'Skill Gap Questions';
+    const hasDomainKnowledge = (prep.domainKnowledge && prep.domainKnowledge.length > 0) || (analysis.domainKnowledge && analysis.domainKnowledge.length > 0);
+    skillGapHeader.textContent = hasDomainKnowledge ? 'Domain Knowledge Benchmarks' : 'Skill Gap Questions';
   }
 
   renderQuestionsList(technicalQuestionsList, tech);
@@ -178,26 +179,30 @@ function setupStandaloneView(isStandalone) {
   const reportLayoutGrid = document.querySelector('.report-layout-grid');
   const reportIndexSidebar = document.querySelector('.report-section-index-sidebar');
   const activeRoleSubtitle = document.getElementById('active-role-subtitle-container');
+  const standaloneSelector = document.getElementById('standalone-selector-container');
   
   if (isStandalone) {
     if (reportHeaderBar) reportHeaderBar.style.display = 'none';
     if (reportIndexSidebar) reportIndexSidebar.style.display = 'none';
     if (reportLayoutGrid) reportLayoutGrid.style.gridTemplateColumns = '1fr';
     if (activeRoleSubtitle) activeRoleSubtitle.style.display = 'none';
+    if (standaloneSelector) standaloneSelector.style.display = 'block';
   } else {
     if (reportHeaderBar) reportHeaderBar.style.display = 'flex';
     if (reportIndexSidebar) reportIndexSidebar.style.display = 'flex';
     if (reportLayoutGrid) reportLayoutGrid.style.gridTemplateColumns = '240px 1fr';
     if (activeRoleSubtitle) activeRoleSubtitle.style.display = 'block';
+    if (standaloneSelector) standaloneSelector.style.display = 'none';
   }
 }
 
 async function initInterviewPage() {
   const urlParams = new URLSearchParams(window.location.search);
-  const analysisId = urlParams.get('id') || sessionStorage.getItem('activeAnalysisId');
+  // Clear context by only resolving id parameter directly from URL for report mode
+  const analysisId = urlParams.get('id');
 
   if (!analysisId) {
-    // Enable standalone selector mode instead of redirecting
+    // Enable standalone selector mode with a clean state where activeReportId is null
     setupStandaloneView(true);
     const interviewEmptyState = document.getElementById('interview-empty-state');
     const interviewResults = document.getElementById('interview-results');
@@ -353,13 +358,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update card header text dynamically
         const skillGapHeader = document.querySelector('.q-header.skillgap span');
         if (skillGapHeader) {
-          skillGapHeader.textContent = responseData.domainKnowledge ? 'Domain Knowledge Benchmarks' : 'Skill Gap Questions';
+          const hasDomainKnowledge = responseData.domainKnowledge && responseData.domainKnowledge.length > 0;
+          skillGapHeader.textContent = hasDomainKnowledge ? 'Domain Knowledge Benchmarks' : 'Skill Gap Questions';
         }
 
         renderQuestionsList(technicalQuestionsList, responseData.technical);
         renderQuestionsList(projectQuestionsList, responseData.projectBased);
         
-        const gapData = responseData.domainKnowledge || responseData.skillGap || [];
+        const gapData = (responseData.domainKnowledge && responseData.domainKnowledge.length > 0) ? responseData.domainKnowledge : (responseData.skillGap || []);
         renderQuestionsList(skillgapQuestionsList, gapData);
         
         renderQuestionsList(behavioralQuestionsList, responseData.behavioral);

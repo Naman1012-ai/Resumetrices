@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </svg>
             <span class="nav-label">My Analyses</span>
           </a>
-          <a href="${getLinkUrl('interview.html', true)}" class="nav-item" id="nav-interview-prep">
+          <a href="${getLinkUrl('interview.html', false)}" class="nav-item" id="nav-interview-prep">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
@@ -201,13 +201,90 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Hamburger toggles for mobile menu drawer
+  // Dynamically inject report sub-navigation tabs if on a report page
+  const reportHeader = document.querySelector('.report-header-bar');
+  if (reportHeader) {
+    const activeIdVal = urlParams.get('id') || sessionStorage.getItem('activeAnalysisId');
+    const isMock = urlParams.get('mock') === 'true';
+    const mockQuery = isMock ? '&mock=true' : '';
+    
+    const subTabs = document.createElement('div');
+    subTabs.className = 'report-sub-tabs';
+    subTabs.style.cssText = 'display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem; padding-bottom: 0.5rem; overflow-x: auto; white-space: nowrap; width: 100%;';
+    
+    const currentFile = window.location.pathname.split('/').pop() || 'analysis.html';
+    
+    const tabsConfig = [
+      { id: 'overview', name: 'Analysis Overview', file: 'analysis.html' },
+      { id: 'skillgap', name: 'Skill Gaps', file: 'skill-gap.html' },
+      { id: 'interview', name: 'Interview Prep', file: 'interview.html' },
+      { id: 'roadmap', name: 'Career Roadmap', file: 'roadmap.html' }
+    ];
+    
+    tabsConfig.forEach(tab => {
+      const link = document.createElement('a');
+      link.className = 'report-sub-tab';
+      link.href = activeIdVal ? `${tab.file}?id=${activeIdVal}${mockQuery}` : `${tab.file}${isMock ? '?mock=true' : ''}`;
+      link.textContent = tab.name;
+      
+      link.style.cssText = 'padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 0.9rem; border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer;';
+      
+      link.addEventListener('mouseenter', () => {
+        if (!link.classList.contains('active')) {
+          link.style.color = 'var(--text-main)';
+          link.style.borderBottomColor = 'rgba(16, 185, 129, 0.3)';
+        }
+      });
+      link.addEventListener('mouseleave', () => {
+        if (!link.classList.contains('active')) {
+          link.style.color = 'var(--text-muted)';
+          link.style.borderBottomColor = 'transparent';
+        }
+      });
+      
+      if (currentFile.includes(tab.file)) {
+        link.classList.add('active');
+        link.style.color = 'var(--emerald)';
+        link.style.borderBottomColor = 'var(--emerald)';
+      }
+      
+      subTabs.appendChild(link);
+    });
+    
+    reportHeader.after(subTabs);
+  }
+
+  // Hamburger toggles for mobile menu drawer with mobile-open/sidebar-open classes & overlay
   const btnHamburger = document.getElementById('btn-hamburger');
   if (btnHamburger) {
-    btnHamburger.addEventListener('click', () => {
+    let overlay = document.getElementById('sidebar-mobile-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'sidebar-mobile-overlay';
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+    }
+
+    btnHamburger.addEventListener('click', (e) => {
+      e.stopPropagation();
       const appSidebarNav = document.getElementById('app-sidebar-nav');
       if (appSidebarNav) {
-        appSidebarNav.classList.toggle('mobile-open');
+        const isOpen = appSidebarNav.classList.toggle('sidebar-open');
+        appSidebarNav.classList.toggle('mobile-open', isOpen);
+        btnHamburger.classList.toggle('active', isOpen);
+        btnHamburger.setAttribute('aria-expanded', isOpen);
+        overlay.classList.toggle('active', isOpen);
+      }
+    });
+
+    overlay.addEventListener('click', () => {
+      const appSidebarNav = document.getElementById('app-sidebar-nav');
+      if (appSidebarNav) {
+        appSidebarNav.classList.remove('sidebar-open');
+        appSidebarNav.classList.remove('mobile-open');
+        btnHamburger.classList.remove('active');
+        btnHamburger.setAttribute('aria-expanded', 'false');
+        overlay.classList.remove('active');
       }
     });
   }
