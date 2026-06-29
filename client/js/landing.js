@@ -16,8 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let isRedirectProcessing = true;
 
   function redirectUser() {
+    const user = auth.currentUser;
+    const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
     const mockParam = isMockMode ? '?mock=true' : '';
-    window.location.href = `dashboard.html${mockParam}`;
+    const mockQuery = mockParam ? (mockParam.startsWith('?') ? mockParam : '?' + mockParam) : '';
+
+    if (user && user.email === adminEmail) {
+      window.location.href = `/admin/dashboard${mockQuery}`;
+      return;
+    }
+
+    window.location.href = `/dashboard${mockQuery}`;
   }
 
   // Handle Google redirect result

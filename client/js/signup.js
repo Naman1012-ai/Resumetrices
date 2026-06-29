@@ -65,12 +65,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function redirectUser() {
-    const pendingFile = sessionStorage.getItem('pendingFileBase64');
+    const user = auth.currentUser;
+    const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
     const mockParam = isMockMode ? '?mock=true' : '';
+    const mockQuery = mockParam ? (mockParam.startsWith('?') ? mockParam : '?' + mockParam) : '';
+
+    if (user && user.email === adminEmail) {
+      window.location.href = `/admin/dashboard${mockQuery}`;
+      return;
+    }
+
+    const pendingFile = sessionStorage.getItem('pendingFileBase64');
     if (pendingFile) {
-      window.location.href = `new-analysis.html${mockParam}`;
+      window.location.href = `new-analysis.html${mockQuery}`;
     } else {
-      window.location.href = `dashboard.html${mockParam}`;
+      window.location.href = `/dashboard${mockQuery}`;
     }
   }
 

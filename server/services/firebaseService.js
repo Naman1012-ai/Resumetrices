@@ -711,6 +711,215 @@ const deleteUserAccount = async (userId) => {
   }
 };
 
+const getAdminDashboardStats = async () => {
+  if (!isFirebaseInitialized || !hasCredentials) {
+    // Offline/development mock stats
+    const mockAnalyses = Array.from(mockDatabaseStore.entries())
+      .filter(([key]) => !key.startsWith('user_'))
+      .map(([id, val]) => ({
+        analysisId: id,
+        resumeName: val.resumeName || 'Mock Resume.pdf',
+        targetRole: val.targetRole || 'Developer',
+        score: val.score || 0,
+        createdAt: val.createdAt || Date.now()
+      }));
+
+    return {
+      totalAnalyses: mockAnalyses.length,
+      totalUsers: 1,
+      recentAnalyses: mockAnalyses
+    };
+  }
+
+  try {
+    const db = getDatabase();
+    
+    // Get all analyses from database
+    const analysesSnapshot = await db.ref('analyses').once('value');
+    let totalAnalyses = 0;
+    let recentAnalyses = [];
+    
+    if (analysesSnapshot.exists()) {
+      const analysesVal = analysesSnapshot.val();
+      const keys = Object.keys(analysesVal);
+      totalAnalyses = keys.length;
+      
+      // Sort and map the top 20 recent analyses
+      recentAnalyses = keys.map(id => ({
+        analysisId: id,
+        resumeName: analysesVal[id].resumeName || 'Resume.pdf',
+        targetRole: analysesVal[id].targetRole || 'Developer',
+        score: analysesVal[id].score || 0,
+        createdAt: analysesVal[id].createdAt || Date.now()
+      })).sort((a, b) => b.createdAt - a.createdAt).slice(0, 20);
+    }
+    
+    // Get all users
+    const usersSnapshot = await db.ref('users').once('value');
+    let totalUsers = 0;
+    if (usersSnapshot.exists()) {
+      totalUsers = Object.keys(usersSnapshot.val()).length;
+    }
+    
+    return {
+      totalAnalyses,
+      totalUsers,
+      recentAnalyses
+    };
+  } catch (error) {
+    logger.error('Firebase', `Failed to retrieve admin stats: ${error.message}`);
+    throw new Error(`Failed to retrieve admin stats: ${error.message}`);
+  }
+};
+
+/**
+ * Retrieves a list of all registered users for the admin directory.
+ * Uses Firebase Auth to list user accounts and cross-references RTDB for analysis counts.
+ * @returns {Promise<Array>} Array of user profile objects.
+ */
+const getAdminUserList = async () => {
+  // Mock/fallback mode
+  if (!isFirebaseInitialized || !hasCredentials) {
+    return [
+      {
+        uid: 'mock-uid-001',
+        displayName: 'Naman Modi',
+        email: 'naman@resumetrices.com',
+        photoURL: null,
+        createdAt: '2026-06-20T10:00:00Z',
+        domain: 'resumetrices.com',
+        analysisCount: 12,
+        tier: 'pro',
+        quota: 100
+      },
+      {
+        uid: 'mock-uid-002',
+        displayName: 'Alice Johnson',
+        email: 'alice@techcorp.io',
+        photoURL: null,
+        createdAt: '2026-06-22T14:30:00Z',
+        domain: 'techcorp.io',
+        analysisCount: 7,
+        tier: 'free',
+        quota: 25
+      },
+      {
+        uid: 'mock-uid-003',
+        displayName: 'Bob Chen',
+        email: 'bob.chen@enterprise.dev',
+        photoURL: null,
+        createdAt: '2026-06-25T08:15:00Z',
+        domain: 'enterprise.dev',
+        analysisCount: 34,
+        tier: 'enterprise',
+        quota: 500
+      },
+      {
+        uid: 'mock-uid-004',
+        displayName: 'Sarah Williams',
+        email: 'sarah.w@startup.co',
+        photoURL: null,
+        createdAt: '2026-06-27T16:45:00Z',
+        domain: 'startup.co',
+        analysisCount: 3,
+        tier: 'free',
+        quota: 25
+      },
+      {
+        uid: 'mock-uid-005',
+        displayName: 'System Admin',
+        email: 'admin@resumetrices.com',
+        photoURL: null,
+        createdAt: '2026-06-18T00:00:00Z',
+        domain: 'resumetrices.com',
+        analysisCount: 0,
+        tier: 'enterprise',
+        quota: 500
+      }
+    ];
+  }
+
+  try {
+    const { getAuth } = require('firebase-admin/auth');
+    const db = getDatabase();
+    
+    // List all users from Firebase Auth (up to 1000)
+    const listResult = await getAuth().listUsers(1000);
+    const users = [];
+
+    for (const userRecord of listResult.users) {
+      // Count analyses for this user from RTDB
+      let analysisCount = 0;
+      let profileData = {};
+      try {
+        const analysesSnap = await db.ref(`users/${userRecord.uid}/analyses`).once('value');
+        if (analysesSnap.exists()) {
+          analysisCount = Object.keys(analysesSnap.val()).length;
+        }
+        // Read profile overrides if they exist
+        const profileSnap = await db.ref(`users/${userRecord.uid}/profile`).once('value');
+        if (profileSnap.exists()) {
+          profileData = profileSnap.val();
+        }
+      } catch (e) {
+        logger.warn('Firebase', `Could not read data for user ${userRecord.uid}: ${e.message}`);
+      }
+
+      const emailDomain = userRecord.email ? userRecord.email.split('@')[1] : '';
+      users.push({
+        uid: userRecord.uid,
+        displayName: userRecord.displayName || userRecord.email?.split('@')[0] || 'Unknown',
+        email: userRecord.email || '',
+        photoURL: userRecord.photoURL || null,
+        createdAt: userRecord.metadata.creationTime || new Date().toISOString(),
+        domain: profileData.domain || emailDomain,
+        analysisCount: analysisCount,
+        tier: profileData.tier || 'free',
+        quota: profileData.quota ?? 25
+      });
+    }
+
+    return users;
+  } catch (error) {
+    logger.error('Firebase', `Failed to list admin users: ${error.message}`);
+    throw new Error(`Failed to list admin users: ${error.message}`);
+  }
+};
+
+/**
+ * Updates a user's quota/tier/domain profile flags in the Realtime Database.
+ * @param {string} userId - The target user UID.
+ * @param {object} updates - Object containing { tier, quota, domain }.
+ * @returns {Promise<boolean>}
+ */
+const updateUserQuota = async (userId, updates) => {
+  if (!userId || typeof userId !== 'string') {
+    throw new Error('userId must be a non-empty string.');
+  }
+
+  const profileUpdate = {};
+  if (updates.tier !== undefined) profileUpdate.tier = updates.tier;
+  if (updates.quota !== undefined) profileUpdate.quota = parseInt(updates.quota, 10);
+  if (updates.domain !== undefined) profileUpdate.domain = updates.domain;
+  profileUpdate.updatedAt = new Date().toISOString();
+
+  // Mock/fallback mode
+  if (!isFirebaseInitialized || !hasCredentials) {
+    logger.warn('Firebase', `⚠️ Mock mode: would update user ${userId} profile with ${JSON.stringify(profileUpdate)}`);
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    await db.ref(`users/${userId}/profile`).update(profileUpdate);
+    logger.info('Firebase', `✅ User ${userId} profile updated: ${JSON.stringify(profileUpdate)}`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to update user ${userId} profile: ${error.message}`);
+    throw new Error(`Failed to update user profile: ${error.message}`);
+  }
+};
+
 module.exports = {
   saveAnalysis,
   getUserHistory,
@@ -720,6 +929,10 @@ module.exports = {
   deleteAnalysis,
   renameAnalysis,
   deleteUserAccount,
+  getAdminDashboardStats,
+  getAdminUserList,
+  updateUserQuota,
   isInitialized: () => isFirebaseInitialized,
   hasCredentials: () => hasCredentials
 };
+

@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Resumetrices</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/admin.css">
+  <script src="/env-config.js"></script>
+  
+  <script type="module">
+    import { auth, isMockMode } from '../js/firebase-config.js';
+
+    // Immediately block the canvas render loop
+    document.documentElement.style.display = 'none';
+
+    auth.onAuthStateChanged(async (user) => {
+      const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
+      const emailToCheck = isMockMode ? 'admin@resumetrices.com' : (user ? user.email : null);
+      
+      if (isMockMode || (user && emailToCheck === adminEmail)) {
+        // User is authorized - unblock render loop
+        document.documentElement.style.display = '';
+        
+        // Fetch and load initial statistics
+        await loadTelemetryData(user);
+      } else {
+        // Not authorized - eject immediately
+        const mockParam = isMockMode ? '?mock=true' : '';
+        window.location.href = `../index.html${mockParam}`;
+      }
+    });
+
+    async function loadTelemetryData(user) {
+      try {
+        const idToken = isMockMode ? 'mock_token' : await user.getIdToken();
+        const response = await fetch('/api/admin/stats', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          }
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          populateStats(data.stats);
+        } else {
+          console.error('Failed to load stats:', data.message);
+          loadMockTelemetry();
+        }
+      } catch (err) {
+        console.error('Error loading telemetry:', err);
+        loadMockTelemetry();
+      }
+    }
+
+    function populateStats(stats) {
+      // General stats
+      document.getElementById('total-platform-scans').textContent = stats.totalAnalyses;
+      document.getElementById('total-registered-users').textContent = stats.totalUsers;
+      
+      // Populate scans table
+      const scansBody = document.getElementById('platform-scans-list');
+      scansBody.innerHTML = '';
+      if (stats.recentAnalyses && stats.recentAnalyses.length > 0) {
+        stats.recentAnalyses.forEach(analysis => {
+          const tr = document.createElement('tr');
+          tr.className = 'admin-table-row';
+          tr.style.borderBottom = '1px solid var(--border-color)';
+          tr.innerHTML = `
+            <td style="padding: 1rem; color: var(--text-main); font-weight: 500;">${escapeHTML(analysis.resumeName)}</td>
+            <td style="padding: 1rem; color: var(--text-muted);">${escapeHTML(analysis.targetRole)}</td>
+            <td style="padding: 1rem; text-align: center;">
+              <span class="score-badge ${getScoreClass(analysis.score)}" style="padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 700;">
+                ${analysis.score}/100
+              </span>
+            </td>
+            <td style="padding: 1rem; color: var(--text-muted); text-align: right;">${new Date(analysis.createdAt).toLocaleString()}</td>
+          `;
+          scansBody.appendChild(tr);
+        });
+      } else {
+        scansBody.innerHTML = `<tr><td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted);">No scans recorded.</td></tr>`;
+      }
+    }
+
+    function loadMockTelemetry() {
+      // Mock data fallback
+      const mockStats = {
+        totalAnalyses: 124,
+        totalUsers: 48,
+        recentAnalyses: [
+          { resumeName: 'Naman_PM_Resume.pdf', targetRole: 'Product Manager', score: 92, createdAt: Date.now() - 3600000 },
+          { resumeName: 'Alice_SDE3_Backend.pdf', targetRole: 'Software Engineer', score: 81, createdAt: Date.now() - 7200000 },
+          { resumeName: 'Bob_DevOps_Specialist.pdf', targetRole: 'DevOps Architect', score: 74, createdAt: Date.now() - 86400000 },
+          { resumeName: 'Carol_UI_UX_Designer.pdf', targetRole: 'Product Designer', score: 88, createdAt: Date.now() - 172800000 }
+        ]
+      };
+      populateStats(mockStats);
+    }
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function getScoreClass(score) {
+      if (score >= 85) return 'gold';
+      if (score >= 70) return 'emerald';
+      return 'blue';
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Background mesh overlay -->
+  <div class="background-glow" style="position: fixed; inset: 0; background: radial-gradient(circle at 10% 20%, rgba(244, 63, 94, 0.04) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 50%); z-index: -1; pointer-events: none;"></div>
+
+  <!-- Sidebar Overlay Backdrop for Responsive Mobile view -->
+  <div id="admin-sidebar-overlay" class="sidebar-overlay"></div>
+
+  <div class="admin-layout-frame">
+    
+    <!-- Sidebar Navigation Panel [A] -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="admin-sidebar-header">
+        <img src="../logo.png" alt="Resumetrices Logo" style="height: 32px; width: 32px; object-fit: contain;">
+        <span class="logo-text" style="font-size: 1.2rem; font-weight: 800; color: #ffffff; letter-spacing: -0.025em; display: flex; align-items: center; gap: 0.5rem;">
+          Resumetrices
+          <span style="font-size: 0.65rem; color: var(--rose); font-weight: 800; background: rgba(244, 63, 94, 0.12); padding: 0.15rem 0.4rem; border-radius: var(--radius-sm); text-transform: uppercase;">Admin</span>
+        </span>
+      </div>
+
+      <nav class="admin-sidebar-menu">
+        <a class="admin-menu-link active" data-tab="platform-operations">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          Platform Operations
+        </a>
+        <a class="admin-menu-link" data-tab="user-directory">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          User Directory
+        </a>
+        <a class="admin-menu-link" data-tab="report-audit-logs">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Report Audit Logs
+        </a>
+        <a class="admin-menu-link" data-tab="security-guardrails">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          Security Guardrails
+        </a>
+      </nav>
+
+      <div class="admin-sidebar-footer">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <a href="../dashboard.html" class="btn-cta-secondary" style="padding: 0.5rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; text-decoration: none; font-weight: 600; text-align: center; display: block;">
+            Consumer Hub
+          </a>
+          <button id="btn-admin-logout" class="btn-cta-primary" style="padding: 0.5rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 600; background: var(--danger); border-color: var(--danger); cursor: pointer; width: 100%;">
+            System Logout
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Container -->
+    <div class="admin-main-container">
+      
+      <!-- Top Control Navbar [B] -->
+      <header class="admin-navbar">
+        <div class="admin-navbar-left">
+          <button class="admin-hamburger-btn" id="admin-hamburger-btn" aria-label="Open navigation menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+          <h1 class="admin-navbar-title" id="navbar-view-title">Platform Operations</h1>
+        </div>
+        <div class="admin-navbar-right">
+          <div class="system-health-badge">
+            <span class="health-dot"></span>
+            All Systems Operational
+          </div>
+        </div>
+      </header>
+
+      <!-- View Routing Pane [C] -->
+      <main class="admin-viewport" id="admin-viewport">
+        
+        <!-- Tab 1: Platform Operations View -->
+        <section class="admin-view-pane active" id="view-platform-operations">
+          <!-- 3-Column Top KPI Summary Grid -->
+          <div class="dashboard-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--spacing-24); margin-bottom: var(--spacing-24);">
+            
+            <!-- Card 1: Active Pipeline Queue -->
+            <div class="admin-card-glass">
+              <div class="analytics-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="color: var(--text-muted); font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Active Pipeline Queue</span>
+                <span style="font-size: 1.5rem;">⚙️</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 0.75rem;">
+                <div class="analytics-card-value" id="kpi-pipeline-queue" style="font-size: 2.25rem; font-weight: 800; color: #ffffff;">0</div>
+                <span style="color: var(--rose); font-size: 0.85rem; font-weight: 600;">files processing</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem; margin-bottom: 0;">
+                Active extraction worker nodes: <span id="kpi-active-nodes" style="color: var(--emerald); font-weight: 700;">0 active</span>
+              </p>
+            </div>
+
+            <!-- Card 2: System Processing Speed -->
+            <div class="admin-card-glass">
+              <div class="analytics-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="color: var(--text-muted); font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">System Processing Speed</span>
+                <span style="font-size: 1.5rem;">⚡</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 0.75rem;">
+                <div class="analytics-card-value" id="kpi-processing-speed" style="font-size: 2.25rem; font-weight: 800; color: var(--emerald);">avg: 4.2s</div>
+                <span style="color: var(--text-muted); font-size: 0.85rem;">per analysis</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem; margin-bottom: 0;">
+                Gemini model response: <span style="color: #fff; font-weight: 600;">3.1s median</span>
+              </p>
+            </div>
+
+            <!-- Card 3: AI Token Expenditure Tracker -->
+            <div class="admin-card-glass">
+              <div class="analytics-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="color: var(--text-muted); font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">AI Token Expenditure</span>
+                <span style="font-size: 1.5rem;">🪙</span>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 0.75rem;">
+                <div class="analytics-card-value" style="font-size: 2.25rem; font-weight: 800; color: var(--blue);">$128.45</div>
+                <span style="color: var(--text-muted); font-size: 0.85rem;">/ $500.00 budget</span>
+              </div>
+              <!-- Progress bar -->
+              <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; margin-top: 0.75rem; overflow: hidden;">
+                <div style="width: 25.7%; height: 100%; background: var(--blue); border-radius: 99px;"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Interactive Live Engine Simulation Sandbox Widget -->
+          <div class="admin-card-glass" style="margin-bottom: var(--spacing-24);">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; color: #ffffff; margin-top: 0;">
+              <span>🎮</span> Pipeline Engine Simulation Sandbox
+            </h3>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
+              
+              <!-- Left side: Simulation inputs -->
+              <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <p style="color: var(--text-muted); font-size: 0.875rem; line-height: 1.5; margin: 0;">
+                  Adjust simultaneous file uploads and worker cores below to test the queue backpressure threshold algorithm under simulated stress.
+                </p>
+
+                <!-- Input Slider 1 -->
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600;">
+                    <span style="color: var(--text-main);">Simultaneous Active Uploads</span>
+                    <span id="slider-uploads-value" style="color: var(--rose); font-weight: 700;">25</span>
+                  </div>
+                  <input type="range" id="sim-active-uploads" min="1" max="100" value="25" style="width: 100%; accent-color: var(--rose); cursor: pointer;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                    <span>1 file</span>
+                    <span>100 files</span>
+                  </div>
+                </div>
+
+                <!-- Input Slider 2 -->
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600;">
+                    <span style="color: var(--text-main);">Background Worker Thread Cores</span>
+                    <span id="slider-cores-value" style="color: var(--emerald); font-weight: 700;">4 cores</span>
+                  </div>
+                  <input type="range" id="sim-worker-cores" min="1" max="16" value="4" style="width: 100%; accent-color: var(--emerald); cursor: pointer;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                    <span>1 core</span>
+                    <span>16 cores</span>
+                  </div>
+                </div>
+
+                <!-- Live stats readouts -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 0.75rem; display: block; text-transform: uppercase;">Load Ratio Index</span>
+                    <span id="sim-load-ratio" style="font-size: 1.25rem; font-weight: 700; color: #fff;">6.25</span>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 0.75rem; display: block; text-transform: uppercase;">Est. Response Latency</span>
+                    <span id="sim-response-latency" style="font-size: 1.25rem; font-weight: 700; color: var(--warning);">1.44s</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right side: Visual Graph Layout and Logs -->
+              <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                
+                <!-- System status warning light and cores visualizer -->
+                <div style="background: rgba(3, 7, 18, 0.4); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+                  
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                      <!-- Warning light element -->
+                      <span id="sim-warning-light" class="warning-light-resting" style="width: 14px; height: 14px; border-radius: 50%; display: inline-block; transition: all 0.3s ease;"></span>
+                      <span id="sim-status-title" style="font-weight: 700; font-size: 0.95rem; color: #fff;">Pipeline Status: Normal</span>
+                    </div>
+                    <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Real-time Telemetry</span>
+                  </div>
+
+                  <!-- Thread Cores layout visualization -->
+                  <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.5rem;">Allocated Execution Cores</span>
+                    <div id="sim-cores-grid" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.5rem;">
+                      <!-- JavaScript will dynamically render 16 cores here -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Simulation running logs console -->
+                <div>
+                  <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.5rem;">Instantaneous Log Feed</span>
+                  <div style="background-color: #010409; border: 1px solid var(--border-color); border-radius: var(--radius-md); height: 120px; overflow-y: auto; font-family: 'Fira Code', monospace; font-size: 0.75rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; color: #8b949e;" id="sim-log-terminal">
+                    <!-- Logs will append here dynamically -->
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+
+          <!-- Platform Scans Feed -->
+          <div class="admin-card-glass" style="margin-top: var(--spacing-24);">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; color: #ffffff;">
+              <span>⏱️</span> Recent Scans Feed
+            </h3>
+            <div style="overflow-x: auto; width: 100%;">
+              <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th style="padding: 0.75rem 1rem;">Document Name</th>
+                    <th style="padding: 0.75rem 1rem;">Target Job Title</th>
+                    <th style="padding: 0.75rem 1rem; text-align: center;">Score</th>
+                    <th style="padding: 0.75rem 1rem; text-align: right;">Processed At</th>
+                  </tr>
+                </thead>
+                <tbody id="platform-scans-list">
+                  <tr>
+                    <td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading system telemetry logs...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2: User Directory View -->
+        <section class="admin-view-pane" id="view-user-directory">
+          <div class="admin-card-glass">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 0.25rem; color: #ffffff;">Platform User Accounts</h3>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;" id="user-count-label">Loading directory...</p>
+              </div>
+              <div style="position: relative;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="user-search" placeholder="Filter by name, email, or domain..." style="padding: 0.55rem 1rem 0.55rem 2.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 0.875rem; width: 320px; font-family: 'Outfit', sans-serif;">
+              </div>
+            </div>
+            
+            <div style="overflow-x: auto; width: 100%;">
+              <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 780px;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th style="padding: 0.75rem 1rem;">User Identity</th>
+                    <th style="padding: 0.75rem 1rem;">Joined Date</th>
+                    <th style="padding: 0.75rem 1rem;">Workspace Domain</th>
+                    <th style="padding: 0.75rem 1rem; text-align: center;">Analyses</th>
+                    <th style="padding: 0.75rem 1rem; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="user-directory-list">
+                  <tr>
+                    <td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-muted);">
+                      <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); opacity: 0.5; animation: spin 1.5s linear infinite;"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                        <span>Loading user directory from Firebase Auth...</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Quota Override Modal Drawer -->
+        <div class="quota-drawer-overlay" id="quota-drawer-overlay">
+          <div class="quota-drawer-panel">
+            <div class="quota-drawer-header">
+              <h3 id="quota-drawer-title">Manage Access</h3>
+              <button class="quota-drawer-close" id="quota-drawer-close" aria-label="Close drawer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+
+            <div class="quota-drawer-body">
+              <!-- Target user context display -->
+              <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <div class="user-avatar" id="drawer-user-avatar">?</div>
+                <div>
+                  <div style="font-weight: 600; color: #fff; font-size: 0.9rem;" id="drawer-user-name">—</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);" id="drawer-user-email">—</div>
+                </div>
+              </div>
+              <input type="hidden" id="drawer-user-uid" value="">
+
+              <!-- Account Tier Radio Switch Group -->
+              <div class="quota-field-group">
+                <span class="quota-field-label">Account Tier</span>
+                <div class="tier-radio-group">
+                  <div class="tier-radio-option">
+                    <input type="radio" name="drawer-tier" id="tier-free" value="free">
+                    <label for="tier-free">Free</label>
+                  </div>
+                  <div class="tier-radio-option">
+                    <input type="radio" name="drawer-tier" id="tier-pro" value="pro">
+                    <label for="tier-pro">Pro</label>
+                  </div>
+                  <div class="tier-radio-option">
+                    <input type="radio" name="drawer-tier" id="tier-enterprise" value="enterprise">
+                    <label for="tier-enterprise">Enterprise</label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Analysis Quota Capacity Counter -->
+              <div class="quota-field-group">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span class="quota-field-label">Analysis Quota Capacity</span>
+                  <span id="quota-slider-readout" style="font-size: 0.9rem; font-weight: 700; color: var(--rose);">25</span>
+                </div>
+                <input type="range" id="drawer-quota-slider" class="quota-slider-track" min="0" max="500" value="25">
+                <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                  <span>0 reports</span>
+                  <span>500 reports</span>
+                </div>
+              </div>
+
+              <!-- Domain Provisioning Override -->
+              <div class="quota-field-group">
+                <span class="quota-field-label">Domain Provisioning Override</span>
+                <input type="text" id="drawer-domain-input" class="quota-text-input" placeholder="e.g. techcorp.io">
+              </div>
+            </div>
+
+            <div class="quota-drawer-footer">
+              <button class="quota-drawer-close" id="quota-drawer-cancel" style="padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 600;">Cancel</button>
+              <button class="btn-apply-quota" id="btn-apply-quota">Apply Changes</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Report Audit Logs View -->
+        <section class="admin-view-pane" id="view-report-audit-logs">
+          <div class="admin-card-glass">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+              <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; color: #ffffff;">System Audit Trail</h3>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn-cta-secondary audit-filter-btn active" data-filter="all" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">ALL</button>
+                <button class="btn-cta-secondary audit-filter-btn" data-filter="info" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; color: var(--blue);">INFO</button>
+                <button class="btn-cta-secondary audit-filter-btn" data-filter="warn" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; color: var(--warning);">WARN</button>
+                <button class="btn-cta-secondary audit-filter-btn" data-filter="error" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; color: var(--danger);">ERROR</button>
+              </div>
+            </div>
+
+            <div style="background-color: rgba(3, 7, 18, 0.4); border-radius: var(--radius-md); border: 1px solid var(--border-color); overflow: hidden; font-family: 'Fira Code', monospace; font-size: 0.85rem; max-height: 480px; overflow-y: auto;">
+              <div id="audit-logs-terminal" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.65rem; line-height: 1.5;">
+                <div class="log-line info" style="color: #60a5fa;"><span style="color: var(--text-muted);">[2026-06-29 23:30:12]</span> <span style="background: rgba(59, 130, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">INFO</span> Express static server routed successfully from /client</div>
+                <div class="log-line info" style="color: #34d399;"><span style="color: var(--text-muted);">[2026-06-29 23:31:02]</span> <span style="background: rgba(16, 185, 129, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">SUCCESS</span> Firebase Realtime Database connections established.</div>
+                <div class="log-line warn" style="color: #fbbf24;"><span style="color: var(--text-muted);">[2026-06-29 23:33:45]</span> <span style="background: rgba(245, 158, 11, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">WARN</span> Rate Limiter check passed: IP 127.0.0.1 consumed 45/100 requests.</div>
+                <div class="log-line error" style="color: #f43f5e;"><span style="color: var(--text-muted);">[2026-06-29 23:35:19]</span> <span style="background: rgba(239, 68, 68, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">ERROR</span> Gemini AI prompt validation loop: sanitizing template stutter in DevOps schema.</div>
+                <div class="log-line info" style="color: #60a5fa;"><span style="color: var(--text-muted);">[2026-06-29 23:42:01]</span> <span style="background: rgba(59, 130, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">INFO</span> Dynamic VITE_ADMIN_EMAIL mapping script generated.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 4: Security Guardrails View -->
+        <section class="admin-view-pane" id="view-security-guardrails">
+          <div class="dashboard-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--spacing-24);">
+            
+            <!-- Rate limits card -->
+            <div class="admin-card-glass">
+              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+                <span>🛡️</span> API Protection Limits
+              </h3>
+              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.9rem;">
+                <li style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                  <span style="color: var(--text-muted);">General Rate Limit</span>
+                  <span style="font-weight: 600; color: #fff;">100 requests / min</span>
+                </li>
+                <li style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                  <span style="color: var(--text-muted);">Resume Upload Limit</span>
+                  <span style="font-weight: 600; color: #fff;">5 files / 5 min</span>
+                </li>
+                <li style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                  <span style="color: var(--text-muted);">AI Generation Window</span>
+                  <span style="font-weight: 600; color: #fff;">10 calls / hour</span>
+                </li>
+                <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem;">
+                  <span style="color: var(--text-muted);">Max JSON Body Size</span>
+                  <span style="font-weight: 600; color: #fff;">10 MB</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Environment checklist -->
+            <div class="admin-card-glass">
+              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+                <span>🔒</span> Security Checklist
+              </h3>
+              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.9rem;">
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: var(--emerald);">✓</span>
+                  <span style="color: var(--text-main);">Helmet Protection Headers Loaded</span>
+                </li>
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: var(--emerald);">✓</span>
+                  <span style="color: var(--text-main);">CORS Policy Whitelist active</span>
+                </li>
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: var(--emerald);">✓</span>
+                  <span style="color: var(--text-main);">Trust Proxy Headers Configured</span>
+                </li>
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: var(--emerald);">✓</span>
+                  <span style="color: var(--text-main);">Admin Role-Routing Guard Secured</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Admin credentials checklist -->
+            <div class="admin-card-glass">
+              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+                <span>⚙️</span> Control Actions
+              </h3>
+              <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.25rem;">Execute administrative maintenance operations. Requires active token authorization validation.</p>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button class="btn-cta-secondary" style="padding: 0.65rem 1rem; text-align: center;" onclick="alert('Telemetry cache cleared successfully!')">Clear System telemetry cache</button>
+                <button class="btn-cta-primary" style="padding: 0.65rem 1rem; text-align: center; background: var(--rose); border-color: var(--rose);" onclick="alert('Emergency Lock Mode activated! Standard access suspended.')">Emergency suspending standard routing</button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Sidebar toggle and tab routing script -->
+  <script type="module">
+    import { auth, isMockMode } from '../js/firebase-config.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Sidebar tab switching engine
+      const sidebarLinks = document.querySelectorAll('.admin-menu-link');
+      const viewPanes = document.querySelectorAll('.admin-view-pane');
+      const navbarTitle = document.getElementById('navbar-view-title');
+
+      sidebarLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const targetTab = link.getAttribute('data-tab');
+
+          // Toggle link active class
+          sidebarLinks.forEach(l => l.classList.remove('active'));
+          link.classList.add('active');
+
+          // Toggle view pane active class
+          viewPanes.forEach(pane => {
+            if (pane.id === `view-${targetTab}`) {
+              pane.classList.add('active');
+            } else {
+              pane.classList.remove('active');
+            }
+          });
+
+          // Update Top Control Navbar Title
+          navbarTitle.textContent = link.textContent.trim();
+
+          // Close mobile sidebar if open
+          closeMobileSidebar();
+        });
+      });
+
+      // 2. Responsive Mobile Hamburger triggers
+      const hamburgerBtn = document.getElementById('admin-hamburger-btn');
+      const sidebar = document.getElementById('admin-sidebar');
+      const overlay = document.getElementById('admin-sidebar-overlay');
+
+      if (hamburgerBtn && sidebar && overlay) {
+        hamburgerBtn.addEventListener('click', () => {
+          sidebar.classList.toggle('mobile-open');
+          overlay.classList.toggle('mobile-open');
+        });
+
+        overlay.addEventListener('click', closeMobileSidebar);
+      }
+
+      function closeMobileSidebar() {
+        if (sidebar && overlay) {
+          sidebar.classList.remove('mobile-open');
+          overlay.classList.remove('mobile-open');
+        }
+      }
+
+      // 3. Bind admin logout
+      const logoutBtn = document.getElementById('btn-admin-logout');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          try {
+            if (!isMockMode) {
+              await auth.signOut();
+            }
+            sessionStorage.clear();
+            const mockParam = isMockMode ? '?mock=true' : '';
+            window.location.href = `../index.html${mockParam}`;
+          } catch (err) {
+            console.error('Logout error:', err);
+          }
+        });
+      }
+
+      // 4. Audit Log Filter logic
+      const filterBtns = document.querySelectorAll('.audit-filter-btn');
+      const logLines = document.querySelectorAll('#audit-logs-terminal .log-line');
+
+      filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const filter = btn.getAttribute('data-filter');
+
+          logLines.forEach(line => {
+            if (filter === 'all' || line.classList.contains(filter)) {
+              line.style.display = 'block';
+            } else {
+              line.style.display = 'none';
+            }
+          });
+        });
+      });
+
+      // 5. User Directory Controller — fetch, render, search, manage access
+      let userDirectoryData = []; // cache for filtering
+
+      async function loadUserDirectory() {
+        try {
+          const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+          const res = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            userDirectoryData = data.users;
+            renderUserTable(userDirectoryData);
+          } else {
+            console.error('Failed to load users:', data.message);
+            renderUserTableFallback();
+          }
+        } catch (err) {
+          console.error('User directory fetch error:', err);
+          renderUserTableFallback();
+        }
+      }
+
+      function renderUserTableFallback() {
+        // If the API call fails, show empty state
+        const tbody = document.getElementById('user-directory-list');
+        if (!tbody) return;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-muted);">Unable to load user directory. Check server connectivity.</td></tr>`;
+        const countLabel = document.getElementById('user-count-label');
+        if (countLabel) countLabel.textContent = '0 accounts registered';
+      }
+
+      function escapeHTMLDir(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function getInitials(name) {
+        if (!name) return '?';
+        const parts = name.split(' ');
+        return parts.length >= 2
+          ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+          : name.substring(0, 2).toUpperCase();
+      }
+
+      function formatJoinDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        const now = new Date();
+        const diff = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+        const formatted = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        if (diff === 0) return `${formatted} (today)`;
+        if (diff === 1) return `${formatted} (yesterday)`;
+        return `${formatted} (${diff}d ago)`;
+      }
+
+      function renderUserTable(users) {
+        const tbody = document.getElementById('user-directory-list');
+        const countLabel = document.getElementById('user-count-label');
+        if (!tbody) return;
+
+        if (countLabel) countLabel.textContent = `${users.length} account${users.length !== 1 ? 's' : ''} registered`;
+
+        if (users.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-muted);">No user accounts found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = users.map(u => {
+          const initials = getInitials(u.displayName);
+          const avatarContent = u.photoURL
+            ? `<img src="${escapeHTMLDir(u.photoURL)}" alt="${escapeHTMLDir(u.displayName)}">`
+            : initials;
+          const tierClass = u.tier || 'free';
+
+          return `
+            <tr style="border-bottom: 1px solid var(--border-color);" class="admin-table-row"
+                data-uid="${escapeHTMLDir(u.uid)}"
+                data-name="${escapeHTMLDir(u.displayName)}"
+                data-email="${escapeHTMLDir(u.email)}"
+                data-tier="${escapeHTMLDir(tierClass)}"
+                data-quota="${u.quota ?? 25}"
+                data-domain="${escapeHTMLDir(u.domain || '')}">
+              <td style="padding: 0.85rem 1rem;">
+                <div class="user-identity-cell">
+                  <div class="user-avatar">${avatarContent}</div>
+                  <div class="user-identity-info">
+                    <span class="user-identity-name">${escapeHTMLDir(u.displayName)}</span>
+                    <span class="user-identity-email">${escapeHTMLDir(u.email)}</span>
+                  </div>
+                </div>
+              </td>
+              <td style="padding: 0.85rem 1rem; color: var(--text-muted); font-size: 0.85rem;">${formatJoinDate(u.createdAt)}</td>
+              <td style="padding: 0.85rem 1rem;">
+                <span style="color: var(--text-main); font-size: 0.85rem;">${escapeHTMLDir(u.domain || '—')}</span>
+                <span class="tier-badge ${tierClass}" style="margin-left: 0.5rem;">${tierClass}</span>
+              </td>
+              <td style="padding: 0.85rem 1rem; text-align: center;">
+                <span style="font-weight: 700; color: ${u.analysisCount > 0 ? 'var(--emerald)' : 'var(--text-muted)'}; font-size: 0.95rem;">${u.analysisCount}</span>
+              </td>
+              <td style="padding: 0.85rem 1rem; text-align: right;">
+                <button class="manage-access-btn" data-uid="${escapeHTMLDir(u.uid)}">Manage Access</button>
+              </td>
+            </tr>`;
+        }).join('');
+
+        // Bind Manage Access buttons
+        tbody.querySelectorAll('.manage-access-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const row = btn.closest('tr');
+            openQuotaDrawer({
+              uid: row.dataset.uid,
+              name: row.dataset.name,
+              email: row.dataset.email,
+              tier: row.dataset.tier,
+              quota: parseInt(row.dataset.quota, 10),
+              domain: row.dataset.domain
+            });
+          });
+        });
+      }
+
+      // Live search filter
+      const userSearch = document.getElementById('user-search');
+      if (userSearch) {
+        userSearch.addEventListener('input', () => {
+          const query = userSearch.value.toLowerCase().trim();
+          if (!query) {
+            renderUserTable(userDirectoryData);
+            return;
+          }
+          const filtered = userDirectoryData.filter(u =>
+            (u.displayName || '').toLowerCase().includes(query) ||
+            (u.email || '').toLowerCase().includes(query) ||
+            (u.domain || '').toLowerCase().includes(query)
+          );
+          renderUserTable(filtered);
+        });
+      }
+
+      // Quota Drawer Controller
+      const quotaOverlay = document.getElementById('quota-drawer-overlay');
+      const quotaClose = document.getElementById('quota-drawer-close');
+      const quotaCancel = document.getElementById('quota-drawer-cancel');
+      const quotaSlider = document.getElementById('drawer-quota-slider');
+      const quotaReadout = document.getElementById('quota-slider-readout');
+      const applyBtn = document.getElementById('btn-apply-quota');
+
+      function openQuotaDrawer(userData) {
+        document.getElementById('drawer-user-uid').value = userData.uid;
+        document.getElementById('drawer-user-name').textContent = userData.name;
+        document.getElementById('drawer-user-email').textContent = userData.email;
+        document.getElementById('drawer-user-avatar').textContent = getInitials(userData.name);
+        document.getElementById('drawer-domain-input').value = userData.domain || '';
+
+        // Set tier radio
+        const tierRadio = document.querySelector(`input[name="drawer-tier"][value="${userData.tier || 'free'}"]`);
+        if (tierRadio) tierRadio.checked = true;
+
+        // Set quota slider
+        if (quotaSlider) {
+          quotaSlider.value = userData.quota || 25;
+          if (quotaReadout) quotaReadout.textContent = userData.quota || 25;
+        }
+
+        if (quotaOverlay) quotaOverlay.classList.add('open');
+      }
+
+      function closeQuotaDrawer() {
+        if (quotaOverlay) quotaOverlay.classList.remove('open');
+      }
+
+      if (quotaClose) quotaClose.addEventListener('click', closeQuotaDrawer);
+      if (quotaCancel) quotaCancel.addEventListener('click', closeQuotaDrawer);
+      if (quotaOverlay) {
+        quotaOverlay.addEventListener('click', (e) => {
+          if (e.target === quotaOverlay) closeQuotaDrawer();
+        });
+      }
+
+      // Quota slider readout sync
+      if (quotaSlider && quotaReadout) {
+        quotaSlider.addEventListener('input', () => {
+          quotaReadout.textContent = quotaSlider.value;
+        });
+      }
+
+      // Apply Changes submission
+      if (applyBtn) {
+        applyBtn.addEventListener('click', async () => {
+          const uid = document.getElementById('drawer-user-uid').value;
+          const tierEl = document.querySelector('input[name="drawer-tier"]:checked');
+          const tier = tierEl ? tierEl.value : 'free';
+          const quota = parseInt(quotaSlider.value, 10);
+          const domain = document.getElementById('drawer-domain-input').value.trim();
+
+          applyBtn.disabled = true;
+          applyBtn.textContent = 'Applying...';
+
+          try {
+            const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+            const res = await fetch(`/api/admin/users/${uid}/quota`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${idToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ tier, quota, domain })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+              // Update local cache
+              const user = userDirectoryData.find(u => u.uid === uid);
+              if (user) {
+                user.tier = tier;
+                user.quota = quota;
+                user.domain = domain;
+              }
+              // Re-render and close
+              renderUserTable(userDirectoryData);
+              closeQuotaDrawer();
+            } else {
+              alert(`Error: ${data.message || 'Failed to apply changes.'}`);
+            }
+          } catch (err) {
+            console.error('Quota update error:', err);
+            alert('Network error while applying changes.');
+          } finally {
+            applyBtn.disabled = false;
+            applyBtn.textContent = 'Apply Changes';
+          }
+        });
+      }
+
+      // Load user directory on init
+      loadUserDirectory();
+
+      // 6. Interactive Live Engine Simulation Sandbox Logic
+      const uploadsSlider = document.getElementById('sim-active-uploads');
+      const coresSlider = document.getElementById('sim-worker-cores');
+      const uploadsValue = document.getElementById('slider-uploads-value');
+      const coresValue = document.getElementById('slider-cores-value');
+      const loadRatioVal = document.getElementById('sim-load-ratio');
+      const responseLatencyVal = document.getElementById('sim-response-latency');
+      const warningLight = document.getElementById('sim-warning-light');
+      const statusTitle = document.getElementById('sim-status-title');
+      const coresGrid = document.getElementById('sim-cores-grid');
+      const logTerminal = document.getElementById('sim-log-terminal');
+
+      // KPIs elements on Platform Operations
+      const kpiPipelineQueue = document.getElementById('kpi-pipeline-queue');
+      const kpiActiveNodes = document.getElementById('kpi-active-nodes');
+
+      if (uploadsSlider && coresSlider) {
+        const updateSimulation = () => {
+          const uploads = parseInt(uploadsSlider.value);
+          const cores = parseInt(coresSlider.value);
+
+          // Update sliders label display
+          uploadsValue.textContent = uploads;
+          coresValue.textContent = `${cores} core${cores > 1 ? 's' : ''}`;
+
+          // Calculation Ratio (Load Index)
+          const loadRatio = (uploads / cores).toFixed(2);
+          // Latency Calculation (0.5s baseline + 0.15s per ratio unit)
+          const latency = (0.5 + 0.15 * parseFloat(loadRatio)).toFixed(2);
+
+          loadRatioVal.textContent = loadRatio;
+          responseLatencyVal.textContent = `${latency}s`;
+
+          // Is warning threshold crossed?
+          const isWarning = parseFloat(loadRatio) > 6.0;
+
+          // Update light status indicator and title
+          if (isWarning) {
+            warningLight.className = 'warning-light-saturated';
+            statusTitle.textContent = 'Pipeline Status: Saturated (Backpressure)';
+            statusTitle.style.color = 'var(--danger)';
+          } else {
+            warningLight.className = 'warning-light-resting';
+            statusTitle.textContent = 'Pipeline Status: Optimal';
+            statusTitle.style.color = '#ffffff';
+          }
+
+          // Sync KPIs with simulation values for high fidelity dynamic feedback
+          if (kpiPipelineQueue) {
+            kpiPipelineQueue.textContent = uploads;
+          }
+          if (kpiActiveNodes) {
+            kpiActiveNodes.textContent = `${cores} active`;
+          }
+
+          // Render thread cores grid
+          coresGrid.innerHTML = '';
+          for (let i = 1; i <= 16; i++) {
+            const coreDiv = document.createElement('div');
+            coreDiv.className = `core-node ${i <= cores ? (isWarning ? 'active-saturated' : 'active-resting') : 'inactive'}`;
+            coreDiv.textContent = `C${i}`;
+            coresGrid.appendChild(coreDiv);
+          }
+
+          // Prepend logs to log terminal
+          const now = new Date();
+          const timestamp = now.toTimeString().split(' ')[0];
+          const logMsg = document.createElement('div');
+          
+          if (isWarning) {
+            logMsg.innerHTML = `<span style="color: var(--text-muted);">[${timestamp}]</span> <span style="color: var(--danger); font-weight: 700;">WARN</span> Ratio: ${loadRatio} | Latency: ${latency}s | Backpressure trigger`;
+          } else {
+            logMsg.innerHTML = `<span style="color: var(--text-muted);">[${timestamp}]</span> <span style="color: var(--emerald);">OK</span> Ratio: ${loadRatio} | Latency: ${latency}s | Normal operation`;
+          }
+          
+          logTerminal.insertBefore(logMsg, logTerminal.firstChild);
+
+          // Truncate logs to keep it clean (max 15 lines)
+          while (logTerminal.children.length > 15) {
+            logTerminal.removeChild(logTerminal.lastChild);
+          }
+        };
+
+        // Bind event listeners to range inputs
+        uploadsSlider.addEventListener('input', updateSimulation);
+        coresSlider.addEventListener('input', updateSimulation);
+
+        // Run once initially to populate
+        updateSimulation();
+      }
+    });
+  </script>
+</body>
+</html>

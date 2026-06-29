@@ -73,6 +73,8 @@ const config = {
   },
   
   ALLOW_MOCK_AUTH: process.env.ALLOW_MOCK_AUTH === 'true',
+  VITE_ADMIN_EMAIL: process.env.VITE_ADMIN_EMAIL || 'admin@resumetrices.com',
+  
   
   AI: {
     MODEL_ID: process.env.AI_MODEL || process.env.OPENROUTER_MODEL_ID || 'nvidia/nemotron-3-ultra-550b-a55b:free',

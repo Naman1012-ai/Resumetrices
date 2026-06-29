@@ -106,6 +106,28 @@ document.addEventListener('DOMContentLoaded', () => {
       if (avatarDropdownBtn) {
         avatarDropdownBtn.textContent = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
       }
+
+      // Dynamically add Admin Console link for administrators
+      const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
+      if (user && user.email === adminEmail) {
+        let adminLink = document.getElementById('dropdown-admin-link');
+        if (!adminLink && avatarDropdownMenu) {
+          adminLink = document.createElement('a');
+          adminLink.id = 'dropdown-admin-link';
+          adminLink.href = `/admin/dashboard${mockParam ? '?' + mockParam : ''}`;
+          adminLink.className = 'dropdown-item';
+          adminLink.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 0.75rem; color: var(--rose, #f43f5e); text-decoration: none; font-size: 0.85rem; font-weight: 700; border-radius: var(--radius-md); transition: var(--transition-fast);';
+          adminLink.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+            Admin Console
+          `;
+          
+          const dropdownHeader = avatarDropdownMenu.querySelector('.dropdown-header');
+          if (dropdownHeader) {
+            dropdownHeader.after(adminLink);
+          }
+        }
+      }
     });
   }
 

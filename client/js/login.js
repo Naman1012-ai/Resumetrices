@@ -66,12 +66,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Handle redirect pathing post-auth
   function redirectUser() {
-    const pendingFile = sessionStorage.getItem('pendingFileBase64');
+    const user = auth.currentUser;
+    const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
     const mockParam = isMockMode ? '?mock=true' : '';
+    const mockQuery = mockParam ? (mockParam.startsWith('?') ? mockParam : '?' + mockParam) : '';
+
+    if (user && user.email === adminEmail) {
+      window.location.href = `/admin/dashboard${mockQuery}`;
+      return;
+    }
+
+    const pendingFile = sessionStorage.getItem('pendingFileBase64');
     if (pendingFile) {
-      window.location.href = `new-analysis.html${mockParam}`;
+      window.location.href = `new-analysis.html${mockQuery}`;
     } else {
-      window.location.href = `dashboard.html${mockParam}`;
+      window.location.href = `/dashboard${mockQuery}`;
     }
   }
 
@@ -94,6 +103,23 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (isMockMode) {
         showToast('Login successful (Mock Mode)!');
+        const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
+        if (email === adminEmail) {
+          Object.defineProperty(auth, 'currentUser', {
+            get() {
+              return {
+                uid: 'mock-admin-uid',
+                email: email,
+                displayName: 'Admin User',
+                photoURL: null,
+                metadata: { creationTime: 'Wed, 25 Jun 2026 00:00:00 GMT' },
+                providerData: [{ providerId: 'google.com', email: email }],
+                getIdToken: async () => 'mock_token'
+              };
+            },
+            configurable: true
+          });
+        }
         setTimeout(redirectUser, 500);
         return;
       }
@@ -146,3 +172,4 @@ document.addEventListener('DOMContentLoaded', () => {
     signupLink.href = 'signup.html?mock=true';
   }
 });
+

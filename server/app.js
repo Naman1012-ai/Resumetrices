@@ -62,11 +62,32 @@ app.use(cors({
 app.use(express.json({ limit: constants.BODY_LIMITS.JSON_MAX_SIZE }));
 app.use(express.urlencoded({ extended: true, limit: constants.BODY_LIMITS.JSON_MAX_SIZE }));
 
+// Expose environment variables to static frontend client
+app.get('/env-config.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.send(`window.process = { env: { VITE_ADMIN_EMAIL: ${JSON.stringify(env.VITE_ADMIN_EMAIL)} } };`);
+});
+
 // Serve client-side static files (HTML, CSS, JS) from client directory
 app.use(express.static(path.join(__dirname, '../client')));
 
+
+const adminRoutes = require('./routes/adminRoutes');
+
+// Page Routes (Direct browser address bar entry mapping)
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dashboard.html'));
+});
+
+app.get('/admin/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/admin/dashboard.html'));
+});
+
 // API Routes
 app.use('/api', resumeRoutes);
+app.use('/api/admin', adminRoutes);
+
+
 
 // Health check endpoint for testing server status
 app.get('/api/health', (req, res) => {
