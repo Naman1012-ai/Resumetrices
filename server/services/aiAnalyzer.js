@@ -980,14 +980,31 @@ const getMockInterviewQuestions = (targetRole = 'Software Engineer', detectedSki
     }
   }
 
-  const gaps = missingSkills.length > 0 ? missingSkills : ['Docker', 'CI/CD Pipelines', 'Kubernetes'];
-  const gapQuestions = [
-    `Explain the difference between a virtual machine and a container like ${gaps[0] || 'Docker'}.`,
-    `How would you design a robust ${gaps[1] || 'CI/CD'} pipeline from code commit to cloud deployment?`,
-    `What are the advantages of container orchestration tools like ${gaps[2] || 'Kubernetes'} in microservice architectures?`,
-    `How do you manage configuration secrets and environment-specific parameters in a containerized environment?`,
-    `Explain how you would monitor and debug container failures in production.`
-  ];
+  let gapQuestions = [];
+  if (role.includes('product') || role.includes('pm') || role.includes('management')) {
+    gapQuestions = [
+      "How do you define product strategy and align it with the overall business objectives?",
+      "Explain your framework for roadmap prioritization (e.g., RICE or Kano model) and how you make trade-offs.",
+      "How do you design user research and leverage metrics (such as retention, conversion) to guide product iterations?",
+      "Describe your approach to managing the product lifecycle from initial discovery to launch and eventual sunset.",
+      "How do you lead cross-functional teams (UX design, engineering, business stakeholders) without direct authority?"
+    ];
+  } else {
+    const gaps = missingSkills.length > 0 ? missingSkills : ['Docker', 'CI/CD Pipelines', 'Kubernetes'];
+    
+    const sanitizePipelineName = (str) => {
+      if (!str) return 'CI/CD';
+      return str.replace(/\s+pipelines?$/i, '').trim();
+    };
+
+    gapQuestions = [
+      `Explain the difference between a virtual machine and a container like ${gaps[0] || 'Docker'}.`,
+      `How would you design a robust ${sanitizePipelineName(gaps[1] || 'CI/CD')} pipeline from code commit to cloud deployment?`,
+      `What are the advantages of container orchestration tools like ${gaps[2] || 'Kubernetes'} in microservice architectures?`,
+      `How do you manage configuration secrets and environment-specific parameters in a containerized environment?`,
+      `Explain how you would monitor and debug container failures in production.`
+    ];
+  }
 
   const behavioral = [
     "Describe a time when you had to work with a teammate who had a very different technical perspective. How did you resolve the conflict?",
@@ -1462,6 +1479,11 @@ const generateInterviewQuestions = async (resumeText, atsAnalysis = null, detect
   const requestId = `iq_${crypto.randomUUID()}`;
   const timestamp = new Date().toISOString();
   
+  const isPM = (targetRole || '').toLowerCase().includes('product') || (targetRole || '').toLowerCase().includes('pm');
+  const pmInstructions = isPM 
+    ? `\n\n[CRITICAL OVERRIDE]: The user's active target role is explicitly set to 'Product Manager'. You must immediately stop generating questions about infrastructure, code compilation, container orchestration, or production debugging (such as the content in image_d9aa17_2.png). Instead, strictly generate 5 high-impact questions focused on core Product Management domains: Product Strategy, Roadmap Prioritization (e.g., RICE framework), User Research/Metrics, Product Lifecycle Management, and Cross-functional Leadership (UX, Engineering, and Business).`
+    : '';
+
   const systemPrompt = isStandalone
     ? `You are an expert technical interviewer and talent evaluator.
 Generate exactly 25 customized interview questions (exactly 5 in each of the 5 categories) purely tailored to the target role: "${targetRole || 'Software Engineer'}" based strictly on its industry standards.
@@ -1486,7 +1508,7 @@ You must return ONLY a valid JSON object containing these exact keys:
 - "hrQuestions": array of strings (the questions)
 - "gradingRubric": array of objects { category: string, criteria: string, excellentScoreGuidelines: string } (generate exactly 5 objects matching the 5 categories of questions above)
 
-Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }`
+Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }${pmInstructions}`
     : `You are an expert technical interviewer and talent evaluator.
 
 Analyze the candidate's resume content, specifically focusing on their skills, projects, education, and work experience, along with their target role and detected skill gaps.
@@ -1512,7 +1534,7 @@ You must return ONLY a valid JSON object containing these exact keys:
 - "hrQuestions": array of strings (the questions)
 - "gradingRubric": array of objects { category: string, criteria: string, excellentScoreGuidelines: string } (generate exactly 5 objects matching the 5 categories of questions above)
 
-Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }`;
+Do not include any preamble, introduction, markdown code block backticks (like \`\`\`json), or trailing notes. The response must start with { and end with }${pmInstructions}`;
 
   const userContent = `Target Role: ${targetRole || 'Software Engineer'}\n` +
     `Entropy/Seed Token: ${requestId}_${timestamp}\n` +

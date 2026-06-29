@@ -204,54 +204,59 @@ document.addEventListener('DOMContentLoaded', () => {
   // Dynamically inject report sub-navigation tabs if on a report page
   const reportHeader = document.querySelector('.report-header-bar');
   if (reportHeader) {
-    const activeIdVal = urlParams.get('id') || sessionStorage.getItem('activeAnalysisId');
-    const isMock = urlParams.get('mock') === 'true';
-    const mockQuery = isMock ? '&mock=true' : '';
+    const activeReportId = urlParams.get('id');
+    const hasActiveReportContext = !!activeReportId;
     
-    const subTabs = document.createElement('div');
-    subTabs.className = 'report-sub-tabs';
-    subTabs.style.cssText = 'display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem; padding-bottom: 0.5rem; overflow-x: auto; white-space: nowrap; width: 100%;';
-    
-    const currentFile = window.location.pathname.split('/').pop() || 'analysis.html';
-    
-    const tabsConfig = [
-      { id: 'overview', name: 'Analysis Overview', file: 'analysis.html' },
-      { id: 'skillgap', name: 'Skill Gaps', file: 'skill-gap.html' },
-      { id: 'interview', name: 'Interview Prep', file: 'interview.html' },
-      { id: 'roadmap', name: 'Career Roadmap', file: 'roadmap.html' }
-    ];
-    
-    tabsConfig.forEach(tab => {
-      const link = document.createElement('a');
-      link.className = 'report-sub-tab';
-      link.href = activeIdVal ? `${tab.file}?id=${activeIdVal}${mockQuery}` : `${tab.file}${isMock ? '?mock=true' : ''}`;
-      link.textContent = tab.name;
+    if (hasActiveReportContext) {
+      const activeIdVal = activeReportId || sessionStorage.getItem('activeAnalysisId');
+      const isMock = urlParams.get('mock') === 'true';
+      const mockQuery = isMock ? '&mock=true' : '';
       
-      link.style.cssText = 'padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 0.9rem; border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer;';
+      const subTabs = document.createElement('div');
+      subTabs.className = 'report-sub-tabs';
+      subTabs.style.cssText = 'display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem; padding-bottom: 0.5rem; overflow-x: auto; white-space: nowrap; width: 100%;';
       
-      link.addEventListener('mouseenter', () => {
-        if (!link.classList.contains('active')) {
-          link.style.color = 'var(--text-main)';
-          link.style.borderBottomColor = 'rgba(16, 185, 129, 0.3)';
+      const currentFile = window.location.pathname.split('/').pop() || 'analysis.html';
+      
+      const tabsConfig = [
+        { id: 'overview', name: 'Analysis Overview', file: 'analysis.html' },
+        { id: 'skillgap', name: 'Skill Gaps', file: 'skill-gap.html' },
+        { id: 'interview', name: 'Interview Prep', file: 'interview.html' },
+        { id: 'roadmap', name: 'Career Roadmap', file: 'roadmap.html' }
+      ];
+      
+      tabsConfig.forEach(tab => {
+        const link = document.createElement('a');
+        link.className = 'report-sub-tab';
+        link.href = activeIdVal ? `${tab.file}?id=${activeIdVal}${mockQuery}` : `${tab.file}${isMock ? '?mock=true' : ''}`;
+        link.textContent = tab.name;
+        
+        link.style.cssText = 'padding: 0.5rem 1rem; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 0.9rem; border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer;';
+        
+        link.addEventListener('mouseenter', () => {
+          if (!link.classList.contains('active')) {
+            link.style.color = 'var(--text-main)';
+            link.style.borderBottomColor = 'rgba(16, 185, 129, 0.3)';
+          }
+        });
+        link.addEventListener('mouseleave', () => {
+          if (!link.classList.contains('active')) {
+            link.style.color = 'var(--text-muted)';
+            link.style.borderBottomColor = 'transparent';
+          }
+        });
+        
+        if (currentFile.includes(tab.file)) {
+          link.classList.add('active');
+          link.style.color = 'var(--emerald)';
+          link.style.borderBottomColor = 'var(--emerald)';
         }
-      });
-      link.addEventListener('mouseleave', () => {
-        if (!link.classList.contains('active')) {
-          link.style.color = 'var(--text-muted)';
-          link.style.borderBottomColor = 'transparent';
-        }
+        
+        subTabs.appendChild(link);
       });
       
-      if (currentFile.includes(tab.file)) {
-        link.classList.add('active');
-        link.style.color = 'var(--emerald)';
-        link.style.borderBottomColor = 'var(--emerald)';
-      }
-      
-      subTabs.appendChild(link);
-    });
-    
-    reportHeader.after(subTabs);
+      reportHeader.after(subTabs);
+    }
   }
 
   // Hamburger toggles for mobile menu drawer with mobile-open/sidebar-open classes & overlay

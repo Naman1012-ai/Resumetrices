@@ -441,7 +441,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="action-btn-row">
               <button class="btn-table-action view view-insights-btn" data-id="${item.analysisId}">View Insights</button>
               <button class="btn-table-action rename-btn" data-id="${item.analysisId}" data-name="${item.resumeName || ''}">Rename</button>
-              <button class="btn-table-action delete delete-btn" data-id="${item.analysisId}">Delete</button>
             </div>
           </td>
         `;

@@ -32,7 +32,8 @@
 
 .action-btn-row {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+  align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
