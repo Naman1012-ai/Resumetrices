@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Email - Resumetrices</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="/env-config.js"></script>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--bg-primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-box-standalone" style="width: 100%; max-width: 440px; padding: 2.5rem 2rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); backdrop-filter: blur(12px); text-align: center;">
+    
+    <div style="margin-bottom: 1.5rem; display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: var(--emerald);">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+        <polyline points="22,6 12,13 2,6"></polyline>
+      </svg>
+    </div>
+
+    <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">Verify Your Email</h2>
+    <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1.5rem;">
+      We sent a verification link to <strong id="verify-email-display" style="color: var(--text-main);">-</strong>.<br>
+      Please click the link in your inbox to unlock your account.
+    </p>
+
+    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+      <button id="btn-resend-verification" class="btn-primary" style="width: 100%; padding: 0.75rem; font-weight: 700;">
+        Resend Verification Email
+      </button>
+      <button id="btn-verify-signout" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); color: var(--text-main); font-weight: 600; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;">
+        Sign Out &amp; Return
+      </button>
+    </div>
+
+    <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+      Waiting for verification... Once verified, this page will redirect automatically.
+    </p>
+  </div>
+
+  <script type="module" src="js/verify-email.js"></script>
+</body>
+</html>
