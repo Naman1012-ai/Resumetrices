@@ -552,6 +552,12 @@ button,
   box-sizing: border-box;
 }
 
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   background-color: var(--bg-primary);
@@ -563,7 +569,6 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5 {
@@ -3506,6 +3511,10 @@ body::-webkit-scrollbar-track {
 .history-card-score-value.high { color: var(--emerald); }
 .history-card-score-value.medium { color: var(--blue); }
 .history-card-score-value.low { color: var(--rose); }
+.history-card-score-value.critical { color: #f43f5e; }
+.history-card-score-value.moderate { color: #f59e0b; }
+.history-card-score-value.strong { color: #06b6d4; }
+.history-card-score-value.extreme { color: #10b981; }
 
 .history-card-level {
   font-size: 0.75rem;
@@ -3517,6 +3526,10 @@ body::-webkit-scrollbar-track {
 .history-card-level.high { color: var(--emerald); }
 .history-card-level.medium { color: var(--blue); }
 .history-card-level.low { color: var(--rose); }
+.history-card-level.critical { color: #f43f5e; }
+.history-card-level.moderate { color: #f59e0b; }
+.history-card-level.strong { color: #06b6d4; }
+.history-card-level.extreme { color: #10b981; }
 
 .history-card-badge {
   font-size: 0.7rem;
@@ -3543,6 +3556,30 @@ body::-webkit-scrollbar-track {
   background: rgba(244, 63, 94, 0.08);
   border: 1px solid rgba(244, 63, 94, 0.2);
   color: var(--rose);
+}
+
+.history-card-badge.critical {
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+
+.history-card-badge.moderate {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.history-card-badge.strong {
+  background: rgba(6, 182, 212, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: #06b6d4;
+}
+
+.history-card-badge.extreme {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
 }
 
 .history-card-actions {
@@ -5631,6 +5668,87 @@ textarea:focus-visible {
   border-color: var(--emerald) !important;
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25) !important;
   background-color: rgba(16, 185, 129, 0.05) !important;
+}
+
+/* Master Footnote Footer Styles */
+.master-footnote-footer {
+  border-top: 1px solid var(--border-color, rgba(148, 163, 184, 0.12));
+  margin-top: 3rem;
+  padding: 24px 0px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.master-footnote-footer .footer-links-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: rgba(148, 163, 184, 0.2);
+}
+
+.master-footnote-footer a {
+  color: var(--text-muted, #94a3b8);
+  text-decoration: none;
+  transition: all 150ms ease;
+  font-weight: 600;
+}
+
+.master-footnote-footer a:hover {
+  color: #ffffff !important;
+  text-decoration: underline !important;
+}
+
+@media (max-width: 768px) {
+  .master-footnote-footer {
+    flex-direction: column;
+    text-align: center;
+    padding: 24px 16px;
+  }
+  
+  .master-footnote-footer .footer-links-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .master-footnote-footer .footer-links-row span {
+    display: none;
+  }
+}
+
+/* Responsive Scroll Layer for Complex Data Tables */
+.table-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  /* Scale down heavy font headings */
+  h1 {
+    font-size: 1.85rem !important;
+  }
+  h2, .dashboard-welcome-card h2, .welcome-card-content h2 {
+    font-size: 1.4rem !important;
+  }
+  h3, .panel-title {
+    font-size: 1.15rem !important;
+  }
+  
+  /* Minimize dense padding on grid containers */
+  .panel, .admin-card-glass, .dashboard-welcome-card {
+    padding: 12px !important;
+  }
+  
+  /* Stack stats grid fully on mobile */
+  .dashboard-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 

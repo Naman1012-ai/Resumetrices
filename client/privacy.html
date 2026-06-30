@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Resumetrices</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="/env-config.js"></script>
+</head>
+<body>
+
+  <!-- Premium Header -->
+  <header class="app-header" style="position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color, #1e293b); background: rgba(10, 15, 29, 0.8);">
+    <div class="header-container" style="max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <a href="index.html" class="logo-link" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
+          <img src="logo.png" alt="Resumetrices Logo" style="height: 32px; width: 32px; object-fit: contain;">
+          <span class="logo-text" style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">Resumetrices</span>
+        </a>
+      </div>
+      <div>
+        <button id="btn-back-nav" style="
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--border-color, #1e293b);
+          border-radius: var(--radius-md, 8px);
+          color: var(--text-main, #ffffff);
+          padding: 0.55rem 1.1rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: 'Outfit', sans-serif;
+        ">← Back</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Privacy Content -->
+  <main style="max-width: 800px; margin: 3rem auto; padding: 0 1.5rem; min-height: 70vh;">
+    <article class="admin-card-glass" style="padding: 2.5rem; background: var(--bg-card, #0f172a); border: 1px solid var(--border-color, #1e293b); border-radius: var(--radius-xl, 16px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);">
+      
+      <header style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color, #1e293b); padding-bottom: 1.5rem;">
+        <h1 style="font-family: 'Outfit', sans-serif; font-size: 2.25rem; font-weight: 800; color: #ffffff; margin: 0 0 0.5rem 0; letter-spacing: -0.03em;">Privacy Policy</h1>
+        <p style="color: var(--text-muted, #94a3b8); font-size: 0.9rem; margin: 0;">Effective Date: July 1, 2026</p>
+      </header>
+
+      <div style="font-size: 0.95rem; line-height: 1.7; color: var(--text-muted, #94a3b8); display: flex; flex-direction: column; gap: 1.75rem;">
+        <p>
+          Welcome to Resumetrices. We respect your privacy and are committed to protecting the personal data you share with us. This Privacy Policy explains how we collect, use, store, and safeguard your information when you use our web application.
+        </p>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">1. Information We Collect</h2>
+          <p style="margin-bottom: 1rem;">
+            We only collect information that is necessary to provide, secure, and improve our resume intelligence services.
+          </p>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li>
+              <strong style="color: #ffffff;">Account Information:</strong> When you register an account, we collect your email address. This is authenticated and managed securely via our third-party authentication services (including Google OAuth and Firebase Authentication).
+            </li>
+            <li>
+              <strong style="color: #ffffff;">Uploaded Documents:</strong> We collect the text and files you upload to our platform (such as resumes, CVs, and cover letters). These files may contain personal details including your full name, contact information, phone number, physical address, and employment history.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">System Telemetry:</strong> We collect basic platform metrics, such as total reports executed and performance scores, to populate your administrative and user dashboards.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">2. How We Use Your Information</h2>
+          <p style="margin-bottom: 0.5rem;">
+            We use the collected data strictly for the following purposes:
+          </p>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li>To authenticate your identity and provide secure access to your private dashboard.</li>
+            <li>To process and analyze your resume against job metrics to generate your ATS compatibility scores and feedback reports.</li>
+            <li>To send critical transactional notifications, such as email verification links and password reset requests.</li>
+            <li>To allow system administrators to troubleshoot platform errors and manage system usage.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">3. Data Processing and Third-Party AI Services</h2>
+          <p style="margin-bottom: 0.5rem;">
+            To provide our resume analysis features, Resumetrices utilizes secure, third-party artificial intelligence language models (including APIs provided by OpenAI and Anthropic).
+          </p>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li>
+              <strong style="color: #ffffff;">Data Masking & Transmission:</strong> Only the text content extracted from your uploaded resume is transmitted to these third-party APIs for analysis.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">No AI Training:</strong> In accordance with our commercial API agreements, your data is strictly processed to generate your report and is never used by third parties to train public or proprietary machine learning models.
+            </li>
+          </ul>
+          <p style="margin-top: 1rem;">
+            We do not sell, rent, or trade your personal data or uploaded documents to third-party advertisers.
+          </p>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">4. Data Retention and Your Right to Deletion</h2>
+          <p style="margin-bottom: 0.5rem;">
+            We believe you should have absolute control over your digital footprint.
+          </p>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li>
+              <strong style="color: #ffffff;">Storage:</strong> Your profile details and generated analysis reports are stored securely in our cloud database infrastructure.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">Permanent Wiping:</strong> You have the right to delete your account at any time through your Profile Settings workspace. Executing the "Delete Account" command initiates a permanent database sweep that completely obliterates your custom analyses, settings, profile details, and authentication records from our active servers. This action is absolute and cannot be undone.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">5. Security Guardrails</h2>
+          <p>
+            We implement industry-standard administrative and technical security measures to protect your data from unauthorized access, loss, or alteration. This includes enforcing strict backend route guards, verifying user authorization headers on all API endpoint calls, and requiring verified email sessions for dashboard access.
+          </p>
+          <p style="margin-top: 0.75rem;">
+            However, please remember that no method of transmission over the internet or electronic storage is 100% secure, and we cannot guarantee absolute security.
+          </p>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">6. Updates to This Policy</h2>
+          <p>
+            We may update our Privacy Policy from time to time to reflect structural changes to our platform or evolving legal standards. We will notify you of any material changes by posting the new policy on this page with an updated effective date.
+          </p>
+        </section>
+
+        <section style="border-top: 1px solid var(--border-color, #1e293b); padding-top: 1.5rem;">
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">7. Contact Us</h2>
+          <p>
+            If you have any questions or concerns regarding this Privacy Policy or your data rights, please contact us at: <a href="mailto:support.resumetrices@gmail.com" style="color: var(--emerald, #10b981); text-decoration: none; font-weight: 600;">support.resumetrices@gmail.com</a>
+          </p>
+        </section>
+      </div>
+
+    </article>
+  </main>
+
+  <!-- Footer -->
+  <footer style="border-top: 1px solid var(--border-color, #1e293b); padding: 2rem 0; text-align: center; color: var(--text-muted, #94a3b8); font-size: 0.85rem;">
+    <p>&copy; 2026 Resumetrices. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Reveal Document once CSS is processed
+    document.documentElement.style.visibility = 'visible';
+
+    // Interactive safe back navigation
+    const btnBackNav = document.getElementById('btn-back-nav');
+    if (btnBackNav) {
+      // Set label context based on referrer
+      if (document.referrer && document.referrer.includes('/admin/')) {
+        btnBackNav.textContent = '← Back to Dashboard';
+      } else if (document.referrer && document.referrer.includes('/dashboard')) {
+        btnBackNav.textContent = '← Back to Dashboard';
+      } else {
+        btnBackNav.textContent = '← Back to Home';
+      }
+
+      btnBackNav.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (document.referrer && document.referrer.includes(window.location.host)) {
+          window.history.back();
+        } else {
+          window.location.href = 'index.html';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

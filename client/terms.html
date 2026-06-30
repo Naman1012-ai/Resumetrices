@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service - Resumetrices</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="/env-config.js"></script>
+</head>
+<body>
+
+  <!-- Premium Header -->
+  <header class="app-header" style="position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color, #1e293b); background: rgba(10, 15, 29, 0.8);">
+    <div class="header-container" style="max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <a href="index.html" class="logo-link" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
+          <img src="logo.png" alt="Resumetrices Logo" style="height: 32px; width: 32px; object-fit: contain;">
+          <span class="logo-text" style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">Resumetrices</span>
+        </a>
+      </div>
+      <div>
+        <button id="btn-back-nav" style="
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--border-color, #1e293b);
+          border-radius: var(--radius-md, 8px);
+          color: var(--text-main, #ffffff);
+          padding: 0.55rem 1.1rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: 'Outfit', sans-serif;
+        ">← Back</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Terms Content -->
+  <main style="max-width: 800px; margin: 3rem auto; padding: 0 1.5rem; min-height: 70vh;">
+    <article class="admin-card-glass" style="padding: 2.5rem; background: var(--bg-card, #0f172a); border: 1px solid var(--border-color, #1e293b); border-radius: var(--radius-xl, 16px); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);">
+      
+      <header style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color, #1e293b); padding-bottom: 1.5rem;">
+        <h1 style="font-family: 'Outfit', sans-serif; font-size: 2.25rem; font-weight: 800; color: #ffffff; margin: 0 0 0.5rem 0; letter-spacing: -0.03em;">Terms of Service</h1>
+        <p style="color: var(--text-muted, #94a3b8); font-size: 0.9rem; margin: 0;">Effective Date: July 1, 2026</p>
+      </header>
+
+      <div style="font-size: 0.95rem; line-height: 1.7; color: var(--text-muted, #94a3b8); display: flex; flex-direction: column; gap: 1.75rem;">
+        <p>
+          Welcome to Resumetrices. By accessing or using our web application, you agree to be bound by these Terms of Service ("Terms"). Please read them carefully before using the platform.
+        </p>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">1. Acceptance of Terms</h2>
+          <p>
+            By creating an account, uploading documents, or otherwise utilizing the services provided by Resumetrices, you confirm that you have read, understood, and agree to comply with these Terms. If you do not agree to these Terms, you are prohibited from using the platform.
+          </p>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">2. Account Registration and Security</h2>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li>
+              <strong style="color: #ffffff;">User Eligibility:</strong> You must provide a valid email address through our authorized authentication channels (including Google OAuth and Firebase Authentication).
+            </li>
+            <li>
+              <strong style="color: #ffffff;">Verification Guardrails:</strong> To protect platform integrity, full access to the user dashboard is strictly contingent upon successful email verification. Unverified accounts may be restricted from executing analyses.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">Account Responsibility:</strong> You are entirely responsible for maintaining the confidentiality of your session credentials and for all activities that occur under your account.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">3. Acceptable Use and Platform Restrictions</h2>
+          <p style="margin-bottom: 0.5rem;">
+            You agree that you will not use Resumetrices to:
+          </p>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li>Upload documents containing malicious code, viruses, or corrupted data designed to disrupt our server infrastructure.</li>
+            <li>Attempt to scrape, reverse-engineer, or systematically exploit our backend scoring metrics and report generation pipelines.</li>
+            <li>Submit fraudulent, deceptive, or intentionally misleading identity information during authentication.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">4. Proprietary Rights and Intellectual Property</h2>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li>
+              <strong style="color: #ffffff;">Your Content:</strong> You retain full ownership and copyright of any resumes, text, or profile details you upload to the platform. By submitting content, you grant Resumetrices a localized, secure license solely to process and analyze the text to generate your requested reports.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">Our Platform:</strong> All software, design systems, logos, user interface assets, dashboard layouts, and underlying algorithm configurations are the exclusive property of Resumetrices and are protected by intellectual property laws.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">5. Limitation of Liability and AI Disclaimer</h2>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li>
+              <strong style="color: #ffffff;">As-Is Service:</strong> Resumetrices provides resume analysis insights, compatibility parsing, and ATS simulation data on an "as-is" and "as-available" basis.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">No Guarantee of Outcome:</strong> Our scores are generated utilizing advanced third-party artificial intelligence systems to offer professional guidance. Resumetrices does not guarantee that optimizing your resume to achieve a specific score will result in a job interview, employment offer, or any specific professional outcome.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">Liability Cap:</strong> To the maximum extent permitted by applicable law, Resumetrices shall not be liable for any indirect, incidental, special, or consequential damages resulting from your use or inability to use the platform.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">6. Termination of Service</h2>
+          <ul style="margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li>
+              <strong style="color: #ffffff;">Account Erasure:</strong> You have the absolute right to terminate this contract at any time by executing the "Delete Account" command within your Profile Settings. This triggers an automated, irreversible database sweep that permanently wipes your profile, logs, and uploaded files.
+            </li>
+            <li>
+              <strong style="color: #ffffff;">Platform Discretion:</strong> We reserve the right to suspend or terminate your access to the platform without prior notice if we determine, in our sole discretion, that you have violated these Terms or pose a security risk to our infrastructure.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">7. Modifications to the Terms</h2>
+          <p>
+            We reserve the right to modify or replace these Terms at any time. Changes will take effect immediately upon posting to this page with an updated effective date. Your continued use of the platform following any updates constitutes acceptance of the new Terms.
+          </p>
+        </section>
+
+        <section style="border-top: 1px solid var(--border-color, #1e293b); padding-top: 1.5rem;">
+          <h2 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.75rem 0;">8. Governing Law and Contact</h2>
+          <p style="margin-bottom: 1rem;">
+            These Terms shall be governed by and construed in accordance with the laws governing our operational jurisdiction.
+          </p>
+          <p>
+            For any inquiries, legal notices, or clarifications regarding these Terms, please contact us at: <a href="mailto:support.resumetrices@gmail.com" style="color: var(--emerald, #10b981); text-decoration: none; font-weight: 600;">support.resumetrices@gmail.com</a>
+          </p>
+        </section>
+      </div>
+
+    </article>
+  </main>
+
+  <!-- Footer -->
+  <footer style="border-top: 1px solid var(--border-color, #1e293b); padding: 2rem 0; text-align: center; color: var(--text-muted, #94a3b8); font-size: 0.85rem;">
+    <p>&copy; 2026 Resumetrices. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Reveal Document once CSS is processed
+    document.documentElement.style.visibility = 'visible';
+
+    // Interactive safe back navigation
+    const btnBackNav = document.getElementById('btn-back-nav');
+    if (btnBackNav) {
+      // Set label context based on referrer
+      if (document.referrer && document.referrer.includes('/admin/')) {
+        btnBackNav.textContent = '← Back to Dashboard';
+      } else if (document.referrer && document.referrer.includes('/dashboard')) {
+        btnBackNav.textContent = '← Back to Dashboard';
+      } else {
+        btnBackNav.textContent = '← Back to Home';
+      }
+
+      btnBackNav.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (document.referrer && document.referrer.includes(window.location.host)) {
+          window.history.back();
+        } else {
+          window.location.href = 'index.html';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
