@@ -78,7 +78,7 @@
           scansBody.appendChild(tr);
         });
       } else {
-        scansBody.innerHTML = `<tr><td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted);">No scans recorded.</td></tr>`;
+        scansBody.innerHTML = `<tr><td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted);">No recent scans recorded on the platform.</td></tr>`;
       }
     }
 
@@ -349,7 +349,7 @@
             <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; color: #ffffff;">
               <span>⏱️</span> Recent Scans Feed
             </h3>
-            <div style="overflow-x: auto; width: 100%;">
+            <div class="table-scroll-wrapper">
               <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
                   <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
@@ -383,20 +383,22 @@
               </div>
             </div>
             
-            <div style="overflow-x: auto; width: 100%;">
-              <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 780px;">
+            <div class="table-scroll-wrapper">
+              <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 900px;">
                 <thead>
                   <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
                     <th style="padding: 0.75rem 1rem;">User Identity</th>
+                    <th style="padding: 0.75rem 1rem;">User UID</th>
                     <th style="padding: 0.75rem 1rem;">Joined Date</th>
                     <th style="padding: 0.75rem 1rem;">Workspace Domain</th>
-                    <th style="padding: 0.75rem 1rem; text-align: center;">Analyses</th>
+                    <th style="padding: 0.75rem 1rem; text-align: center;">Total Reports</th>
+                    <th style="padding: 0.75rem 1rem; text-align: center;">Highest Score</th>
                     <th style="padding: 0.75rem 1rem; text-align: right;">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="user-directory-list">
                   <tr>
-                    <td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-muted);">
+                    <td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted);">
                       <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); opacity: 0.5; animation: spin 1.5s linear infinite;"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
                         <span>Loading user directory from Firebase Auth...</span>
@@ -480,95 +482,154 @@
         <section class="admin-view-pane" id="view-report-audit-logs">
           <div class="admin-card-glass">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-              <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0; color: #ffffff;">System Audit Trail</h3>
-              <div style="display: flex; gap: 0.5rem;">
-                <button class="btn-cta-secondary audit-filter-btn active" data-filter="all" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">ALL</button>
-                <button class="btn-cta-secondary audit-filter-btn" data-filter="info" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; color: var(--blue);">INFO</button>
-                <button class="btn-cta-secondary audit-filter-btn" data-filter="warn" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; color: var(--warning);">WARN</button>
-                <button class="btn-cta-secondary audit-filter-btn" data-filter="error" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; color: var(--danger);">ERROR</button>
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 0.25rem; color: #ffffff;">Platform Report Run Audit Logs</h3>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;" id="report-count-label">Loading audit logs...</p>
+              </div>
+              <div style="position: relative;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="report-search" placeholder="Filter by ID, email, or role..." style="padding: 0.55rem 1rem 0.55rem 2.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); color: var(--text-main); font-size: 0.875rem; width: 320px; font-family: 'Outfit', sans-serif;">
               </div>
             </div>
 
-            <div style="background-color: rgba(3, 7, 18, 0.4); border-radius: var(--radius-md); border: 1px solid var(--border-color); overflow: hidden; font-family: 'Fira Code', monospace; font-size: 0.85rem; max-height: 480px; overflow-y: auto;">
-              <div id="audit-logs-terminal" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.65rem; line-height: 1.5;">
-                <div class="log-line info" style="color: #60a5fa;"><span style="color: var(--text-muted);">[2026-06-29 23:30:12]</span> <span style="background: rgba(59, 130, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">INFO</span> Express static server routed successfully from /client</div>
-                <div class="log-line info" style="color: #34d399;"><span style="color: var(--text-muted);">[2026-06-29 23:31:02]</span> <span style="background: rgba(16, 185, 129, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">SUCCESS</span> Firebase Realtime Database connections established.</div>
-                <div class="log-line warn" style="color: #fbbf24;"><span style="color: var(--text-muted);">[2026-06-29 23:33:45]</span> <span style="background: rgba(245, 158, 11, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">WARN</span> Rate Limiter check passed: IP 127.0.0.1 consumed 45/100 requests.</div>
-                <div class="log-line error" style="color: #f43f5e;"><span style="color: var(--text-muted);">[2026-06-29 23:35:19]</span> <span style="background: rgba(239, 68, 68, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">ERROR</span> Gemini AI prompt validation loop: sanitizing template stutter in DevOps schema.</div>
-                <div class="log-line info" style="color: #60a5fa;"><span style="color: var(--text-muted);">[2026-06-29 23:42:01]</span> <span style="background: rgba(59, 130, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px;">INFO</span> Dynamic VITE_ADMIN_EMAIL mapping script generated.</div>
-              </div>
+            <div class="table-scroll-wrapper">
+              <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 780px;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th style="padding: 0.75rem 1rem;">Report ID</th>
+                    <th style="padding: 0.75rem 1rem;">User Identity</th>
+                    <th style="padding: 0.75rem 1rem;">Target Job Role</th>
+                    <th style="padding: 0.75rem 1rem; text-align: center;">ATS Score</th>
+                    <th style="padding: 0.75rem 1rem;">Timestamp</th>
+                    <th style="padding: 0.75rem 1rem; text-align: right;">Action Element</th>
+                  </tr>
+                </thead>
+                <tbody id="report-audit-list">
+                  <tr>
+                    <td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted);">
+                      <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); opacity: 0.5; animation: spin 1.5s linear infinite;"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                        <span>Loading platform report audits...</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
+
+        <!-- Read-Only Report Mirror Inspector Slide-out Drawer -->
+        <div class="report-inspector-overlay" id="report-inspector-overlay">
+          <div class="report-inspector-panel">
+            <div class="report-inspector-header">
+              <div class="report-inspector-header-info">
+                <h3 class="report-inspector-title" id="inspector-resume-name">Loading Report...</h3>
+                <span class="report-inspector-subtitle" id="inspector-meta-subtitle">—</span>
+              </div>
+              <button class="report-inspector-close" id="report-inspector-close" aria-label="Close inspector">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+
+            <div class="report-inspector-body" id="inspector-body-content">
+              <!-- Content dynamically rendered via JS -->
+              <div style="display: flex; justify-content: center; align-items: center; height: 100%; color: var(--text-muted);">
+                Select a report run log to inspect.
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Tab 4: Security Guardrails View -->
         <section class="admin-view-pane" id="view-security-guardrails">
-          <div class="dashboard-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--spacing-24);">
+          <div class="dashboard-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--spacing-24);">
             
-            <!-- Rate limits card -->
-            <div class="admin-card-glass">
-              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
-                <span>🛡️</span> API Protection Limits
-              </h3>
-              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.9rem;">
-                <li style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                  <span style="color: var(--text-muted);">General Rate Limit</span>
-                  <span style="font-weight: 600; color: #fff;">100 requests / min</span>
-                </li>
-                <li style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                  <span style="color: var(--text-muted);">Resume Upload Limit</span>
-                  <span style="font-weight: 600; color: #fff;">5 files / 5 min</span>
-                </li>
-                <li style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                  <span style="color: var(--text-muted);">AI Generation Window</span>
-                  <span style="font-weight: 600; color: #fff;">10 calls / hour</span>
-                </li>
-                <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem;">
-                  <span style="color: var(--text-muted);">Max JSON Body Size</span>
-                  <span style="font-weight: 600; color: #fff;">10 MB</span>
-                </li>
-              </ul>
+            <!-- Global Maintenance Mode Card -->
+            <div class="admin-card-glass" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+                  <span>⚙️</span> Maintenance Mode
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.5rem;">
+                  Suspends all standard user platform operations (uploads, analyses, roadmaps) and presents a scheduled optimization card. Administrative diagnostic panels remain fully accessible.
+                </p>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <span style="font-size: 0.95rem; font-weight: 600; color: #fff;">Maintenance State</span>
+                <!-- CSS Toggle Switch -->
+                <label class="switch-toggle" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                  <input type="checkbox" id="guardrail-maintenance" style="opacity: 0; width: 0; height: 0;">
+                  <span class="slider-toggle" style="position: absolute; cursor: pointer; inset: 0; background-color: rgba(255,255,255,0.1); border: 1px solid var(--border-color); border-radius: 34px; transition: .3s;"></span>
+                </label>
+              </div>
+            </div>
+            
+            <!-- Rate-Limiter Sensitivity Card -->
+            <div class="admin-card-glass" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+                  <span>🛡️</span> Rate-Limiter Sensitivity
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.5rem;">
+                  Define the maximum number of requests allowed per minute per unique client IP address. Boundary limits clamp traffic dynamically live on deploy.
+                </p>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.9rem; font-weight: 600; color: #fff;">Threshold Limit</span>
+                  <span id="rate-limiter-value" style="font-size: 0.95rem; font-weight: 700; color: var(--rose);">60 req/min</span>
+                </div>
+                <input type="range" id="guardrail-rate-limit" min="10" max="200" value="60" style="width: 100%; accent-color: var(--rose); cursor: pointer;">
+              </div>
             </div>
 
-            <!-- Environment checklist -->
-            <div class="admin-card-glass">
-              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
-                <span>🔒</span> Security Checklist
-              </h3>
-              <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.9rem;">
-                <li style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="color: var(--emerald);">✓</span>
-                  <span style="color: var(--text-main);">Helmet Protection Headers Loaded</span>
-                </li>
-                <li style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="color: var(--emerald);">✓</span>
-                  <span style="color: var(--text-main);">CORS Policy Whitelist active</span>
-                </li>
-                <li style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="color: var(--emerald);">✓</span>
-                  <span style="color: var(--text-main);">Trust Proxy Headers Configured</span>
-                </li>
-                <li style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="color: var(--emerald);">✓</span>
-                  <span style="color: var(--text-main);">Admin Role-Routing Guard Secured</span>
-                </li>
-              </ul>
-            </div>
-
-            <!-- Admin credentials checklist -->
-            <div class="admin-card-glass">
-              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
-                <span>⚙️</span> Control Actions
-              </h3>
-              <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.25rem;">Execute administrative maintenance operations. Requires active token authorization validation.</p>
-              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <button class="btn-cta-secondary" style="padding: 0.65rem 1rem; text-align: center;" onclick="alert('Telemetry cache cleared successfully!')">Clear System telemetry cache</button>
-                <button class="btn-cta-primary" style="padding: 0.65rem 1rem; text-align: center; background: var(--rose); border-color: var(--rose);" onclick="alert('Emergency Lock Mode activated! Standard access suspended.')">Emergency suspending standard routing</button>
+            <!-- Max File Size & Ingestion Limits Card -->
+            <div class="admin-card-glass" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+                  <span>📦</span> File Ingestion Limits
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.5rem;">
+                  Clamp the maximum file size boundary allowed for incoming resume uploads to protect parsing worker threads from crash states.
+                </p>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Max File Ingestion Boundary</label>
+                <select id="guardrail-file-size" class="quota-text-input" style="width: 100%; padding: 0.55rem 0.75rem;">
+                  <option value="2097152">2 MB (Dev default)</option>
+                  <option value="5242880">5 MB (Standard)</option>
+                  <option value="10485760">10 MB (Enterprise)</option>
+                  <option value="20971520">20 MB (Unrestricted)</option>
+                </select>
               </div>
             </div>
 
           </div>
+
+          <!-- Deploy CTA Row -->
+          <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+            <button id="btn-deploy-guardrails" class="btn-apply-quota" style="padding: 0.75rem 2rem; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span>⚡</span> Deploy Guardrail Parameters
+            </button>
+          </div>
         </section>
+
+        <!-- MASTER FOOTER CONTAINER -->
+        <footer class="master-footnote-footer">
+          <div style="color: var(--text-muted, #94a3b8); font-weight: 500;">
+            © 2026 Resumetrices. All rights reserved.
+          </div>
+          <div class="footer-links-row">
+            <a href="/dashboard">Dashboard</a>
+            <span>|</span>
+            <a href="mailto:support.resumetrices@gmail.com">Support</a>
+            <span>|</span>
+            <a href="/privacy.html">Privacy Policy</a>
+            <span>|</span>
+            <a href="/terms.html">Terms of Service</a>
+          </div>
+        </footer>
 
       </main>
     </div>
@@ -601,6 +662,17 @@
               pane.classList.remove('active');
             }
           });
+
+          // Hot refresh telemetry / data tables on active tab transitions
+          if (targetTab === 'report-audit-logs') {
+            loadReportAuditLogs();
+          } else if (targetTab === 'user-directory') {
+            loadUserDirectory();
+          } else if (targetTab === 'security-guardrails') {
+            loadGuardrailsConfig();
+          } else if (targetTab === 'platform-operations') {
+            if (auth.currentUser) loadTelemetryData(auth.currentUser);
+          }
 
           // Update Top Control Navbar Title
           navbarTitle.textContent = link.textContent.trim();
@@ -649,25 +721,270 @@
         });
       }
 
-      // 4. Audit Log Filter logic
-      const filterBtns = document.querySelectorAll('.audit-filter-btn');
-      const logLines = document.querySelectorAll('#audit-logs-terminal .log-line');
+      // 4. Report Run Audit Logs Controller — fetch, render, search, slide-out inspector
+      let reportAuditData = []; // cache for filtering
 
-      filterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          filterBtns.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          const filter = btn.getAttribute('data-filter');
+      async function loadReportAuditLogs() {
+        try {
+          const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+          const res = await fetch('/api/admin/reports', {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            reportAuditData = data.reports;
+            renderReportTable(reportAuditData);
+          } else {
+            console.error('Failed to load reports:', data.message);
+            renderReportTableFallback();
+          }
+        } catch (err) {
+          console.error('Report audit fetch error:', err);
+          renderReportTableFallback();
+        }
+      }
 
-          logLines.forEach(line => {
-            if (filter === 'all' || line.classList.contains(filter)) {
-              line.style.display = 'block';
-            } else {
-              line.style.display = 'none';
-            }
+      function renderReportTableFallback() {
+        const tbody = document.getElementById('report-audit-list');
+        if (!tbody) return;
+        tbody.innerHTML = `<tr><td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted);">Unable to load platform report runs. Check server connectivity.</td></tr>`;
+        const countLabel = document.getElementById('report-count-label');
+        if (countLabel) countLabel.textContent = '0 report runs recorded';
+      }
+
+      function renderReportTable(reports) {
+        const tbody = document.getElementById('report-audit-list');
+        const countLabel = document.getElementById('report-count-label');
+        if (!tbody) return;
+
+        if (countLabel) countLabel.textContent = `${reports.length} report run${reports.length !== 1 ? 's' : ''} recorded`;
+
+        if (reports.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted);">No recent scans recorded on the platform.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = reports.map(r => {
+          const hashId = `#REP-${(r.analysisId || '').substring(0, 5).toUpperCase()}`;
+          return `
+            <tr style="border-bottom: 1px solid var(--border-color);" class="admin-table-row">
+              <td style="padding: 1rem; font-family: 'Fira Code', monospace; font-size: 0.85rem; font-weight: 700; color: var(--rose);">${escapeHTML(hashId)}</td>
+              <td style="padding: 1rem; color: var(--text-main); font-weight: 500;">${escapeHTML(r.email)}</td>
+              <td style="padding: 1rem; color: var(--text-muted);">${escapeHTML(r.targetRole)}</td>
+              <td style="padding: 1rem; text-align: center;">
+                <span class="score-badge ${getScoreClass(r.score || 0)}" style="padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 700;">
+                  ${r.score || 0}%
+                </span>
+              </td>
+              <td style="padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">${new Date(r.createdAt).toLocaleString()}</td>
+              <td style="padding: 1rem; text-align: right;">
+                <button class="inspect-report-btn" data-id="${escapeHTML(r.analysisId)}">View Output</button>
+              </td>
+            </tr>`;
+        }).join('');
+
+        // Bind View Output buttons
+        tbody.querySelectorAll('.inspect-report-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const reportId = btn.getAttribute('data-id');
+            openReportInspector(reportId);
           });
         });
-      });
+      }
+
+      // Live search filter for reports
+      const reportSearch = document.getElementById('report-search');
+      if (reportSearch) {
+        reportSearch.addEventListener('input', () => {
+          const query = reportSearch.value.toLowerCase().trim();
+          if (!query) {
+            renderReportTable(reportAuditData);
+            return;
+          }
+          const filtered = reportAuditData.filter(r =>
+            (r.analysisId || '').toLowerCase().includes(query) ||
+            (r.email || '').toLowerCase().includes(query) ||
+            (r.targetRole || '').toLowerCase().includes(query)
+          );
+          renderReportTable(filtered);
+        });
+      }
+
+      // Report Inspector Controller
+      const inspectorOverlay = document.getElementById('report-inspector-overlay');
+      const inspectorClose = document.getElementById('report-inspector-close');
+      const inspectorBody = document.getElementById('inspector-body-content');
+
+      async function openReportInspector(id) {
+        if (inspectorOverlay) inspectorOverlay.classList.add('open');
+        
+        // Show loading spinner in drawer
+        if (inspectorBody) {
+          inspectorBody.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 1rem; color: var(--text-muted);">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1.5s linear infinite; color: var(--rose);"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+              <span>Fetching report analysis payload...</span>
+            </div>`;
+        }
+
+        try {
+          const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+          const res = await fetch(`/api/admin/reports/${id}`, {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
+          const data = await res.json();
+
+          if (res.ok && data.success) {
+            renderInspectorContent(data.report);
+          } else {
+            inspectorBody.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--danger);">Failed to load report: ${data.message}</div>`;
+          }
+        } catch (err) {
+          console.error('Inspector load error:', err);
+          inspectorBody.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--danger);">Network error fetching report details.</div>`;
+        }
+      }
+
+      function closeReportInspector() {
+        if (inspectorOverlay) inspectorOverlay.classList.remove('open');
+      }
+
+      if (inspectorClose) {
+        inspectorClose.addEventListener('click', closeReportInspector);
+      }
+      if (inspectorOverlay) {
+        inspectorOverlay.addEventListener('click', (e) => {
+          if (e.target === inspectorOverlay) closeReportInspector();
+        });
+      }
+
+      function renderInspectorContent(report) {
+        const titleEl = document.getElementById('inspector-resume-name');
+        const subtitleEl = document.getElementById('inspector-meta-subtitle');
+        if (titleEl) titleEl.textContent = report.resumeName || 'Resume Report';
+        if (subtitleEl) {
+          subtitleEl.textContent = `Uploaded by: ${report.email} | Target: ${report.targetRole} | Run ID: ${report.analysisId}`;
+        }
+
+        // Section A: Skill Gaps
+        const missing = report.skillGap ? (report.skillGap.missingSkills || []) : [];
+        let skillGapsHTML = '';
+        if (missing.length > 0) {
+          skillGapsHTML = `<div class="skill-gaps-grid">` + 
+            missing.map(skill => `
+              <div class="skill-gap-card">
+                <svg class="skill-gap-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <span class="skill-gap-name">${escapeHTML(skill)}</span>
+              </div>
+            `).join('') + `</div>`;
+        } else {
+          skillGapsHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; margin: 0; font-style: italic;">No core competency mismatches identified.</p>`;
+        }
+
+        // Section B: Interview Prep Questions
+        let prep = report.interviewPrep || {};
+        // If nested or alternative format
+        if (report.interviewPrepList) prep = report.interviewPrepList;
+
+        const categories = {
+          'Technical Questions': prep.technical || [],
+          'Project-Based Evaluation': prep.projectBased || [],
+          'Domain & Skill Gaps': prep.skillGap || prep.domainKnowledge || [],
+          'Behavioral Prompts': prep.behavioral || [],
+          'HR & Career Path': prep.hrQuestions || []
+        };
+
+        let questionsHTML = '<div class="inspector-category-group">';
+        let totalQuestions = 0;
+
+        for (const [catName, list] of Object.entries(categories)) {
+          if (list && list.length > 0) {
+            totalQuestions += list.length;
+            questionsHTML += `
+              <div style="margin-top: 1rem;">
+                <h4 class="inspector-category-title">${catName}</h4>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                  ${list.map((item, idx) => {
+                    let qText = '';
+                    let evidence = '';
+                    if (typeof item === 'string') {
+                      qText = item;
+                    } else if (item && typeof item === 'object') {
+                      qText = item.question || '';
+                      evidence = item.source_evidence ? `Source justification: "${item.source_evidence}"` : '';
+                    }
+                    if (!qText) return '';
+
+                    return `
+                      <div class="question-block-card">
+                        <div class="question-block-content">
+                          <span class="question-text-readOnly">${escapeHTML(qText)}</span>
+                          ${evidence ? `<span class="question-meta-evidence">${escapeHTML(evidence)}</span>` : ''}
+                        </div>
+                        <button class="btn-copy-clipboard" title="Copy to clipboard" onclick="copyQuestionText(this, '${escapeJSString(qText)}')">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                      </div>`;
+                  }).join('')}
+                </div>
+              </div>`;
+          }
+        }
+        questionsHTML += '</div>';
+
+        if (totalQuestions === 0) {
+          questionsHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; margin: 0; font-style: italic;">No evaluation questions generated for this report.</p>`;
+        }
+
+        const scoreClass = (report.score || 0) < 80 ? 'bad' : '';
+
+        // Render full layout inside drawer body
+        inspectorBody.innerHTML = `
+          <!-- Score Banner -->
+          <div class="score-banner ${scoreClass}">
+            <div class="score-banner-value">${report.score || 0}%</div>
+            <div class="score-banner-label">
+              Overall ATS Compatibility Score<br>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Evaluated via Gemini Prompt grounding parameters.</span>
+            </div>
+          </div>
+
+          <!-- Section A: Skill Gaps Grid -->
+          <div class="inspector-section">
+            <h4 class="inspector-section-title">Section A: Identified Competency Skill Gaps</h4>
+            ${skillGapsHTML}
+          </div>
+
+          <!-- Section B: Mirrored Interview Prep Questions -->
+          <div class="inspector-section">
+            <h4 class="inspector-section-title">Section B: Evaluation Interview Questions</h4>
+            ${questionsHTML}
+          </div>
+        `;
+      }
+
+      // Helper to escape JavaScript strings for inline onclick handlers
+      function escapeJSString(str) {
+        return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+      }
+
+      // Clipboard logic exposed globally
+      window.copyQuestionText = function(btn, text) {
+        navigator.clipboard.writeText(text).then(() => {
+          btn.classList.add('copied');
+          btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--emerald);"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+          
+          setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+          }, 2000);
+        }).catch(err => {
+          console.error('Could not copy question text: ', err);
+        });
+      };
+
+      // Load report audit logs on init
+      loadReportAuditLogs();
 
       // 5. User Directory Controller — fetch, render, search, manage access
       let userDirectoryData = []; // cache for filtering
@@ -733,7 +1050,7 @@
         if (countLabel) countLabel.textContent = `${users.length} account${users.length !== 1 ? 's' : ''} registered`;
 
         if (users.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-muted);">No user accounts found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted);">No user accounts found.</td></tr>`;
           return;
         }
 
@@ -743,6 +1060,24 @@
             ? `<img src="${escapeHTMLDir(u.photoURL)}" alt="${escapeHTMLDir(u.displayName)}">`
             : initials;
           const tierClass = u.tier || 'free';
+          
+          const totalReportsVal = u.totalReports ?? 0;
+          const highestScoreVal = u.highestScore;
+
+          let reportsCellContent = '';
+          if (totalReportsVal === 0) {
+            reportsCellContent = `<span style="color: var(--text-muted); font-size: 0.8rem; font-style: italic;">No analyses run</span>`;
+          } else {
+            reportsCellContent = `<span style="font-weight: 700; color: var(--emerald); font-size: 0.95rem;">${totalReportsVal}</span>`;
+          }
+
+          let scoreCellContent = '';
+          if (totalReportsVal === 0 || highestScoreVal === undefined || highestScoreVal === null) {
+            scoreCellContent = `<span style="color: var(--text-muted); font-size: 0.85rem;">N/A</span>`;
+          } else {
+            const scoreColor = highestScoreVal >= 70 ? 'var(--emerald)' : (highestScoreVal >= 45 ? 'var(--warning)' : 'var(--text-muted)');
+            scoreCellContent = `<span style="font-weight: 800; color: ${scoreColor}; font-size: 0.95rem;">${highestScoreVal}%</span>`;
+          }
 
           return `
             <tr style="border-bottom: 1px solid var(--border-color);" class="admin-table-row"
@@ -761,15 +1096,26 @@
                   </div>
                 </div>
               </td>
-              <td style="padding: 0.85rem 1rem; color: var(--text-muted); font-size: 0.85rem;">${formatJoinDate(u.createdAt)}</td>
-              <td style="padding: 0.85rem 1rem;">
+              <td style="padding: 0.85rem 1rem; vertical-align: middle;">
+                <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(0,0,0,0.25); padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 6px;">
+                  <span style="color: var(--text-main); font-family: 'Fira Code', monospace; font-size: 0.75rem; letter-spacing: -0.01em;">${escapeHTMLDir(u.uid.substring(0, 8))}...</span>
+                  <button class="copy-uid-btn" data-copy="${escapeHTMLDir(u.uid)}" title="Copy Full UID" style="background: transparent; border: none; padding: 2px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: color 0.15s ease;">
+                    <svg class="copy-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </button>
+                </div>
+              </td>
+              <td style="padding: 0.85rem 1rem; color: var(--text-muted); font-size: 0.85rem; vertical-align: middle;">${formatJoinDate(u.createdAt)}</td>
+              <td style="padding: 0.85rem 1rem; vertical-align: middle;">
                 <span style="color: var(--text-main); font-size: 0.85rem;">${escapeHTMLDir(u.domain || '—')}</span>
                 <span class="tier-badge ${tierClass}" style="margin-left: 0.5rem;">${tierClass}</span>
               </td>
-              <td style="padding: 0.85rem 1rem; text-align: center;">
-                <span style="font-weight: 700; color: ${u.analysisCount > 0 ? 'var(--emerald)' : 'var(--text-muted)'}; font-size: 0.95rem;">${u.analysisCount}</span>
+              <td style="padding: 0.85rem 1rem; text-align: center; vertical-align: middle;">
+                ${reportsCellContent}
               </td>
-              <td style="padding: 0.85rem 1rem; text-align: right;">
+              <td style="padding: 0.85rem 1rem; text-align: center; vertical-align: middle;">
+                ${scoreCellContent}
+              </td>
+              <td style="padding: 0.85rem 1rem; text-align: right; vertical-align: middle;">
                 <button class="manage-access-btn" data-uid="${escapeHTMLDir(u.uid)}">Manage Access</button>
               </td>
             </tr>`;
@@ -789,6 +1135,26 @@
             });
           });
         });
+
+        // Bind Copy UID buttons
+        tbody.querySelectorAll('.copy-uid-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const textToCopy = btn.dataset.copy;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+              // Micro checkmark feedback animation
+              const origSVG = btn.innerHTML;
+              btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+              btn.style.color = 'var(--emerald)';
+              setTimeout(() => {
+                btn.innerHTML = origSVG;
+                btn.style.color = 'var(--text-muted)';
+              }, 1500);
+            }).catch(err => {
+              console.error('Failed to copy UID:', err);
+            });
+          });
+        });
       }
 
       // Live search filter
@@ -803,6 +1169,7 @@
           const filtered = userDirectoryData.filter(u =>
             (u.displayName || '').toLowerCase().includes(query) ||
             (u.email || '').toLowerCase().includes(query) ||
+            (u.uid || '').toLowerCase().includes(query) ||
             (u.domain || '').toLowerCase().includes(query)
           );
           renderUserTable(filtered);
@@ -997,6 +1364,98 @@
         // Run once initially to populate
         updateSimulation();
       }
+
+      // 7. Security Guardrails Logic — fetch, range slide sync, deploy form submission
+      const mModeCheckbox = document.getElementById('guardrail-maintenance');
+      const rLimitSlider = document.getElementById('guardrail-rate-limit');
+      const rLimitReadout = document.getElementById('rate-limiter-value');
+      const fSizeSelector = document.getElementById('guardrail-file-size');
+      const deployBtn = document.getElementById('btn-deploy-guardrails');
+
+      async function loadGuardrailsConfig() {
+        try {
+          const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+          const res = await fetch('/api/admin/guardrails', {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
+          const data = await res.json();
+          if (res.ok && data.success && data.config) {
+            const config = data.config;
+            if (mModeCheckbox) mModeCheckbox.checked = !!config.maintenanceMode;
+            if (rLimitSlider) {
+              rLimitSlider.value = config.rateLimitMax || 60;
+              if (rLimitReadout) rLimitReadout.textContent = `${config.rateLimitMax || 60} req/min`;
+            }
+            if (fSizeSelector) {
+              fSizeSelector.value = config.maxFileSize || 5242880;
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load active guardrails configuration:', err);
+        }
+      }
+
+      // Sync readout when range slider is dragged
+      if (rLimitSlider && rLimitReadout) {
+        rLimitSlider.addEventListener('input', () => {
+          rLimitReadout.textContent = `${rLimitSlider.value} req/min`;
+        });
+      }
+
+      // Deploy guardrails to server
+      if (deployBtn) {
+        deployBtn.addEventListener('click', async () => {
+          const maintenanceMode = !!mModeCheckbox.checked;
+          const rateLimitMax = parseInt(rLimitSlider.value, 10);
+          const maxFileSize = parseInt(fSizeSelector.value, 10);
+
+          deployBtn.disabled = true;
+          deployBtn.innerHTML = `<span>⚙️</span> Deploying Parameters...`;
+
+          try {
+            const idToken = isMockMode ? 'mock-token' : await auth.currentUser.getIdToken();
+            const res = await fetch('/api/admin/guardrails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${idToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ maintenanceMode, rateLimitMax, maxFileSize })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+              showAdminToast('Security guardrails deployed and active.');
+            } else {
+              alert(`Error: ${data.message || 'Failed to deploy guardrail parameters.'}`);
+            }
+          } catch (err) {
+            console.error('Guardrails deploy error:', err);
+            alert('Network error while deploying parameters.');
+          } finally {
+            deployBtn.disabled = false;
+            deployBtn.innerHTML = `<span>⚡</span> Deploy Guardrail Parameters`;
+          }
+        });
+      }
+
+      // Helper to display toast notifications inside the admin panel
+      function showAdminToast(message) {
+        const toast = document.getElementById('toast-notification');
+        const msgEl = document.getElementById('toast-message');
+        if (toast && msgEl) {
+          msgEl.textContent = message;
+          toast.style.display = 'block';
+          setTimeout(() => {
+            toast.style.display = 'none';
+          }, 3000);
+        } else {
+          alert(message);
+        }
+      }
+
+      // Load active config on load
+      loadGuardrailsConfig();
     });
   </script>
 </body>
