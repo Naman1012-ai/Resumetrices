@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - Resumetrices</title>
   <link rel="stylesheet" href="css/style.css">
@@ -153,7 +157,7 @@
               </h3>
               <p class="section-subtitle">Catalog of your most recently processed resume documents</p>
               
-              <div class="table-responsive" style="margin-top: 1.25rem; overflow-x: auto;">
+              <div class="table-scroll-wrapper" style="margin-top: 1.25rem;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
                   <thead>
                     <tr>
@@ -177,6 +181,23 @@
             </div>
           </div>
         </div>
+
+        <!-- MASTER FOOTER CONTAINER -->
+        <footer class="master-footnote-footer">
+          <div style="color: var(--text-muted, #94a3b8); font-weight: 500;">
+            © 2026 Resumetrices. All rights reserved.
+          </div>
+          <div class="footer-links-row">
+            <a href="/dashboard">Dashboard</a>
+            <span>|</span>
+            <a href="mailto:support.resumetrices@gmail.com">Support</a>
+            <span>|</span>
+            <a href="/privacy.html">Privacy Policy</a>
+            <span>|</span>
+            <a href="/terms.html">Terms of Service</a>
+          </div>
+        </footer>
+
       </div>
     </main>
   </div>
