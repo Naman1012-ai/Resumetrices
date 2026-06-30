@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Analyses - Resumetrices</title>
   <link rel="stylesheet" href="css/style.css">
@@ -90,6 +94,94 @@
       </div>
     </main>
   </div>
+
+  <!-- Custom Delete Confirmation Modal -->
+  <div id="delete-confirm-modal" class="modal-overlay-custom" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(3, 7, 18, 0.8);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+  ">
+    <div class="modal-panel-custom" style="
+      background: var(--bg-card, #111827);
+      border: 1px solid var(--border-color, #374151);
+      border-radius: var(--radius-xl, 16px);
+      width: 90%;
+      max-width: 480px;
+      padding: 2rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      animation: scaleUpCustom 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    ">
+      <!-- Modal Header -->
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+        <div style="
+          width: 38px;
+          height: 38px;
+          background: rgba(244, 63, 94, 0.1);
+          border: 1px solid rgba(244, 63, 94, 0.25);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--rose, #f43f5e);
+          flex-shrink: 0;
+        ">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0;">Delete Analysis Report</h3>
+      </div>
+
+      <!-- Modal Body -->
+      <div style="color: var(--text-muted, #9ca3af); font-size: 0.9rem; line-height: 1.5; margin-bottom: 2rem;">
+        Are you sure you want to permanently delete <strong id="delete-modal-report-name" style="color: #ffffff;">"[Report Name]"</strong>? This action cannot be undone.
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button id="delete-modal-cancel" style="
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--border-color, #374151);
+          border-radius: var(--radius-md, 8px);
+          color: var(--text-main, #ffffff);
+          padding: 0.6rem 1.25rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        ">Cancel</button>
+        <button id="delete-modal-confirm" style="
+          background: var(--rose, #f43f5e);
+          border: 1px solid rgba(244, 63, 94, 0.2);
+          border-radius: var(--radius-md, 8px);
+          color: #ffffff;
+          padding: 0.6rem 1.5rem;
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        ">Yes, Delete Report</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes scaleUpCustom {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
 
   <script type="module" src="js/firebase-config.js"></script>
   <script type="module" src="js/auth-guard.js"></script>

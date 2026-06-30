@@ -48,18 +48,52 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Database user profile creation failed:', dbError);
       }
       showToast('Signed in with Google!');
+      
+      const pendingReportAction = sessionStorage.getItem('pendingReportAction');
+      if (pendingReportAction === 'true') {
+        const cachedReport = sessionStorage.getItem('pendingGuestReport');
+        if (cachedReport) {
+          try {
+            window.appState.activeAnalysis = JSON.parse(cachedReport);
+          } catch (e) {
+            console.error('Failed to parse cached guest report:', e);
+          }
+        }
+        sessionStorage.removeItem('pendingReportAction');
+        sessionStorage.removeItem('pendingGuestReport');
+        await handleAuthSessionBridge(user);
+        return;
+      }
+      
       redirectUser();
     } else {
       isRedirectProcessing = false;
-      if (auth.currentUser && !window.appState.activeAnalysis) {
-        redirectUser();
+      if (auth.currentUser) {
+        const pendingReportAction = sessionStorage.getItem('pendingReportAction');
+        if (pendingReportAction === 'true') {
+          const cachedReport = sessionStorage.getItem('pendingGuestReport');
+          if (cachedReport) {
+            try {
+              window.appState.activeAnalysis = JSON.parse(cachedReport);
+            } catch (e) {
+              console.error('Failed to parse cached guest report:', e);
+            }
+          }
+          sessionStorage.removeItem('pendingReportAction');
+          sessionStorage.removeItem('pendingGuestReport');
+          await handleAuthSessionBridge(auth.currentUser);
+          return;
+        }
+        
+        if (!window.appState.activeAnalysis) {
+          redirectUser();
+        }
       }
     }
   }).catch((error) => {
     isRedirectProcessing = false;
-    if (error.code && error.code !== 'auth/popup-closed-by-user') {
-      showToast(getFriendlyAuthErrorMessage(error), 'error');
-    }
+    console.error("OAuth Error Context:", error);
+    showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
   });
 
   const landingFileInput = document.getElementById('landing-file-input');
@@ -103,9 +137,27 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentAuthMode = 'signup'; // default
 
   // If user is already logged in, redirect them to dashboard
-  auth.onAuthStateChanged((user) => {
-    if (user && !window.appState.activeAnalysis && !isRedirectProcessing) {
-      redirectUser();
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      const pendingReportAction = sessionStorage.getItem('pendingReportAction');
+      if (pendingReportAction === 'true') {
+        const cachedReport = sessionStorage.getItem('pendingGuestReport');
+        if (cachedReport) {
+          try {
+            window.appState.activeAnalysis = JSON.parse(cachedReport);
+          } catch (e) {
+            console.error('Failed to parse cached guest report:', e);
+          }
+        }
+        sessionStorage.removeItem('pendingReportAction');
+        sessionStorage.removeItem('pendingGuestReport');
+        await handleAuthSessionBridge(user);
+        return;
+      }
+      
+      if (!window.appState.activeAnalysis && !isRedirectProcessing) {
+        redirectUser();
+      }
     }
   });
 
@@ -283,16 +335,45 @@ document.addEventListener('DOMContentLoaded', () => {
     if (teaserTargetRole) teaserTargetRole.textContent = `Target Role: ${analysis.targetRole}`;
     
     const score = analysis.score || 0;
-    let badgeText = 'Low Compatibility';
-    if (score >= 85) badgeText = 'High Compatibility';
-    else if (score >= 60) badgeText = 'Medium Compatibility';
+    let badgeText = '';
+    let color = '';
+    let bg = '';
+    let border = '';
     
-    if (teaserScoreBadge) teaserScoreBadge.textContent = badgeText;
+    if (score < 40) {
+      badgeText = 'Compatibility: Critical';
+      color = '#f43f5e';
+      bg = 'rgba(244, 63, 94, 0.08)';
+      border = '1px solid rgba(244, 63, 94, 0.2)';
+    } else if (score >= 40 && score <= 59) {
+      badgeText = 'Compatibility: Moderate';
+      color = '#f59e0b';
+      bg = 'rgba(245, 158, 11, 0.08)';
+      border = '1px solid rgba(245, 158, 11, 0.2)';
+    } else if (score >= 60 && score <= 79) {
+      badgeText = 'Compatibility: Strong';
+      color = '#06b6d4';
+      bg = 'rgba(6, 182, 212, 0.08)';
+      border = '1px solid rgba(6, 182, 212, 0.2)';
+    } else {
+      badgeText = 'Compatibility: Extreme';
+      color = '#10b981';
+      bg = 'rgba(16, 185, 129, 0.08)';
+      border = '1px solid rgba(16, 185, 129, 0.2)';
+    }
+    
+    if (teaserScoreBadge) {
+      teaserScoreBadge.textContent = badgeText;
+      teaserScoreBadge.style.color = color;
+      teaserScoreBadge.style.backgroundColor = bg;
+      teaserScoreBadge.style.borderColor = border;
+    }
     if (teaserScoreNumber) {
       animateValue(teaserScoreNumber, 0, score, 1000);
     }
 
     if (teaserScoreCircle) {
+      teaserScoreCircle.style.stroke = color;
       const radius = teaserScoreCircle.r.baseVal.value;
       const circumference = 2 * Math.PI * radius;
       teaserScoreCircle.style.strokeDasharray = `${circumference}`;
@@ -417,6 +498,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (user) {
           handleAuthSessionBridge(user);
           return;
+        } else {
+          // Cache guest report details
+          if (window.appState.activeAnalysis) {
+            sessionStorage.setItem('pendingReportAction', 'true');
+            sessionStorage.setItem('pendingGuestReport', JSON.stringify(window.appState.activeAnalysis));
+          }
         }
       }
       
@@ -435,6 +522,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (user) {
         handleAuthSessionBridge(user);
       } else {
+        if (window.appState.activeAnalysis) {
+          sessionStorage.setItem('pendingReportAction', 'true');
+          sessionStorage.setItem('pendingGuestReport', JSON.stringify(window.appState.activeAnalysis));
+        }
         if (authModalOverlay) authModalOverlay.style.display = 'flex';
       }
     });
@@ -536,6 +627,10 @@ document.addEventListener('DOMContentLoaded', () => {
           user = { uid: 'mock_user_123', email: 'demo@atspilot.co' };
           showToast('Google Mock Sign-In successful!');
         } else {
+          if (window.appState.activeAnalysis) {
+            sessionStorage.setItem('pendingReportAction', 'true');
+            sessionStorage.setItem('pendingGuestReport', JSON.stringify(window.appState.activeAnalysis));
+          }
           await signInWithRedirect(auth, googleProvider);
           return; // Redirect will handle the rest
         }
@@ -543,8 +638,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await handleAuthSessionBridge(user);
 
       } catch (err) {
-        console.error('Modal Google Auth Error:', err);
-        showToast(getFriendlyAuthErrorMessage(err), 'error');
+        console.error("OAuth Error Context:", err);
+        showToast(`Google Sign-In Error: ${err.code || err.message}`, 'error');
         btnModalGoogle.removeAttribute('disabled');
         btnModalGoogle.innerHTML = `
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -558,6 +653,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Session Bridge handshake logic
   async function handleAuthSessionBridge(user) {
+    // Clear pending report flags to prevent duplicate processing from race conditions
+    sessionStorage.removeItem('pendingReportAction');
+    sessionStorage.removeItem('pendingGuestReport');
+
     if (window.appState.activeAnalysis && window.appState.activeAnalysis.userId === 'anonymous') {
       showToast('Saving guest report to your profile...', 'info');
 

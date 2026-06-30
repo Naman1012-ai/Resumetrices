@@ -62,11 +62,16 @@ app.use(cors({
 app.use(express.json({ limit: constants.BODY_LIMITS.JSON_MAX_SIZE }));
 app.use(express.urlencoded({ extended: true, limit: constants.BODY_LIMITS.JSON_MAX_SIZE }));
 
+const { maintenanceMiddleware } = require('./middleware/maintenance');
+
 // Expose environment variables to static frontend client
 app.get('/env-config.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   res.send(`window.process = { env: { VITE_ADMIN_EMAIL: ${JSON.stringify(env.VITE_ADMIN_EMAIL)} } };`);
 });
+
+// Intercept traffic if Maintenance Mode is active (before static assets & consumer API routes)
+app.use(maintenanceMiddleware);
 
 // Serve client-side static files (HTML, CSS, JS) from client directory
 app.use(express.static(path.join(__dirname, '../client')));

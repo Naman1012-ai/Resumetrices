@@ -20,24 +20,45 @@ async function renderRoadmapReport(analysis) {
   }
   if (rhScore) rhScore.textContent = `${score}/100`;
 
-  let statusText = 'Needs Review';
-  let color = 'var(--rose)';
-  let borderColor = 'rgba(244, 63, 94, 0.3)';
-  let bg = 'rgba(244, 63, 94, 0.03)';
-  if (score >= 85) {
-    statusText = 'Optimized';
-    color = 'var(--emerald)';
+  let state = '';
+  let statusText = '';
+  let bannerText = '';
+  let color = '';
+  let borderColor = '';
+  let bg = '';
+
+  if (score < 40) {
+    state = 'CRITICAL_GAP';
+    statusText = 'Compatibility: Critical';
+    bannerText = 'COMPATIBILITY: CRITICAL';
+    color = '#f43f5e';
+    borderColor = 'rgba(244, 63, 94, 0.3)';
+    bg = 'rgba(244, 63, 94, 0.04)';
+  } else if (score >= 40 && score <= 59) {
+    state = 'MODERATE_MATCH';
+    statusText = 'Compatibility: Moderate';
+    bannerText = 'COMPATIBILITY: MODERATE';
+    color = '#f59e0b';
+    borderColor = 'rgba(245, 158, 11, 0.3)';
+    bg = 'rgba(245, 158, 11, 0.04)';
+  } else if (score >= 60 && score <= 79) {
+    state = 'STRONG_ALIGNMENT';
+    statusText = 'Compatibility: Strong';
+    bannerText = 'COMPATIBILITY: STRONG';
+    color = '#06b6d4';
+    borderColor = 'rgba(6, 182, 212, 0.3)';
+    bg = 'rgba(6, 182, 212, 0.04)';
+  } else {
+    state = 'EXCEPTIONAL_MATCH';
+    statusText = 'Compatibility: Extreme';
+    bannerText = 'COMPATIBILITY: EXTREME';
+    color = '#10b981';
     borderColor = 'rgba(16, 185, 129, 0.3)';
-    bg = 'rgba(16, 185, 129, 0.03)';
-  } else if (score >= 60) {
-    statusText = 'Good';
-    color = 'var(--blue)';
-    borderColor = 'rgba(59, 130, 246, 0.3)';
-    bg = 'rgba(59, 130, 246, 0.03)';
+    bg = 'rgba(16, 185, 129, 0.04)';
   }
 
   if (rhBadge) {
-    rhBadge.textContent = statusText;
+    rhBadge.textContent = bannerText;
     rhBadge.style.color = color;
     rhBadge.style.borderColor = borderColor;
     rhBadge.style.backgroundColor = bg;

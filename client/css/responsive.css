@@ -1620,10 +1620,13 @@ select option:disabled,
   font-size: 1.5rem;
   font-weight: 700;
 }
-
 .history-card-score-value.high { color: var(--emerald); }
 .history-card-score-value.medium { color: var(--blue); }
 .history-card-score-value.low { color: var(--rose); }
+.history-card-score-value.critical { color: #f43f5e; }
+.history-card-score-value.moderate { color: #f59e0b; }
+.history-card-score-value.strong { color: #06b6d4; }
+.history-card-score-value.extreme { color: #10b981; }
 
 .history-card-level {
   font-size: 0.75rem;
@@ -1635,6 +1638,10 @@ select option:disabled,
 .history-card-level.high { color: var(--emerald); }
 .history-card-level.medium { color: var(--blue); }
 .history-card-level.low { color: var(--rose); }
+.history-card-level.critical { color: #f43f5e; }
+.history-card-level.moderate { color: #f59e0b; }
+.history-card-level.strong { color: #06b6d4; }
+.history-card-level.extreme { color: #10b981; }
 
 .history-card-badge {
   font-size: 0.7rem;
@@ -1661,6 +1668,30 @@ select option:disabled,
   background: rgba(244, 63, 94, 0.08);
   border: 1px solid rgba(244, 63, 94, 0.2);
   color: var(--rose);
+}
+
+.history-card-badge.critical {
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+
+.history-card-badge.moderate {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.history-card-badge.strong {
+  background: rgba(6, 182, 212, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: #06b6d4;
+}
+
+.history-card-badge.extreme {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
 }
 
 .history-card-actions {

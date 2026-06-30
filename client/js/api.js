@@ -120,7 +120,7 @@ const FirebaseService = {
     if (!user) throw new Error('Authorization required.');
     const idToken = await user.getIdToken();
 
-    const response = await fetch(`${API_BASE}/user`, {
+    const response = await fetch(`${API_BASE}/users/profile`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${idToken}` }
     });

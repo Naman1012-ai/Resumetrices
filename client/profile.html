@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Profile - Resumetrices</title>
   <link rel="stylesheet" href="css/style.css">
@@ -106,7 +110,7 @@
             <!-- Analysis History Section -->
             <div class="panel" style="padding: 2rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-card);">
               <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1.25rem;">Analysis History Dashboard</h3>
-              <div class="history-table-container" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+              <div class="table-scroll-wrapper">
                 <table style="width: 100%; min-width: 580px; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                   <thead>
                     <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted);">

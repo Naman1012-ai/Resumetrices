@@ -52,16 +52,33 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Configure limits from constants (5MB file size limit)
-const limits = {
-  fileSize: constants.UPLOAD.MAX_FILE_SIZE
+// Configure dynamic wrapper for multer to support live fileSize clamp adjustments
+const uploadWrapper = (fieldName) => {
+  return (req, res, next) => {
+    // Get max size from global.guardrails or fallback to constants
+    const maxLimit = (global.guardrails && global.guardrails.maxFileSize) || constants.UPLOAD.MAX_FILE_SIZE;
+
+    const dynamicMulter = multer({
+      storage: storage,
+      fileFilter: fileFilter,
+      limits: { fileSize: maxLimit }
+    });
+
+    dynamicMulter.single(fieldName)(req, res, (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          const limitMB = Math.round(maxLimit / (1024 * 1024));
+          logger.warn('Upload', `Blocked upload: file size exceeded current live clamp of ${limitMB} MB.`);
+          err.message = `File size limit exceeded. Max allowed is ${limitMB} MB.`;
+          err.statusCode = 413; // Payload Too Large
+        }
+        return next(err);
+      }
+      next();
+    });
+  };
 };
 
-// Create the multer upload middleware instance
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: limits
-});
-
-module.exports = upload;
+module.exports = {
+  single: (fieldName) => uploadWrapper(fieldName)
+};

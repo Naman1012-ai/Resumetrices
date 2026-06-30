@@ -48,10 +48,14 @@ setInterval(() => {
  * @returns {Function} - Express middleware function.
  */
 const rateLimiter = (type = 'general') => {
-  const config = RATE_LIMITS[type] || RATE_LIMITS.general;
-  const map = store[type] || store.general;
-  
   return (req, res, next) => {
+    // Dynamically retrieve the general rate limiter boundary if active
+    const globalMax = (global.guardrails && global.guardrails.rateLimitMax) || RATE_LIMITS.general.max;
+    const limitMax = type === 'general' ? globalMax : (RATE_LIMITS[type] ? RATE_LIMITS[type].max : RATE_LIMITS.general.max);
+    const windowMs = type === 'upload' ? RATE_LIMITS.upload.windowMs : RATE_LIMITS.general.windowMs;
+
+    const map = store[type] || store.general;
+    
     // Extract client IP (req.ip is secure since trust proxy is configured in app.js)
     const ip = req.ip || 'unknown';
     const now = Date.now();
@@ -63,10 +67,10 @@ const rateLimiter = (type = 'general') => {
     let timestamps = map.get(ip);
     
     // Filter timestamps within the current sliding window
-    timestamps = timestamps.filter(time => now - time < config.windowMs);
+    timestamps = timestamps.filter(time => now - time < windowMs);
     
-    if (timestamps.length >= config.max) {
-      logger.warn('RateLimiter', `Rate limit exceeded for IP: ${ip} on store: ${type}`);
+    if (timestamps.length >= limitMax) {
+      logger.warn('RateLimiter', `Rate limit exceeded for IP: ${ip} on store: ${type} (Limit: ${limitMax})`);
       const error = new Error('Too many requests. Please try again later.');
       error.statusCode = 429;
       return next(error);
@@ -77,9 +81,9 @@ const rateLimiter = (type = 'general') => {
     map.set(ip, timestamps);
     
     // Add rate limit metadata headers
-    res.setHeader('X-RateLimit-Limit', config.max);
-    res.setHeader('X-RateLimit-Remaining', config.max - timestamps.length);
-    res.setHeader('X-RateLimit-Reset', new Date(now + config.windowMs).toISOString());
+    res.setHeader('X-RateLimit-Limit', limitMax);
+    res.setHeader('X-RateLimit-Remaining', limitMax - timestamps.length);
+    res.setHeader('X-RateLimit-Reset', new Date(now + windowMs).toISOString());
     
     next();
   };

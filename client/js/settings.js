@@ -1,4 +1,4 @@
-import { auth, isMockMode } from './firebase-config.js';
+import { auth, db, isMockMode } from './firebase-config.js';
 import { 
   updatePassword, 
   reauthenticateWithCredential, 
@@ -6,10 +6,14 @@ import {
   GoogleAuthProvider,
   GithubAuthProvider,
   reauthenticateWithPopup,
-  deleteUser
+  deleteUser,
+  verifyBeforeUpdateEmail,
+  sendEmailVerification,
+  sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { FirebaseService } from './api.js';
-import { showToast } from './utils.js';
+import { showToast, showPersistentNotice } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Accordion Logic
@@ -50,27 +54,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggle = document.getElementById('theme-toggle');
   const prefWeeklyStats = document.getElementById('pref-weekly-stats');
 
-  // Delete Account — Modal Elements
-  const btnDeleteAccountTrigger = document.getElementById('btn-delete-account-trigger');
+  // Wipe Account — Modal Elements
+  const deleteAccountBtn = document.getElementById('delete-account-btn');
   const deleteConfirmModal = document.getElementById('delete-confirm-modal');
-  const deleteConfirmEmailPlaceholder = document.getElementById('delete-confirm-email-placeholder');
-  const deleteConfirmEmailInput = document.getElementById('delete-confirm-email-input');
-  const emailMatchHint = document.getElementById('email-match-hint');
-  const deleteReauthPasswordGroup = document.getElementById('delete-reauth-password-group');
-  const deleteReauthPassword = document.getElementById('delete-reauth-password');
-  const deleteOauthInfo = document.getElementById('delete-oauth-info');
+  const deleteConfirmVerbatimInput = document.getElementById('delete-confirm-verbatim-input');
   const deleteErrorDisplay = document.getElementById('delete-error-display');
   const deleteErrorText = document.getElementById('delete-error-text');
   const deleteConfirmLabel = document.getElementById('delete-confirm-label');
-
-  // Step containers & buttons
-  const deleteStep1 = document.getElementById('delete-step-1');
-  const deleteStep2 = document.getElementById('delete-step-2');
-  const stepDot1 = document.getElementById('step-dot-1');
-  const stepDot2 = document.getElementById('step-dot-2');
   const btnDeleteCancel = document.getElementById('btn-delete-cancel');
-  const btnDeleteNext = document.getElementById('btn-delete-next');
-  const btnDeleteBack = document.getElementById('btn-delete-back');
   const btnDeleteConfirm = document.getElementById('btn-delete-confirm');
 
   // Local State
@@ -100,11 +91,57 @@ document.addEventListener('DOMContentLoaded', () => {
     // Store email for exact comparison
     authenticatedEmail = userEmail;
 
-    if (deleteConfirmEmailPlaceholder) {
-      deleteConfirmEmailPlaceholder.textContent = userEmail;
+    // Verification Status Badge display
+    const vBadge = document.getElementById('verification-badge');
+    const vBtn = document.getElementById('btn-trigger-verification');
+    
+    if (vBadge) {
+      if (isMockMode) {
+        vBadge.textContent = 'Verified';
+        vBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+        vBadge.style.color = 'var(--emerald)';
+        vBadge.style.border = '1px solid rgba(16, 185, 129, 0.2)';
+        if (vBtn) vBtn.style.display = 'none';
+      } else if (user) {
+        if (user.emailVerified) {
+          vBadge.textContent = 'Verified';
+          vBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+          vBadge.style.color = 'var(--emerald)';
+          vBadge.style.border = '1px solid rgba(16, 185, 129, 0.2)';
+          if (vBtn) vBtn.style.display = 'none';
+        } else {
+          vBadge.textContent = 'Unverified';
+          vBadge.style.background = 'rgba(244, 63, 94, 0.1)';
+          vBadge.style.color = 'var(--rose)';
+          vBadge.style.border = '1px solid rgba(244, 63, 94, 0.2)';
+          if (vBtn) vBtn.style.display = 'inline-block';
+        }
+      }
     }
 
-
+    // Verify & synchronize profile email identity row on verification success
+    if (user && !isMockMode) {
+      const userRef = ref(db, `users/${user.uid}`);
+      get(userRef).then(async (snap) => {
+        if (snap.exists()) {
+          const data = snap.val();
+          if (data.email !== user.email) {
+            // User email changed/verified! Update primary database profile identity row
+            console.log(`Synchronizing database profile email identity row for ${user.uid} to verified email: ${user.email}`);
+            await update(userRef, { email: user.email });
+            
+            // Also update users/${uid}/profile/email if it exists
+            const profileRef = ref(db, `users/${user.uid}/profile`);
+            const profileSnap = await get(profileRef);
+            if (profileSnap.exists()) {
+              await update(profileRef, { email: user.email });
+            }
+          }
+        }
+      }).catch(err => {
+        console.error('Error synchronizing database profile email:', err);
+      });
+    }
 
     // Load theme setting
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -192,61 +229,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // =========================================================
-  //  TWO-STEP ACCOUNT DELETION MODAL
+  //  WIPE PLATFORM IDENTITY PROFILE DATA MODAL
   // =========================================================
 
-  /** Reset the modal to its initial Step 1 state */
+  /** Reset the modal to its initial state */
   function resetDeleteModal() {
-    // Clear inputs
-    if (deleteConfirmEmailInput) deleteConfirmEmailInput.value = '';
-    if (deleteReauthPassword) deleteReauthPassword.value = '';
-    if (emailMatchHint) { emailMatchHint.textContent = ''; emailMatchHint.style.color = 'var(--text-muted)'; }
-
-    // Show Step 1, hide Step 2
-    if (deleteStep1) deleteStep1.style.display = 'block';
-    if (deleteStep2) deleteStep2.style.display = 'none';
-
-    // Reset step dots
-    if (stepDot1) stepDot1.style.background = 'var(--rose, #f43f5e)';
-    if (stepDot2) stepDot2.style.background = 'rgba(255,255,255,0.1)';
-
-    // Disable Next button
-    if (btnDeleteNext) {
-      btnDeleteNext.setAttribute('disabled', 'true');
-      btnDeleteNext.style.opacity = '0.4';
-      btnDeleteNext.style.cursor = 'not-allowed';
+    if (deleteConfirmVerbatimInput) {
+      deleteConfirmVerbatimInput.value = '';
+      deleteConfirmVerbatimInput.style.borderColor = 'var(--border-color, #334155)';
     }
 
-    // Reset confirm button
     if (btnDeleteConfirm) {
-      btnDeleteConfirm.removeAttribute('disabled');
-      if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Permanently Purge & Delete';
+      btnDeleteConfirm.setAttribute('disabled', 'true');
+      btnDeleteConfirm.style.opacity = '0.4';
+      btnDeleteConfirm.style.cursor = 'not-allowed';
+      if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Permanently Wipe';
     }
 
-    // Hide error display
-    if (deleteErrorDisplay) deleteErrorDisplay.style.display = 'none';
-  }
-
-  /** Transition from Step 1 to Step 2 */
-  function goToStep2() {
-    if (deleteStep1) deleteStep1.style.display = 'none';
-    if (deleteStep2) deleteStep2.style.display = 'block';
-
-    // Update step dots
-    if (stepDot1) stepDot1.style.background = 'var(--emerald, #10b981)';
-    if (stepDot2) stepDot2.style.background = 'var(--rose, #f43f5e)';
-
-    // Configure step 2 fields based on provider
-    if (primaryProvider === 'password') {
-      if (deleteReauthPasswordGroup) deleteReauthPasswordGroup.style.display = 'flex';
-      if (deleteOauthInfo) deleteOauthInfo.style.display = 'none';
-      if (deleteReauthPassword) deleteReauthPassword.focus();
-    } else {
-      if (deleteReauthPasswordGroup) deleteReauthPasswordGroup.style.display = 'none';
-      if (deleteOauthInfo) deleteOauthInfo.style.display = 'block';
-    }
-
-    // Hide any previous error
     if (deleteErrorDisplay) deleteErrorDisplay.style.display = 'none';
   }
 
@@ -258,22 +257,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function openDeleteConfirmationModal() {
+    if (!deleteConfirmModal) return;
+    resetDeleteModal();
+    deleteConfirmModal.style.display = 'flex';
+  }
+
   // --- Trigger: Open Modal ---
-  if (btnDeleteAccountTrigger) {
-    btnDeleteAccountTrigger.addEventListener('click', () => {
-      if (!deleteConfirmModal) return;
-
-      // Refresh email from live auth state
-      const user = auth.currentUser;
-      if (user && !isMockMode) {
-        authenticatedEmail = user.email || '';
-      }
-      if (deleteConfirmEmailPlaceholder) {
-        deleteConfirmEmailPlaceholder.textContent = authenticatedEmail;
-      }
-
-      resetDeleteModal();
-      deleteConfirmModal.style.display = 'flex';
+  const delAccBtn = document.getElementById('delete-account-btn');
+  if (delAccBtn) {
+    delAccBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      openDeleteConfirmationModal();
     });
   }
 
@@ -284,70 +279,44 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- Step 1: Email Input Validation (real-time keypress matching) ---
-  if (deleteConfirmEmailInput) {
-    deleteConfirmEmailInput.addEventListener('input', () => {
-      const entered = deleteConfirmEmailInput.value.trim();
-      const target = authenticatedEmail;
-
-      if (!entered) {
-        // Empty — neutral
-        if (emailMatchHint) { emailMatchHint.textContent = ''; emailMatchHint.style.color = 'var(--text-muted)'; }
-        if (btnDeleteNext) { btnDeleteNext.setAttribute('disabled', 'true'); btnDeleteNext.style.opacity = '0.4'; btnDeleteNext.style.cursor = 'not-allowed'; }
-        if (deleteConfirmEmailInput) deleteConfirmEmailInput.style.borderColor = 'var(--border-color, #334155)';
-        return;
-      }
-
-      if (entered === target) {
-        // Exact match — unlock
-        if (emailMatchHint) { emailMatchHint.textContent = '✓ Email verified'; emailMatchHint.style.color = 'var(--emerald, #10b981)'; }
-        if (btnDeleteNext) { btnDeleteNext.removeAttribute('disabled'); btnDeleteNext.style.opacity = '1'; btnDeleteNext.style.cursor = 'pointer'; }
-        if (deleteConfirmEmailInput) deleteConfirmEmailInput.style.borderColor = 'var(--emerald, #10b981)';
-      } else {
-        // Mismatch — keep locked
-        const isPartialMatch = target.startsWith(entered);
-        if (emailMatchHint) {
-          emailMatchHint.textContent = isPartialMatch ? 'Keep typing...' : '✗ Email does not match';
-          emailMatchHint.style.color = isPartialMatch ? 'var(--text-muted, #94a3b8)' : 'var(--rose, #f43f5e)';
+  // --- Verbatim Input Verification ---
+  if (deleteConfirmVerbatimInput) {
+    deleteConfirmVerbatimInput.addEventListener('input', () => {
+      const entered = deleteConfirmVerbatimInput.value.trim();
+      if (entered === 'DELETE') {
+        if (btnDeleteConfirm) {
+          btnDeleteConfirm.removeAttribute('disabled');
+          btnDeleteConfirm.style.opacity = '1';
+          btnDeleteConfirm.style.cursor = 'pointer';
         }
-        if (btnDeleteNext) { btnDeleteNext.setAttribute('disabled', 'true'); btnDeleteNext.style.opacity = '0.4'; btnDeleteNext.style.cursor = 'not-allowed'; }
-        if (deleteConfirmEmailInput) deleteConfirmEmailInput.style.borderColor = isPartialMatch ? 'var(--border-color, #334155)' : 'var(--rose, #f43f5e)';
+        deleteConfirmVerbatimInput.style.borderColor = 'var(--emerald, #10b981)';
+      } else {
+        if (btnDeleteConfirm) {
+          btnDeleteConfirm.setAttribute('disabled', 'true');
+          btnDeleteConfirm.style.opacity = '0.4';
+          btnDeleteConfirm.style.cursor = 'not-allowed';
+        }
+        deleteConfirmVerbatimInput.style.borderColor = entered ? 'var(--rose, #f43f5e)' : 'var(--border-color, #334155)';
       }
     });
   }
 
-  // --- Step 1 → Step 2: Next Button ---
-  if (btnDeleteNext) {
-    btnDeleteNext.addEventListener('click', () => {
-      // Double-check match before advancing
-      if (deleteConfirmEmailInput.value.trim() !== authenticatedEmail) return;
-      goToStep2();
-    });
-  }
-
-  // --- Step 2 → Step 1: Back Button ---
-  if (btnDeleteBack) {
-    btnDeleteBack.addEventListener('click', () => {
-      if (deleteStep2) deleteStep2.style.display = 'none';
-      if (deleteStep1) deleteStep1.style.display = 'block';
-
-      // Revert step dots
-      if (stepDot1) stepDot1.style.background = 'var(--rose, #f43f5e)';
-      if (stepDot2) stepDot2.style.background = 'rgba(255,255,255,0.1)';
-    });
-  }
-
-  // --- Step 2: Final Confirm — Re-Auth + Purge + Delete ---
+  // --- Final Confirm: Purge + Delete ---
   if (btnDeleteConfirm) {
     btnDeleteConfirm.addEventListener('click', async () => {
+      if (deleteConfirmVerbatimInput.value.trim() !== 'DELETE') return;
+
       btnDeleteConfirm.setAttribute('disabled', 'true');
-      if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Verifying & Deleting...';
+      btnDeleteConfirm.style.cursor = 'not-allowed';
+      if (deleteConfirmLabel) {
+        deleteConfirmLabel.innerHTML = `<span class="spinner-border" style="display:inline-block; width:12px; height:12px; border:2px solid #fff; border-radius:50%; border-top-color:transparent; animation:spin 1s linear infinite; margin-right:6px; vertical-align:middle;"></span> Wiping...`;
+      }
       if (deleteErrorDisplay) deleteErrorDisplay.style.display = 'none';
 
       try {
         // === Mock Mode Shortcut ===
         if (isMockMode) {
-          showToast('Account deleted (Mock Mode)!');
+          showToast('Your account has been deleted permanently', 'success');
           sessionStorage.clear();
           localStorage.clear();
           window.location.href = 'index.html?mock=true';
@@ -357,55 +326,122 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = auth.currentUser;
         if (!user) throw new Error('No authenticated session found. Please log in again.');
 
-        // ---- STAGE 1: Security Re-authentication ----
-        if (primaryProvider === 'password') {
-          const pass = deleteReauthPassword ? deleteReauthPassword.value : '';
-          if (!pass || pass.length < 6) {
-            throw new Error('Please enter your current password (minimum 6 characters).');
-          }
-          const credential = EmailAuthProvider.credential(user.email, pass);
-          await reauthenticateWithCredential(user, credential);
-        } else if (primaryProvider === 'google.com') {
-          const provider = new GoogleAuthProvider();
-          await reauthenticateWithPopup(user, provider);
-        } else if (primaryProvider === 'github.com') {
-          const provider = new GithubAuthProvider();
-          await reauthenticateWithPopup(user, provider);
-        }
-
-        // ---- STAGE 2: Database Purge ----
-        // Wipes all user sub-documents, analyses, profile data under users/{uid}/
-        if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Purging data...';
+        // ---- STAGE 1: Database Purge ----
         await FirebaseService.purgeUserData();
 
-        // ---- STAGE 3: Auth Account Destruction ----
-        if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Removing credentials...';
+        // ---- STAGE 2: Auth Account Destruction ----
         await deleteUser(user);
 
-        // ---- STAGE 4: Session Tear-Down & Eviction ----
-        showToast('Your account and all associated data have been permanently purged.', 'success');
+        // ---- STAGE 3: Session Tear-Down & Eviction ----
+        showToast('Your account has been deleted permanently', 'success');
         sessionStorage.clear();
         localStorage.clear();
         window.location.href = 'index.html';
 
       } catch (err) {
         console.error('Account deletion failure:', err);
-
-        // Map Firebase error codes to user-friendly messages
         let userMsg = err.message || 'Deletion failed. Please try again.';
-        if (err.code === 'auth/wrong-password') {
-          userMsg = 'Incorrect password. Please re-enter your current password.';
-        } else if (err.code === 'auth/too-many-requests') {
-          userMsg = 'Too many attempts. Please wait a few minutes before trying again.';
-        } else if (err.code === 'auth/popup-closed-by-user') {
-          userMsg = 'Re-authentication popup was closed. Please try again.';
-        } else if (err.code === 'auth/requires-recent-login') {
-          userMsg = 'Session expired. Please log out, log back in, and try again.';
+        if (err.code === 'auth/requires-recent-login') {
+          userMsg = 'Security requirement: Please sign out and sign back in to delete your account.';
         }
-
         showDeleteError(userMsg);
         btnDeleteConfirm.removeAttribute('disabled');
-        if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Permanently Purge & Delete';
+        btnDeleteConfirm.style.cursor = 'pointer';
+        if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Permanently Wipe';
+      }
+    });
+  }
+
+  // --- Section 3: Identity & Email Lifecycle Controllers ---
+  
+  // Resend Email Verification from Settings
+  const btnTriggerVerification = document.getElementById('btn-trigger-verification');
+  if (btnTriggerVerification) {
+    btnTriggerVerification.addEventListener('click', async () => {
+      if (isMockMode) {
+        showPersistentNotice("Verification email sent! Please check your inbox to activate your account. ⚠️ If you don't see it within a few minutes, please check your Spam or Promotions folder.");
+        return;
+      }
+      const user = auth.currentUser;
+      if (!user) {
+        showToast('Authentication required.', 'error');
+        return;
+      }
+      btnTriggerVerification.disabled = true;
+      btnTriggerVerification.textContent = 'Sending...';
+      try {
+        await sendEmailVerification(user);
+        showPersistentNotice("Verification email sent! Please check your inbox to activate your account. ⚠️ If you don't see it within a few minutes, please check your Spam or Promotions folder.");
+      } catch (err) {
+        showToast(err.message || 'Failed to send verification link.', 'error');
+      } finally {
+        btnTriggerVerification.disabled = false;
+        btnTriggerVerification.textContent = 'Send Link';
+      }
+    });
+  }
+
+  // Request Password Reset from Settings
+  const btnRequestResetEmail = document.getElementById('btn-request-reset-email');
+  if (btnRequestResetEmail) {
+    btnRequestResetEmail.addEventListener('click', async () => {
+      const user = auth.currentUser;
+      const email = user ? user.email : 'demo@atspilot.co';
+      
+      btnRequestResetEmail.disabled = true;
+      btnRequestResetEmail.textContent = 'Sending...';
+      
+      try {
+        if (isMockMode) {
+          showPersistentNotice("Password reset link dispatched successfully! ⚠️ Crucial: Check your Spam or Junk folder if the recovery link does not arrive in your primary inbox shortly.");
+          return;
+        }
+        await sendPasswordResetEmail(auth, email);
+        showPersistentNotice("Password reset link dispatched successfully! ⚠️ Crucial: Check your Spam or Junk folder if the recovery link does not arrive in your primary inbox shortly.");
+      } catch (err) {
+        showToast(err.message || 'Failed to send reset link.', 'error');
+      } finally {
+        btnRequestResetEmail.disabled = false;
+        btnRequestResetEmail.textContent = 'Send Reset Link';
+      }
+    });
+  }
+
+  // Initiate Email Address Change Form
+  const emailChangeForm = document.getElementById('email-change-form');
+  const newEmailInput = document.getElementById('new-email-address');
+  const btnChangeEmail = document.getElementById('btn-change-email');
+
+  if (emailChangeForm) {
+    emailChangeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newEmail = newEmailInput.value.trim();
+      const user = auth.currentUser;
+
+      if (!user && !isMockMode) {
+        showToast('Authentication required.', 'error');
+        return;
+      }
+
+      btnChangeEmail.disabled = true;
+      btnChangeEmail.textContent = 'Initiating...';
+
+      try {
+        if (isMockMode) {
+          showPersistentNotice("Verification link sent! Check your new inbox to complete the update. ⚠️ Crucial: Check your Spam or Promotions folder if the verification message does not arrive shortly.");
+          emailChangeForm.reset();
+          return;
+        }
+
+        // Trigger verifyBeforeUpdateEmail
+        await verifyBeforeUpdateEmail(user, newEmail);
+        showPersistentNotice("Verification link sent! Check your new inbox to complete the update. ⚠️ Crucial: Check your Spam or Promotions folder if the verification message does not arrive shortly.");
+        emailChangeForm.reset();
+      } catch (err) {
+        showToast(err.message || 'Failed to initiate email change. Re-authentication might be required.', 'error');
+      } finally {
+        btnChangeEmail.disabled = false;
+        btnChangeEmail.textContent = 'Initiate Change';
       }
     });
   }

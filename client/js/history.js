@@ -19,6 +19,13 @@ document.addEventListener('DOMContentLoaded', () => {
   let historyCurrentPage = 1;
   const historyItemsPerPage = 6;
 
+  // Active deletion properties & modal targets
+  let activeDeleteId = null;
+  const deleteModal = document.getElementById('delete-confirm-modal');
+  const deleteModalReportName = document.getElementById('delete-modal-report-name');
+  const deleteModalCancel = document.getElementById('delete-modal-cancel');
+  const deleteModalConfirm = document.getElementById('delete-modal-confirm');
+
   async function loadHistoryCatalog() {
     if (!historyCardsGrid) return;
     
@@ -80,14 +87,20 @@ document.addEventListener('DOMContentLoaded', () => {
           minute: '2-digit'
         });
 
-        let ratingClass = 'medium';
-        let levelLabel = 'Medium Compatibility';
-        if (item.score >= 80) {
-          ratingClass = 'high';
-          levelLabel = 'Strong Compatibility';
-        } else if (item.score < 50) {
-          ratingClass = 'low';
-          levelLabel = 'Weak Compatibility';
+        let ratingClass = 'moderate';
+        let levelLabel = 'Compatibility: Moderate';
+        if (item.score < 40) {
+          ratingClass = 'critical';
+          levelLabel = 'Compatibility: Critical';
+        } else if (item.score >= 40 && item.score <= 59) {
+          ratingClass = 'moderate';
+          levelLabel = 'Compatibility: Moderate';
+        } else if (item.score >= 60 && item.score <= 79) {
+          ratingClass = 'strong';
+          levelLabel = 'Compatibility: Strong';
+        } else {
+          ratingClass = 'extreme';
+          levelLabel = 'Compatibility: Extreme';
         }
 
         const escapedName = escapeHTML(item.resumeName);
@@ -123,19 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Bind Delete Action
-        card.querySelector('.btn-history-card-action.delete').addEventListener('click', async () => {
-          const confirmDelete = confirm(`Are you sure you want to permanently delete "${item.resumeName}"? This cannot be undone.`);
-          if (!confirmDelete) return;
-
-          try {
-            showToast('Deleting analysis record...', 'info');
-            await FirebaseService.deleteAnalysis(item.analysisId);
-            cachedHistory = []; // Reset history cache
-            showToast('Analysis deleted successfully!');
-            loadHistoryCatalog();
-          } catch (err) {
-            console.error('Delete error:', err);
-            showToast('Failed to delete analysis record.', 'error');
+        card.querySelector('.btn-history-card-action.delete').addEventListener('click', () => {
+          activeDeleteId = item.analysisId;
+          if (deleteModalReportName) {
+            deleteModalReportName.textContent = `"${item.resumeName}"`;
+          }
+          if (deleteModal) {
+            deleteModal.style.display = 'flex';
           }
         });
 
@@ -190,6 +197,50 @@ document.addEventListener('DOMContentLoaded', () => {
     btnHistoryNext.addEventListener('click', () => {
       historyCurrentPage++;
       loadHistoryCatalog();
+    });
+  }
+
+  // --- Deletion Confirmation Modal Handlers ---
+  if (deleteModalCancel && deleteModal) {
+    deleteModalCancel.addEventListener('click', (e) => {
+      e.preventDefault();
+      deleteModal.style.display = 'none';
+      activeDeleteId = null;
+    });
+  }
+
+  if (deleteModalConfirm && deleteModal) {
+    deleteModalConfirm.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!activeDeleteId) return;
+
+      deleteModalConfirm.disabled = true;
+      deleteModalConfirm.textContent = 'Deleting...';
+
+      try {
+        showToast('Deleting analysis record...', 'info');
+        await FirebaseService.deleteAnalysis(activeDeleteId);
+        cachedHistory = []; // Reset cache to trigger reload
+        showToast('Analysis deleted successfully!');
+        deleteModal.style.display = 'none';
+        loadHistoryCatalog();
+      } catch (err) {
+        console.error('Delete error:', err);
+        showToast('Failed to delete analysis record.', 'error');
+      } finally {
+        deleteModalConfirm.disabled = false;
+        deleteModalConfirm.textContent = 'Yes, Delete Report';
+        activeDeleteId = null;
+      }
+    });
+  }
+
+  if (deleteModal) {
+    deleteModal.addEventListener('click', (e) => {
+      if (e.target === deleteModal) {
+        deleteModal.style.display = 'none';
+        activeDeleteId = null;
+      }
     });
   }
 

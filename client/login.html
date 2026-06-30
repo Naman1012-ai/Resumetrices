@@ -31,18 +31,37 @@
       <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">Optimize your CV and track match compatibility scores.</p>
     </div>
 
-    <form id="login-form">
-      <div class="input-group" style="margin-bottom: 1rem;">
-        <label for="auth-email" style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-muted);">Email Address</label>
-        <input type="email" id="auth-email" required placeholder="name@example.com" style="width: 100%;">
-      </div>
-      <div class="input-group" style="margin-bottom: 1rem;">
-        <label for="auth-password" style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-muted);">Password</label>
-        <input type="password" id="auth-password" required placeholder="••••••••" style="width: 100%;">
-      </div>
-      <div id="auth-error-msg" style="display: none; color: var(--rose, #f43f5e); font-size: 0.82rem; font-weight: 600; margin-bottom: 1rem; text-align: left; padding: 0.5rem 0.75rem; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.15); border-radius: var(--radius-md, 8px);"></div>
-      <button type="submit" class="btn-primary" style="width: 100%; padding: 0.75rem; font-weight: 700;">Sign In</button>
-    </form>
+    <!-- Login Form View -->
+    <div id="login-view">
+      <form id="login-form">
+        <div class="input-group" style="margin-bottom: 1rem;">
+          <label for="auth-email" style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-muted);">Email Address</label>
+          <input type="email" id="auth-email" required placeholder="name@example.com" style="width: 100%;">
+        </div>
+        <div class="input-group" style="margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <label for="auth-password" style="font-size: 0.85rem; color: var(--text-muted);">Password</label>
+            <a href="#" id="link-forgot-password" style="font-size: 0.75rem; color: var(--emerald); text-decoration: none; font-weight: 600;">Forgot Password?</a>
+          </div>
+          <input type="password" id="auth-password" required placeholder="••••••••" style="width: 100%;">
+        </div>
+        <div id="auth-error-msg" style="display: none; color: var(--rose, #f43f5e); font-size: 0.82rem; font-weight: 600; margin-bottom: 1rem; text-align: left; padding: 0.5rem 0.75rem; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.15); border-radius: var(--radius-md, 8px);"></div>
+        <button type="submit" class="btn-primary" style="width: 100%; padding: 0.75rem; font-weight: 700;">Sign In</button>
+      </form>
+    </div>
+
+    <!-- Password Reset View -->
+    <div id="reset-view" style="display: none;">
+      <form id="forgot-password-form">
+        <div class="input-group" style="margin-bottom: 1.25rem;">
+          <label for="reset-email" style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-muted);">Email Address</label>
+          <input type="email" id="reset-email" required placeholder="name@example.com" style="width: 100%;">
+        </div>
+        <div id="reset-error-msg" style="display: none; color: var(--rose, #f43f5e); font-size: 0.82rem; font-weight: 600; margin-bottom: 1rem; text-align: left; padding: 0.5rem 0.75rem; background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.15); border-radius: var(--radius-md, 8px);"></div>
+        <button type="submit" class="btn-primary" style="width: 100%; padding: 0.75rem; font-weight: 700; margin-bottom: 1rem;">Send Reset Link</button>
+        <button type="button" id="btn-back-to-login" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); color: var(--text-main); font-weight: 600; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;">Back to Sign In</button>
+      </form>
+    </div>
 
     <div class="auth-divider" style="text-align: center; margin: 1.5rem 0; position: relative;">
       <span style="background: var(--bg-secondary); padding: 0 0.75rem; color: var(--text-muted); font-size: 0.8rem; position: relative; z-index: 2;">or</span>

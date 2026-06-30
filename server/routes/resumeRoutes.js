@@ -50,4 +50,7 @@ router.get('/resumes/history', requireAuth, rateLimiter('general'), resumeContro
 // DELETE /api/user - Complete user account data purge
 router.delete('/user', requireAuth, rateLimiter('general'), resumeController.deleteUserAccount);
 
+// DELETE /api/users/profile - Complete user account data purge (alias)
+router.delete('/users/profile', requireAuth, rateLimiter('general'), resumeController.deleteUserAccount);
+
 module.exports = router;

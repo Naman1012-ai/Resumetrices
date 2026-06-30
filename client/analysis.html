@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ATS Report - Resumetrices</title>
   <link rel="stylesheet" href="css/style.css">
@@ -34,7 +38,7 @@
             </div>
           </div>
           <div class="report-header-right" style="display: flex; align-items: center; gap: 1rem;">
-            <span id="report-header-badge" class="badge-ats" style="font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid var(--border-color);">Optimized</span>
+            <span id="report-header-badge" class="badge-ats" style="font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid var(--border-color);">COMPATIBILITY: EXTREME</span>
             <div id="report-header-score" style="font-size: 1.75rem; font-weight: 800; color: var(--emerald); font-family: 'Outfit', sans-serif;">92/100</div>
           </div>
         </div>
@@ -58,7 +62,7 @@
               <div class="results-header">
                 <div class="results-header-info">
                   <h2 id="res-filename" style="margin: 0 0 0.5rem 0; font-size: 1.5rem; font-weight: 700; word-break: break-all;">Resume Name</h2>
-                  <span class="badge-ats" id="res-ats-badge">ATS Compatibility: Good</span>
+                  <span class="badge-ats" id="res-ats-badge">Compatibility: Strong</span>
                 </div>
               </div>
             </section>

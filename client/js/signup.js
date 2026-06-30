@@ -1,7 +1,7 @@
 import { auth, db, isMockMode } from './firebase-config.js';
-import { createUserWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { createUserWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { showToast, getFriendlyAuthErrorMessage } from './utils.js';
+import { showToast, getFriendlyAuthErrorMessage, showPersistentNotice } from './utils.js';
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -36,9 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }).catch((error) => {
     isRedirectProcessing = false;
-    if (error.code && error.code !== 'auth/popup-closed-by-user') {
-      showToast(getFriendlyAuthErrorMessage(error), 'error');
-    }
+    console.error("OAuth Error Context:", error);
+    showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
   });
 
   const signupForm = document.getElementById('signup-form');
@@ -109,6 +108,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // Immediately send email verification link upon new registration
+      try {
+        await sendEmailVerification(user);
+        console.log('Verification email sent to user inbox.');
+      } catch (emailErr) {
+        console.error('Failed to send verification email:', emailErr);
+      }
+
       try {
         const userRef = ref(db, `users/${user.uid}`);
         await set(userRef, {
@@ -121,7 +128,20 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Database user profile creation failed:", dbError);
       }
 
-      showToast('Account registered successfully!');
+      if (authErrorMsg) {
+        authErrorMsg.style.display = 'block';
+        authErrorMsg.style.background = 'transparent';
+        authErrorMsg.style.border = 'none';
+        authErrorMsg.style.padding = '0';
+        showPersistentNotice(
+          "Verification email sent! Please check your inbox to activate your account. ⚠️ If you don't see it within a few minutes, please check your Spam or Promotions folder.",
+          authErrorMsg
+        );
+      } else {
+        showPersistentNotice(
+          "Verification email sent! Please check your inbox to activate your account. ⚠️ If you don't see it within a few minutes, please check your Spam or Promotions folder."
+        );
+      }
       // auth state listener will handle redirect
     } catch (error) {
       const errorMsg = getFriendlyAuthErrorMessage(error);
@@ -151,13 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
       await signInWithRedirect(auth, googleProvider);
       return; // Redirect will handle the rest
     } catch (error) {
-      showToast(getFriendlyAuthErrorMessage(error), 'error');
+      console.error("OAuth Error Context:", error);
+      showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
       btnGoogle.removeAttribute('disabled');
       btnGoogle.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12.24 10.285V13.4h6.887C18.2 15.614 15.645 18 12.24 18c-3.86 0-7-3.14-7-7s3.14-7 7-7c1.7 0 3.3 0.64 4.5 1.84l2.5-2.5C17.3 1.57 14.86 1 12.24 1 6.48 1 2 5.48 2 11.24s4.48 10.24 10.24 10.24c5.76 0 10.24-4.48 10.24-10.24 0-.64-.08-1.28-.24-1.96H12.24z"/>
         </svg>
-        Continue with Google
+        SignUp with Google
       `;
     }
   });
