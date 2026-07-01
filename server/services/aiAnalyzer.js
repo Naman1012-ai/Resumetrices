@@ -48,11 +48,17 @@ if (apiKey && !apiKey.startsWith('sk-or-')) {
 }
 
 const OPENROUTER_MODELS = [
-  env.AI.MODEL_ID,
+  env.AI.MODEL_ID || 'google/gemini-2.5-flash:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'mistralai/mistral-7b-instruct:free',
+  'meta-llama/llama-3-8b-instruct:free',
   'google/gemini-2.5-flash:free',
   'meta-llama/llama-3.3-70b-instruct:free',
   'qwen/qwen-2.5-coder-32b-instruct:free',
   'meta-llama/llama-3.2-3b-instruct:free',
+  'deepseek/deepseek-r1:free',
+  'google/gemma-2-9b-it:free',
+  'microsoft/phi-3-medium-128k-instruct:free',
   'openrouter/free'
 ];
 
@@ -1061,20 +1067,29 @@ const fetchJsonWithTimeout = async (url, options = {}, timeoutMs = OPENROUTER.RE
     if (!response.ok) {
       const status = response.status;
       let detailMessage = '';
+      let errorData = null;
       try {
         const body = await response.text();
         detailMessage = body ? ` - ${body}` : '';
+        errorData = JSON.parse(body);
       } catch (err) {}
       
+      let error;
       if (status === 402) {
-        throw new Error(`OpenRouter Credit Insufficient (402)${detailMessage}`);
+        error = new Error(`OpenRouter Credit Insufficient (402)${detailMessage}`);
       } else if (status === 429) {
-        throw new Error(`OpenRouter Rate Limit Exceeded (429)${detailMessage}`);
+        error = new Error(`OpenRouter Rate Limit Exceeded (429)${detailMessage}`);
       } else if (status === 503) {
-        throw new Error(`OpenRouter Model Overloaded or Down (503)${detailMessage}`);
+        error = new Error(`OpenRouter Model Overloaded or Down (503)${detailMessage}`);
       } else {
-        throw new Error(`OpenRouter API responded with status ${status}${detailMessage}`);
+        error = new Error(`OpenRouter API responded with status ${status}${detailMessage}`);
       }
+      
+      error.response = {
+        status: status,
+        data: errorData
+      };
+      throw error;
     }
     
     const data = await response.json();
@@ -1146,14 +1161,18 @@ const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) 
       logger.info('AIAnalyzer', `[Req ID: ${requestId}] ✅ Success. Model: ${currentModel}, Duration: ${duration}ms, Attempt: ${attempt + 1}/${maxAttempts}, Final result: Success.`);
       return parsed;
       
-    } catch (err) {
+    } catch (error) {
+      console.error('[OpenRouter Error] Status:', error?.response?.status);
+      console.error('[OpenRouter Error] Data:', JSON.stringify(error?.response?.data));
+      console.error('[OpenRouter Error] Message:', error?.message);
+
       const duration = Date.now() - runStartTime;
-      const status = extractHttpStatus(err);
+      const status = extractHttpStatus(error);
       
-      logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/${maxAttempts} failed. Model: ${currentModel}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${err.message}`);
+      logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/${maxAttempts} failed. Model: ${currentModel}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${error.message}`);
       
       attempt++;
-      if (attempt < maxAttempts && !err.isSchemaFailure && !(err instanceof SyntaxError) && isTransientError(err)) {
+      if (attempt < maxAttempts && !error.isSchemaFailure && !(error instanceof SyntaxError) && isTransientError(error)) {
         const nextModel = OPENROUTER_MODELS[(modelIndex + attempt) % OPENROUTER_MODELS.length] || 'openrouter/free';
         const delay = attempt === 1 ? 1000 : 2000;
         logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying with model ${nextModel} (Attempt ${attempt + 1}/${maxAttempts}) in ${delay}ms due to transient error...`);
@@ -1162,7 +1181,7 @@ const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) 
         logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Request pipeline terminated. Final result: Failure.`);
         const finalErr = new Error("Analysis could not be generated. Please try again.");
         finalErr.code = 'AI_ANALYSIS_FAILED';
-        finalErr.originalError = err;
+        finalErr.originalError = error;
         throw finalErr;
       }
     }
@@ -1244,7 +1263,13 @@ The JSON response must conform exactly to this schema:
 
   const fetchFunc = async (model) => {
     const payloadObject = JSON.parse(bodyBaseStr);
-    payloadObject.model = model;
+    const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
+    payloadObject.models = [
+      model,
+      OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
+      OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
+    ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3);
+    payloadObject.route = "fallback";
     const finalBodyStr = JSON.stringify(payloadObject);
 
     // Calculate prompt size metrics
@@ -1276,11 +1301,19 @@ The JSON response must conform exactly to this schema:
       if (!response.ok) {
         const status = response.status;
         let detailMessage = '';
+        let errorData = null;
         try {
           const body = await response.text();
           detailMessage = body ? ` - ${body}` : '';
+          errorData = JSON.parse(body);
         } catch (err) {}
-        throw new Error(`OpenRouter API responded with status ${status}${detailMessage}`);
+        
+        const error = new Error(`OpenRouter API responded with status ${status}${detailMessage}`);
+        error.response = {
+          status: status,
+          data: errorData
+        };
+        throw error;
       }
 
       const payload = await response.json();
@@ -1332,6 +1365,9 @@ The JSON response must conform exactly to this schema:
   try {
     return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
   } catch (error) {
+    if (apiKey) {
+      throw error;
+    }
     logger.warn('AIAnalyzer', `⚠️ API execution failed. Falling back to high-fidelity mock data for role "${targetRole}" to prevent pipeline crash. Error: ${error.message}`);
     return getMockRoleBasedAts(targetRole);
   }
@@ -1398,6 +1434,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   const requestId = `sg_${crypto.randomUUID()}`;
 
   const fetchFunc = async (model) => {
+    const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
     const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
       method: 'POST',
       headers: {
@@ -1407,7 +1444,12 @@ Do not include any preamble, introduction, markdown code block backticks (like \
         'X-Title': 'Resumetrices'
       },
       body: JSON.stringify({
-        model: model,
+        models: [
+          model,
+          OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
+          OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
+        ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3),
+        route: "fallback",
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
@@ -1445,6 +1487,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   try {
     return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
   } catch (error) {
+    if (apiKey) {
+      throw error;
+    }
     logger.warn('AIAnalyzer', `⚠️ Skill gap API execution failed. Falling back to high-fidelity mock data for role "${role}" to prevent pipeline crash. Error: ${error.message}`);
     return getMockSkillGap(role, resumeText, detectedSkills);
   }
@@ -1546,6 +1591,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     `\nResume Text:\n\n${resumeText}`;
 
   const fetchFunc = async (model) => {
+    const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
     const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
       method: 'POST',
       headers: {
@@ -1555,7 +1601,12 @@ Do not include any preamble, introduction, markdown code block backticks (like \
         'X-Title': 'Resumetrices'
       },
       body: JSON.stringify({
-        model: model,
+        models: [
+          model,
+          OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
+          OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
+        ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3),
+        route: "fallback",
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
@@ -1593,6 +1644,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   try {
     return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc);
   } catch (error) {
+    if (apiKey) {
+      throw error;
+    }
     logger.warn('AIAnalyzer', `⚠️ Interview questions API execution failed. Falling back to high-fidelity mock data for role "${targetRole}" to prevent pipeline crash. Error: ${error.message}`);
     return getMockInterviewQuestions(targetRole, detectedSkills, missingSkills, resumeText);
   }
@@ -1678,6 +1732,7 @@ Your response must contain ONLY the category name. Do not include explanation, m
     try {
       logger.info('AIAnalyzer', `🤖 Requesting document classification using ${currentModel}...`);
       
+      const modelIdx = OPENROUTER_MODELS.indexOf(currentModel) !== -1 ? OPENROUTER_MODELS.indexOf(currentModel) : 0;
       const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
         method: 'POST',
         headers: {
@@ -1687,7 +1742,12 @@ Your response must contain ONLY the category name. Do not include explanation, m
           'X-Title': 'Resumetrices'
         },
         body: JSON.stringify({
-          model: currentModel,
+          models: [
+            currentModel,
+            OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
+            OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
+          ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3),
+          route: "fallback",
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Document snippet:\n\n${snippet}` }

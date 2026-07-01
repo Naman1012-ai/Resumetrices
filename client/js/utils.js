@@ -90,14 +90,16 @@ export function mapFriendlyErrorMessage(error) {
   if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('fetch')) {
     return "We couldn't connect to our servers right now. Please check your internet connection and try again.";
   }
-  if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('429')) {
-    return "You're sending requests faster than our system can process them. Please wait a moment before trying again.";
+  // OpenRouter Rate Limit / Model Down
+  if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('429') || msg.includes('503') || msg.includes('overloaded') || msg.includes('down') || msg.includes('ai_analysis_failed') || msg.includes('analysis could not be generated') || msg.includes('completions') || msg.includes('ai engine')) {
+    return "Analysis temporarily unavailable — please try again in a few seconds.";
   }
   if (msg.includes('timeout') || msg.includes('abort') || msg.includes('timed out')) {
     return "The server request took too long to respond. Please check your network stability and try again in a few moments.";
   }
-  if (msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('401') || msg.includes('403') || msg.includes('auth')) {
-    return "Your authorization credentials could not be verified. Please try signing out and signing in again.";
+  // OpenRouter Key/Auth errors or Bad Requests
+  if (msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('401') || msg.includes('403') || msg.includes('auth') || msg.includes('400') || msg.includes('bad request') || msg.includes('malformed')) {
+    return "Analysis unavailable — please contact support.";
   }
   if (msg.includes('not found') || msg.includes('404') || msg.includes('endpoint')) {
     return "We couldn't find the requested page or analysis record. Please check the address or return to your dashboard.";
@@ -108,14 +110,11 @@ export function mapFriendlyErrorMessage(error) {
   if (msg.includes('too large') || msg.includes('limit') || msg.includes('5mb') || msg.includes('oversized')) {
     return "The uploaded resume file exceeds our 5MB size limit. Please compress your PDF file and try uploading it again.";
   }
-  if (msg.includes('openrouter') || msg.includes('ai_analysis_failed') || msg.includes('analysis could not be generated') || msg.includes('completions') || msg.includes('ai engine')) {
-    return "Our resume scanning engine is currently processing a high volume of requests. Please wait a few moments and try your scan again.";
-  }
   if (msg.includes('database') || msg.includes('firebase') || msg.includes('save') || msg.includes('store')) {
     return "We couldn't save your analysis results to our database. Please check your connection and try saving again.";
   }
 
-  return "We couldn't process your request right now because our server is experiencing heavy traffic. Please try again in a few moments, or check your internet connection.";
+  return "We couldn't process your request right now because our server is experiencing a temporary issue. Please try again in a few moments, or check your internet connection.";
 }
 
 // showToast helper
@@ -495,6 +494,135 @@ export function showAnalysisProgress() {
   }
 
   return { complete, cancel };
+}
+
+/**
+ * Reusable Custom Modal Component
+ * Renders as a fixed-position overlay covering the full viewport,
+ * centering a solid dark background card.
+ */
+export function showCustomModal({ title, body, buttons = [], closeOnBackdropClick = true }) {
+  return new Promise((resolve) => {
+    // Overlay backdrop
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-modal-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.backgroundColor = 'rgba(3, 7, 18, 0.85)';
+    overlay.style.backdropFilter = 'blur(10px)';
+    overlay.style.zIndex = '99999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.padding = '1.5rem';
+
+    // Modal Card (solid background, centered)
+    const card = document.createElement('div');
+    card.className = 'custom-modal-card';
+    card.style.width = '100%';
+    card.style.maxWidth = '480px';
+    card.style.borderRadius = '16px';
+    card.style.padding = '2rem';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.gap = '1.25rem';
+    card.style.position = 'relative';
+
+    // Modal Title
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'custom-modal-title';
+    titleEl.textContent = title;
+    titleEl.style.fontSize = '1.2rem';
+    titleEl.style.fontWeight = '700';
+    titleEl.style.margin = '0';
+
+    // Modal Body
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'custom-modal-body';
+    if (typeof body === 'string') {
+      bodyEl.textContent = body;
+    } else {
+      bodyEl.appendChild(body);
+    }
+    bodyEl.style.fontSize = '0.85rem';
+    bodyEl.style.lineHeight = '1.6';
+    bodyEl.style.margin = '0';
+
+    // Action Footer
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex';
+    btnContainer.style.justifyContent = 'flex-end';
+    btnContainer.style.gap = '0.75rem';
+    btnContainer.style.marginTop = '0.5rem';
+
+    const cleanUp = () => {
+      if (document.body.contains(overlay)) {
+        document.body.removeChild(overlay);
+      }
+      window.removeEventListener('keydown', handleEscape);
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        cleanUp();
+        resolve(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+
+    if (closeOnBackdropClick) {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          cleanUp();
+          resolve(null);
+        }
+      });
+    }
+
+    buttons.forEach(btnConfig => {
+      const btn = document.createElement('button');
+      btn.textContent = btnConfig.text;
+      btn.style.padding = '0.65rem 1.25rem';
+      btn.style.fontSize = '0.85rem';
+      btn.style.borderRadius = '8px';
+      btn.style.fontWeight = '600';
+      btn.style.cursor = 'pointer';
+      btn.style.transition = 'all 200ms ease';
+      btn.style.fontFamily = 'inherit';
+
+      if (btnConfig.type === 'danger') {
+        btn.style.background = '#e11d48';
+        btn.style.color = '#fff';
+        btn.style.border = '2px solid rgba(244, 63, 94, 0.5)';
+      } else if (btnConfig.type === 'primary') {
+        btn.style.background = 'rgba(255, 255, 255, 0.08)';
+        btn.style.color = '#fff';
+        btn.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+      } else {
+        btn.style.background = 'rgba(255, 255, 255, 0.03)';
+        btn.style.color = '#94a3b8';
+        btn.style.border = '1px solid rgba(255, 255, 255, 0.05)';
+      }
+
+      btn.addEventListener('click', () => {
+        if (btnConfig.onClick) {
+          btnConfig.onClick(btn, cleanUp, resolve);
+        } else {
+          cleanUp();
+          resolve(btnConfig.value);
+        }
+      });
+
+      btnContainer.appendChild(btn);
+    });
+
+    card.appendChild(titleEl);
+    card.appendChild(bodyEl);
+    card.appendChild(btnContainer);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  });
 }
 
 

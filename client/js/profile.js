@@ -38,24 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let isProfileLoaded = false;
 
   // Load User Identity Data
+  // Load User Identity Data
   async function loadProfileData() {
-    // 1. Try to read from local memory cache first for instant Zero-Lag rendering
-    let cachedRoleTitle = 'Software Engineer';
-    let cachedAvatarUrl = '';
-    let cachedDisplayName = '';
-    
-    try {
-      const cached = sessionStorage.getItem('profile_cache');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.roleTitle) cachedRoleTitle = parsed.roleTitle;
-        if (parsed.avatarUrl) cachedAvatarUrl = parsed.avatarUrl;
-        if (parsed.displayName) cachedDisplayName = parsed.displayName;
-      }
-    } catch (e) {
-      console.warn('Failed to parse profile cache:', e);
-    }
-
     // Wait for auth to resolve if currentUser is null (first-load race condition)
     let user = auth.currentUser;
     if (!user && !isMockMode) {
@@ -69,6 +53,30 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
     if (!user && !isMockMode) return;
+
+    let cachedRoleTitle = 'Software Engineer';
+    let cachedAvatarUrl = '';
+    let cachedDisplayName = '';
+    
+    if (user) {
+      try {
+        let cached = sessionStorage.getItem(`profile_cache_${user.uid}`);
+        if (!cached) {
+          cached = localStorage.getItem(`profile_cache_${user.uid}`);
+        }
+        if (!cached) {
+          cached = sessionStorage.getItem('profile_cache');
+        }
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.roleTitle) cachedRoleTitle = parsed.roleTitle;
+          if (parsed.avatarUrl) cachedAvatarUrl = parsed.avatarUrl;
+          if (parsed.displayName) cachedDisplayName = parsed.displayName;
+        }
+      } catch (e) {
+        console.warn('Failed to parse profile cache:', e);
+      }
+    }
 
     let displayName = cachedDisplayName || (user ? (user.displayName || user.email.split('@')[0]) : 'Demo Pilot');
     let email = user ? (user.email || 'N/A') : 'demo@atspilot.co';
@@ -102,8 +110,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const val = snapshot.val();
           let needsUpdate = false;
           
-          if (val.roleTitle && val.roleTitle !== roleTitle) {
-            roleTitle = val.roleTitle;
+          if (val.targetDomain && val.targetDomain !== roleTitle) {
+            roleTitle = val.targetDomain;
             if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
             needsUpdate = true;
           }
@@ -112,14 +120,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (profileDisplayName) profileDisplayName.textContent = displayName;
             needsUpdate = true;
           }
-          if (val.avatarUrl && val.avatarUrl !== avatarUrl) {
-            avatarUrl = val.avatarUrl;
-            updateAvatarUI(displayName, avatarUrl);
-            needsUpdate = true;
-          }
           
           // Write to local cache on change
-          sessionStorage.setItem('profile_cache', JSON.stringify({ roleTitle, avatarUrl, displayName }));
+          if (needsUpdate) {
+            const cacheObj = { displayName, roleTitle, avatarUrl };
+            sessionStorage.setItem('profile_cache', JSON.stringify(cacheObj));
+            localStorage.setItem('profile_cache', JSON.stringify(cacheObj));
+            sessionStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
+            localStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
+          }
         }
       } catch (err) {
         console.warn('Background profile sync skipped:', err.message);

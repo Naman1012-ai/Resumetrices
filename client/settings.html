@@ -3,8 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <script>
-    // Synchronously block rendering to prevent layout flash before auth state resolves
+        // Synchronously block rendering to prevent layout flash before auth state resolves
     document.documentElement.style.visibility = 'hidden';
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Account Settings - Resumetrices</title>
@@ -73,9 +81,12 @@
                   </div>
                 </div>
 
-                <button id="btn-save-profile" style="padding: 0.75rem 1.5rem; background: var(--grad-primary); border: none; border-radius: var(--radius-md); color: #030712; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                  Save Profile
-                </button>
+                <div style="display: flex; align-items: center; gap: 1rem; width: 100%;">
+                  <button id="btn-save-profile" style="padding: 0.75rem 1.5rem; background: var(--grad-primary); border: none; border-radius: var(--radius-md); color: #030712; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                    Save Profile
+                  </button>
+                  <span id="profile-save-status" style="font-size: 0.85rem; font-weight: 600; display: none;"></span>
+                </div>
 
               </div>
             </div>

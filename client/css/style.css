@@ -105,9 +105,65 @@
   --bg-sidebar: #f1f5f9;
   --bg-hover: #e2e8f0;
   --text-main: #0f172a;
-  --text-muted: #475569; /* High-contrast Slate-600 */
-  --border-color: #cbd5e1; /* Clear borders */
+  --text-muted: #475569;
+  --border-color: #cbd5e1;
+  --border-hover: rgba(16, 185, 129, 0.5);
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.05);
+  --shadow-modal: 0 20px 50px rgba(0, 0, 0, 0.08);
+  --shadow-dropdown: 0 8px 30px rgba(0, 0, 0, 0.06);
+  --grad-text: linear-gradient(135deg, #0f172a 40%, #475569 100%);
+  --glow-card: 0 10px 30px rgba(0, 0, 0, 0.03);
+  --glow-emerald: 0 0 25px rgba(16, 185, 129, 0.05);
+  --glow-blue: 0 0 25px rgba(59, 130, 246, 0.05);
+}
+
+.light-theme .app-header {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.light-theme .benefit-item {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.light-theme .benefit-item:hover {
+  background: #f8fafc !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+}
+
+.light-theme .dashboard-mockup {
+  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 80%) !important;
+}
+
+.light-theme .mockup-widget {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+.light-theme .mobile-nav-drawer {
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+.light-theme .mobile-nav-drawer > div {
+  background: #ffffff !important;
+  border-left: 1px solid #cbd5e1 !important;
+}
+
+.light-theme .mobile-nav-link {
+  color: #0f172a !important;
+}
+
+.light-theme .mobile-nav-link:hover {
+  background: #f1f5f9 !important;
+}
+
+.light-theme .pub-nav-link {
+  color: #475569 !important;
+}
+
+.light-theme .pub-nav-link:hover {
+  color: #0f172a !important;
 }
 
 /* Light Theme Component Specific Overrides */
@@ -6166,5 +6222,60 @@ textarea:focus-visible {
     display: none;
   }
 }
+
+/* Bold/solid modal cards to prevent background bleed-through */
+.custom-modal-overlay {
+  background-color: rgba(3, 7, 18, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.modal-overlay {
+  background-color: rgba(3, 7, 18, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.custom-modal-card,
+.modal-card,
+.auth-modal-card {
+  background-color: #0b0f19 !important; /* Bold, solid background in dark mode */
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75) !important;
+}
+
+.light-theme .custom-modal-card,
+.light-theme .modal-card,
+.light-theme .auth-modal-card {
+  background-color: #ffffff !important; /* Bold, solid background in light mode */
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.custom-modal-title {
+  color: #ffffff !important;
+}
+
+.light-theme .custom-modal-title {
+  color: #0f172a !important;
+}
+
+.custom-modal-body {
+  color: #94a3b8 !important;
+}
+
+.light-theme .custom-modal-body {
+  color: #475569 !important;
+}
+
+.toast-notification {
+  background-color: #0b0f19 !important; /* Bold solid background in dark mode */
+}
+
+.light-theme .toast-notification {
+  background-color: #ffffff !important; /* Bold solid background in light mode */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
 
 

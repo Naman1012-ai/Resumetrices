@@ -47,10 +47,16 @@ router.post('/interview/questions', requireAuth, rateLimiter('general'), resumeC
 // GET /api/resumes/history - Legacy history endpoint for backwards compatibility
 router.get('/resumes/history', requireAuth, rateLimiter('general'), resumeController.getUploadHistory);
 
+// PUT /api/user/profile - Update user profile settings
+router.put('/user/profile', requireAuth, rateLimiter('general'), resumeController.updateUserProfile);
+
 // DELETE /api/user - Complete user account data purge
 router.delete('/user', requireAuth, rateLimiter('general'), resumeController.deleteUserAccount);
 
 // DELETE /api/users/profile - Complete user account data purge (alias)
 router.delete('/users/profile', requireAuth, rateLimiter('general'), resumeController.deleteUserAccount);
+
+// GET /api/user/export - Export all user profile data
+router.get('/user/export', requireAuth, rateLimiter('general'), resumeController.exportUserData);
 
 module.exports = router;

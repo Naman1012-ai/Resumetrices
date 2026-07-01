@@ -46,17 +46,23 @@ app.set('trust proxy', 1);
 // Enable Cross-Origin Resource Sharing (CORS) with configuration from environment
 const clientUrl = env.CLIENT_URL;
 
-// Security validation: Prevent wildcard '*' CORS configuration when credentials are enabled
-if (clientUrl === '*' || clientUrl.includes('*')) {
-  logger.warn('App', '⚠️ Warning: CORS origin is configured to a wildcard (*). Disabling credentials sharing.');
-}
-
-app.use(cors({
-  origin: clientUrl === '*' ? false : clientUrl,
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (clientUrl === '*' || origin === clientUrl) {
+      return callback(null, true);
+    }
+    const isLocal = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:') || origin === 'null';
+    if (env.IS_DEV && isLocal) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: clientUrl !== '*'
-}));
+  credentials: true
+};
+app.use(cors(corsOptions));
 
 // Body parser middlewares with strict size limits to prevent Denial of Service (DoS) attacks
 app.use(express.json({ limit: constants.BODY_LIMITS.JSON_MAX_SIZE }));

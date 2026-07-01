@@ -95,7 +95,8 @@ async function processResumeAnalysis(userId, file, targetRole) {
     aiAnalysis = await aiAnalyzer.analyzeResumeText(extractedText, targetRole, scoreAnalysis);
   } catch (aiError) {
     logger.error('Pipeline', `AI Analysis failed: ${aiError.message}`);
-    const userErr = new Error('Analysis could not be generated. Please try again.');
+    const msg = aiError.originalError ? aiError.originalError.message : aiError.message;
+    const userErr = new Error(msg);
     userErr.statusCode = 500;
     userErr.code = 'AI_ANALYSIS_FAILED';
     throw userErr;
@@ -111,7 +112,8 @@ async function processResumeAnalysis(userId, file, targetRole) {
     }
   } catch (sgErr) {
     logger.error('Pipeline', `Skill Gap failed: ${sgErr.message}`);
-    const userErr = new Error('Analysis could not be generated. Please try again.');
+    const msg = sgErr.originalError ? sgErr.originalError.message : sgErr.message;
+    const userErr = new Error(msg);
     userErr.statusCode = 500;
     userErr.code = 'AI_ANALYSIS_FAILED';
     throw userErr;
@@ -147,7 +149,8 @@ async function processResumeAnalysis(userId, file, targetRole) {
     );
   } catch (ipErr) {
     logger.error('Pipeline', `Interview Prep failed: ${ipErr.message}`);
-    const userErr = new Error('Analysis could not be generated. Please try again.');
+    const msg = ipErr.originalError ? ipErr.originalError.message : ipErr.message;
+    const userErr = new Error(msg);
     userErr.statusCode = 500;
     userErr.code = 'AI_ANALYSIS_FAILED';
     throw userErr;

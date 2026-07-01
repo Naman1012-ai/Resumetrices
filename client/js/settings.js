@@ -14,7 +14,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { FirebaseService } from './api.js';
-import { showToast, showPersistentNotice } from './utils.js';
+import { showToast, showPersistentNotice, showCustomModal } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Accordion Logic
@@ -105,7 +105,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Attempt to load from cache first
     try {
-      const cached = sessionStorage.getItem('profile_cache');
+      let cached = sessionStorage.getItem(`profile_cache_${user.uid}`);
+      if (!cached) {
+        cached = localStorage.getItem(`profile_cache_${user.uid}`);
+      }
+      if (!cached) {
+        cached = sessionStorage.getItem('profile_cache');
+      }
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.displayName) displayName = parsed.displayName;
@@ -123,8 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (profileSnap.exists()) {
           const val = profileSnap.val();
           if (val.displayName !== undefined) displayName = val.displayName;
-          if (val.roleTitle !== undefined) roleTitle = val.roleTitle;
-          if (val.avatarUrl !== undefined) avatarUrl = val.avatarUrl;
+          if (val.targetDomain !== undefined) roleTitle = val.targetDomain;
         }
       } catch (err) {
         console.warn('Failed to load profile details from RTDB:', err);
@@ -236,19 +241,48 @@ document.addEventListener('DOMContentLoaded', () => {
       const roleTitle = profileRoleInput ? profileRoleInput.value.trim() : '';
       const photoURL = profilePhotoUrlInput ? profilePhotoUrlInput.value.trim() : '';
 
-      if (!displayName) {
-        showToast('Display Name cannot be empty.', 'error');
-        return;
-      }
+      const payload = {};
+      if (displayName) payload.displayName = displayName;
+      if (roleTitle) payload.targetDomain = roleTitle;
+      if (photoURL) payload.avatarUrl = photoURL;
+      if (Object.keys(payload).length === 0) return; // nothing to save
 
       btnSaveProfile.disabled = true;
       btnSaveProfile.textContent = 'Saving...';
 
+      const statusSpan = document.getElementById('profile-save-status');
+      if (statusSpan) {
+        statusSpan.textContent = '';
+        statusSpan.style.display = 'none';
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const isValidUrl = (str) => {
+        try {
+          new URL(str);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      };
+
       try {
         if (isMockMode) {
-          showToast('Profile updated successfully (Mock Mode)!', 'success');
+          await new Promise(resolve => setTimeout(resolve, 500)); // simulate latency
+          
+          if (statusSpan) {
+            statusSpan.textContent = 'Saved';
+            statusSpan.style.color = 'var(--emerald)';
+            statusSpan.style.display = 'inline';
+            setTimeout(() => {
+              statusSpan.style.display = 'none';
+            }, 3000);
+          }
+          
           // Update live preview
-          if (photoURL) {
+          if (photoURL && isValidUrl(photoURL)) {
             if (profilePhotoPreview) {
               profilePhotoPreview.src = photoURL;
               profilePhotoPreview.style.display = 'block';
@@ -263,36 +297,52 @@ document.addEventListener('DOMContentLoaded', () => {
           const cacheObj = { displayName, roleTitle, avatarUrl: photoURL };
           sessionStorage.setItem('profile_cache', JSON.stringify(cacheObj));
           localStorage.setItem('profile_cache', JSON.stringify(cacheObj));
+          if (user) {
+            sessionStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
+            localStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
+          }
           window.dispatchEvent(new CustomEvent('profile-updated', { detail: cacheObj }));
           return;
         }
 
         const user = auth.currentUser;
         if (!user) throw new Error('Authorization required.');
+        const idToken = await user.getIdToken();
 
-        // Call updateProfile
-        await updateProfile(user, { displayName, photoURL });
-        
-        // Also update Realtime Database profile details
-        const profileRef = ref(db, `users/${user.uid}/profile`);
-        await update(profileRef, { displayName, roleTitle, avatarUrl: photoURL });
+        const response = await fetch(`${FirebaseService.getApiBase()}/user/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
 
-        // Update other denormalized fields
-        await Promise.all([
-          set(ref(db, `users/${user.uid}/displayName`), displayName),
-          set(ref(db, `users/${user.uid}/roleTitle`), roleTitle),
-          set(ref(db, `users/${user.uid}/domain`), roleTitle),
-          set(ref(db, `users/${user.uid}/domainName`), roleTitle),
-          set(ref(db, `users/${user.uid}/photoURL`), photoURL),
-          set(ref(db, `users/${user.uid}/avatarUrl`), photoURL)
-        ]);
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || 'Failed to update profile.');
+        }
 
-        showToast('Profile updated successfully!', 'success');
+        const resData = await response.json();
 
-        // Update live preview
-        if (photoURL) {
+        if (statusSpan) {
+          statusSpan.textContent = 'Saved';
+          statusSpan.style.color = 'var(--emerald)';
+          statusSpan.style.display = 'inline';
+          setTimeout(() => {
+            statusSpan.style.display = 'none';
+          }, 3000);
+        }
+
+        // Live preview updates
+        const updatedAvatarUrl = resData.avatarUrl !== undefined ? resData.avatarUrl : photoURL;
+        const updatedName = resData.displayName !== undefined ? resData.displayName : displayName;
+        const updatedDomain = resData.targetDomain !== undefined ? resData.targetDomain : roleTitle;
+
+        if (updatedAvatarUrl && isValidUrl(updatedAvatarUrl)) {
           if (profilePhotoPreview) {
-            profilePhotoPreview.src = photoURL;
+            profilePhotoPreview.src = updatedAvatarUrl;
             profilePhotoPreview.style.display = 'block';
           }
           if (profilePhotoFallback) profilePhotoFallback.style.display = 'none';
@@ -301,16 +351,43 @@ document.addEventListener('DOMContentLoaded', () => {
           if (profilePhotoFallback) profilePhotoFallback.style.display = 'flex';
         }
 
+        // Update inputs to match clean server response
+        if (profileNameInput && resData.displayName) {
+          profileNameInput.value = resData.displayName;
+        }
+        if (profileRoleInput && resData.targetDomain) {
+          profileRoleInput.value = resData.targetDomain;
+        }
+        if (profilePhotoUrlInput && resData.avatarUrl !== undefined) {
+          profilePhotoUrlInput.value = resData.avatarUrl;
+        }
+
+        showToast('Profile updated successfully!', 'success');
+
         // Trigger state sync reactively across sessions/tabs/pages
-        const cacheObj = { displayName, roleTitle, avatarUrl: photoURL };
+        const cacheObj = { displayName: updatedName, roleTitle: updatedDomain, avatarUrl: updatedAvatarUrl };
         sessionStorage.setItem('profile_cache', JSON.stringify(cacheObj));
-        localStorage.setItem('profile_cache', JSON.stringify(cacheObj)); // Triggers 'storage' event
+        localStorage.setItem('profile_cache', JSON.stringify(cacheObj));
+        if (user) {
+          sessionStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
+          localStorage.setItem(`profile_cache_${user.uid}`, JSON.stringify(cacheObj));
+        }
         window.dispatchEvent(new CustomEvent('profile-updated', { detail: cacheObj }));
 
       } catch (err) {
         console.error('Profile update failure:', err);
-        showToast(err.message || 'Failed to update profile.', 'error');
+        const errorMsg = err.name === 'AbortError' ? 'Save request timed out. Please try again.' : (err.message || 'Failed to update profile.');
+        if (statusSpan) {
+          statusSpan.textContent = errorMsg;
+          statusSpan.style.color = 'var(--rose)';
+          statusSpan.style.display = 'inline';
+          setTimeout(() => {
+            statusSpan.style.display = 'none';
+          }, 5000);
+        }
+        showToast(errorMsg, 'error');
       } finally {
+        clearTimeout(timeoutId);
         btnSaveProfile.disabled = false;
         btnSaveProfile.textContent = 'Save Profile';
       }
@@ -378,106 +455,121 @@ document.addEventListener('DOMContentLoaded', () => {
     if (deleteErrorDisplay) deleteErrorDisplay.style.display = 'none';
   }
 
-  /** Show inline error inside the modal */
-  function showDeleteError(msg) {
-    if (deleteErrorDisplay && deleteErrorText) {
-      deleteErrorText.textContent = msg;
-      deleteErrorDisplay.style.display = 'block';
-    }
-  }
-
-  function openDeleteConfirmationModal() {
-    if (!deleteConfirmModal) return;
-    resetDeleteModal();
-    deleteConfirmModal.style.display = 'flex';
-  }
-
-  // --- Trigger: Open Modal ---
+  // --- Section 2: Delete Account Double Verification ---
   const delAccBtn = document.getElementById('delete-account-btn');
   if (delAccBtn) {
-    delAccBtn.addEventListener('click', function(e) {
+    delAccBtn.addEventListener('click', async (e) => {
       e.preventDefault();
-      openDeleteConfirmationModal();
-    });
-  }
+      
+      const step1Result = await showCustomModal({
+        title: 'Delete Account',
+        body: 'Are you sure? This action cannot be reversed. You will immediately lose access to all your analysis reports, settings, and documents.',
+        buttons: [
+          { text: 'Cancel', type: 'cancel', value: false },
+          { text: 'Confirm', type: 'danger', value: true }
+        ],
+        closeOnBackdropClick: false
+      });
+      if (step1Result !== true) return;
 
-  // --- Cancel: Close Modal ---
-  if (btnDeleteCancel) {
-    btnDeleteCancel.addEventListener('click', () => {
-      if (deleteConfirmModal) deleteConfirmModal.style.display = 'none';
-    });
-  }
+      const step2Body = document.createElement('div');
+      step2Body.style.display = 'flex';
+      step2Body.style.flexDirection = 'column';
+      step2Body.style.gap = '0.75rem';
 
-  // --- Verbatim Input Verification ---
-  if (deleteConfirmVerbatimInput) {
-    deleteConfirmVerbatimInput.addEventListener('input', () => {
-      const entered = deleteConfirmVerbatimInput.value.trim();
-      if (entered === 'DELETE') {
-        if (btnDeleteConfirm) {
-          btnDeleteConfirm.removeAttribute('disabled');
-          btnDeleteConfirm.style.opacity = '1';
-          btnDeleteConfirm.style.cursor = 'pointer';
+      const label = document.createElement('label');
+      label.innerHTML = 'To confirm this action, please type <strong style="color: #ffffff;">DELETE</strong> verbatim:';
+      label.style.fontSize = '0.85rem';
+      label.style.color = '#94a3b8';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.placeholder = 'Type DELETE here...';
+      input.style.padding = '0.75rem 1rem';
+      input.style.borderRadius = '8px';
+      input.style.border = '1px solid rgba(255,255,255,0.15)';
+      input.style.background = 'rgba(0,0,0,0.3)';
+      input.style.color = '#fff';
+      input.style.fontSize = '0.9rem';
+      input.style.width = '100%';
+      input.style.boxSizing = 'border-box';
+
+      step2Body.appendChild(label);
+      step2Body.appendChild(input);
+
+      input.addEventListener('input', () => {
+        if (input.value.trim() === 'DELETE') {
+          input.style.borderColor = '#10b981';
+        } else {
+          input.style.borderColor = 'rgba(255,255,255,0.15)';
         }
-        deleteConfirmVerbatimInput.style.borderColor = 'var(--emerald, #10b981)';
-      } else {
-        if (btnDeleteConfirm) {
-          btnDeleteConfirm.setAttribute('disabled', 'true');
-          btnDeleteConfirm.style.opacity = '0.4';
-          btnDeleteConfirm.style.cursor = 'not-allowed';
-        }
-        deleteConfirmVerbatimInput.style.borderColor = entered ? 'var(--rose, #f43f5e)' : 'var(--border-color, #334155)';
-      }
-    });
-  }
+      });
 
-  // --- Final Confirm: Purge + Delete ---
-  if (btnDeleteConfirm) {
-    btnDeleteConfirm.addEventListener('click', async () => {
-      if (deleteConfirmVerbatimInput.value.trim() !== 'DELETE') return;
+      await showCustomModal({
+        title: 'Confirm Deletion',
+        body: step2Body,
+        buttons: [
+          { text: 'Cancel', type: 'cancel', value: false },
+          {
+            text: 'Permanently Wipe',
+            type: 'danger',
+            onClick: async (btn, cleanUp, resolve) => {
+              if (input.value.trim() !== 'DELETE') {
+                input.style.borderColor = '#f43f5e';
+                return;
+              }
 
-      btnDeleteConfirm.setAttribute('disabled', 'true');
-      btnDeleteConfirm.style.cursor = 'not-allowed';
-      if (deleteConfirmLabel) {
-        deleteConfirmLabel.innerHTML = `<span class="spinner-border" style="display:inline-block; width:12px; height:12px; border:2px solid #fff; border-radius:50%; border-top-color:transparent; animation:spin 1s linear infinite; margin-right:6px; vertical-align:middle;"></span> Wiping...`;
-      }
-      if (deleteErrorDisplay) deleteErrorDisplay.style.display = 'none';
+              btn.disabled = true;
+              btn.style.opacity = '0.5';
+              btn.textContent = 'Wiping...';
 
-      try {
-        // === Mock Mode Shortcut ===
-        if (isMockMode) {
-          showToast('Your account has been deleted permanently', 'success');
-          sessionStorage.clear();
-          localStorage.clear();
-          window.location.href = 'index.html?mock=true';
-          return;
-        }
+              try {
+                if (isMockMode) {
+                  showToast('Your account has been deleted permanently', 'success');
+                  sessionStorage.clear();
+                  localStorage.clear();
+                  cleanUp();
+                  resolve(true);
+                  window.location.href = 'index.html?mock=true';
+                  return;
+                }
 
-        const user = auth.currentUser;
-        if (!user) throw new Error('No authenticated session found. Please log in again.');
+                const user = auth.currentUser;
+                if (!user) throw new Error('No authenticated session found. Please log in again.');
 
-        // ---- STAGE 1: Database Purge ----
-        await FirebaseService.purgeUserData();
+                await FirebaseService.purgeUserData();
+                await deleteUser(user);
 
-        // ---- STAGE 2: Auth Account Destruction ----
-        await deleteUser(user);
-
-        // ---- STAGE 3: Session Tear-Down & Eviction ----
-        showToast('Your account has been deleted permanently', 'success');
-        sessionStorage.clear();
-        localStorage.clear();
-        window.location.href = 'index.html';
-
-      } catch (err) {
-        console.error('Account deletion failure:', err);
-        let userMsg = err.message || 'Deletion failed. Please try again.';
-        if (err.code === 'auth/requires-recent-login') {
-          userMsg = 'Security requirement: Please sign out and sign back in to delete your account.';
-        }
-        showDeleteError(userMsg);
-        btnDeleteConfirm.removeAttribute('disabled');
-        btnDeleteConfirm.style.cursor = 'pointer';
-        if (deleteConfirmLabel) deleteConfirmLabel.textContent = 'Permanently Wipe';
-      }
+                showToast('Your account has been deleted permanently', 'success');
+                sessionStorage.clear();
+                localStorage.clear();
+                cleanUp();
+                resolve(true);
+                window.location.href = 'index.html';
+              } catch (err) {
+                console.error('Account deletion failure:', err);
+                let userMsg = err.message || 'Deletion failed. Please try again.';
+                if (err.code === 'auth/requires-recent-login') {
+                  userMsg = 'Security requirement: Please sign out and sign back in to delete your account.';
+                }
+                showCustomModal({
+                  title: 'Deletion Failed',
+                  body: userMsg,
+                  buttons: [
+                    { text: 'OK', type: 'primary', value: true }
+                  ],
+                  closeOnBackdropClick: true
+                });
+                cleanUp();
+                resolve(false);
+              }
+            }
+          }
+        ],
+        closeOnBackdropClick: false
+      });
     });
   }
 
@@ -596,61 +688,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnExportData = document.getElementById('btn-export-data');
   if (btnExportData) {
     btnExportData.addEventListener('click', async () => {
+      console.log('Export JSON click handler triggered.');
       btnExportData.disabled = true;
       const originalText = btnExportData.innerHTML;
       btnExportData.textContent = 'Exporting...';
 
       try {
-        let exportData = {};
+        const exportData = await FirebaseService.exportUserData();
 
-        if (isMockMode) {
-          exportData = {
-            userId: 'anonymous_mock_user',
-            profile: {
-              displayName: 'John Doe',
-              email: 'demo@atspilot.co'
-            },
-            analyses: {
-              'mock_analysis_1': {
-                score: 72,
-                targetRole: 'Backend Developer',
-                createdAt: new Date().toISOString()
-              }
-            }
-          };
-        } else {
-          const user = auth.currentUser;
-          if (!user) throw new Error('Authorization required.');
-
-          const userRef = ref(db, `users/${user.uid}`);
-          const snap = await get(userRef);
-          if (snap.exists()) {
-            exportData = snap.val();
-          } else {
-            exportData = {
-              userId: user.uid,
-              profile: {
-                displayName: user.displayName || '',
-                email: user.email || ''
-              },
-              info: 'No analysis history found.'
-            };
-          }
-        }
-
-        // Trigger JSON file download
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `resumetrices_data_export_${Date.now()}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        // Programmatically trigger the file download using a Blob + anchor element approach
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'profile-export.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
 
         showToast('Profile data exported successfully!', 'success');
       } catch (err) {
         console.error('Data export failure:', err);
-        showToast(err.message || 'Failed to export profile data.', 'error');
+        showCustomModal({
+          title: 'Export Failed',
+          body: err.message || 'We could not export your profile data right now.',
+          buttons: [
+            { text: 'OK', type: 'primary', value: true }
+          ],
+          closeOnBackdropClick: true
+        });
       } finally {
         btnExportData.disabled = false;
         btnExportData.innerHTML = originalText;

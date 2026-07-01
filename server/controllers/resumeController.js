@@ -508,3 +508,76 @@ exports.deleteUserAccount = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @route GET /api/user/export
+ * @desc Export all user data.
+ * @access Private
+ */
+exports.exportUserData = async (req, res, next) => {
+  try {
+    const userId = req.user ? req.user.uid : 'anonymous';
+    if (userId === 'anonymous' && process.env.NODE_ENV !== 'development') {
+      const error = new Error('Access denied. Authentication required.');
+      error.statusCode = 401;
+      error.code = 'UNAUTHORIZED';
+      return next(error);
+    }
+
+    logger.info('ExportUserData', `📥 Exporting all user data for user ID: ${userId}`);
+
+    const userData = await firebaseService.getUserData(userId);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="profile-export.json"');
+    
+    return res.status(200).json(userData);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route PUT /api/user/profile
+ * @desc Update user profile settings in Realtime Database.
+ * @access Private
+ */
+exports.updateUserProfile = async (req, res, next) => {
+  try {
+    const userId = req.user ? req.user.uid : 'anonymous';
+    if (userId === 'anonymous' && process.env.NODE_ENV !== 'development') {
+      const error = new Error('Access denied. Authentication required.');
+      error.statusCode = 401;
+      error.code = 'UNAUTHORIZED';
+      return next(error);
+    }
+
+    const { displayName, targetDomain, avatarUrl } = req.body;
+
+    logger.info('UpdateUserProfile', `Request body received for User ID ${userId}:`, req.body);
+
+    const profileUpdate = {};
+    if (displayName && displayName.trim()) {
+      profileUpdate.displayName = displayName.trim();
+    }
+    if (targetDomain && targetDomain.trim()) {
+      profileUpdate.targetDomain = targetDomain.trim();
+    }
+
+    // Perform database write if there are fields to update
+    if (Object.keys(profileUpdate).length > 0) {
+      await firebaseService.updateUserProfile(userId, profileUpdate);
+    }
+
+    // Return the updated data (including avatarUrl which is not saved in DB, but returned to client)
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      displayName: profileUpdate.displayName,
+      targetDomain: profileUpdate.targetDomain,
+      avatarUrl: avatarUrl ? avatarUrl.trim() : undefined
+    });
+  } catch (error) {
+    next(error);
+  }
+};

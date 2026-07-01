@@ -98,14 +98,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Populate user profile info in header
     auth.onAuthStateChanged((user) => {
-      const displayName = user ? (user.displayName || user.email.split('@')[0]) : 'User';
+      let displayName = user ? (user.displayName || user.email.split('@')[0]) : 'User';
+      let avatarUrl = '';
       
-      const dropdownUsername = document.getElementById('dropdown-username');
-      
-      if (dropdownUsername) dropdownUsername.textContent = displayName;
-      if (avatarDropdownBtn) {
-        avatarDropdownBtn.textContent = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+      if (user) {
+        try {
+          let cached = sessionStorage.getItem(`profile_cache_${user.uid}`);
+          if (!cached) {
+            cached = localStorage.getItem(`profile_cache_${user.uid}`);
+          }
+          if (!cached) {
+            cached = sessionStorage.getItem('profile_cache') || localStorage.getItem('profile_cache');
+          }
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed.displayName) displayName = parsed.displayName;
+            if (parsed.avatarUrl) avatarUrl = parsed.avatarUrl;
+          }
+        } catch (e) {}
       }
+      
+      updateHeaderUI(displayName, avatarUrl);
 
       // Dynamically add Admin Console link for administrators
       const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
@@ -114,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!adminLink && avatarDropdownMenu) {
           adminLink = document.createElement('a');
           adminLink.id = 'dropdown-admin-link';
-          adminLink.href = `/admin/dashboard${mockParam ? '?' + mockParam : ''}`;
+          adminLink.href = `/admin/dashboard.html${mockParam ? '?' + mockParam : ''}`;
           adminLink.className = 'dropdown-item';
           adminLink.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem 0.75rem; color: var(--rose, #f43f5e); text-decoration: none; font-size: 0.85rem; font-weight: 700; border-radius: var(--radius-md); transition: var(--transition-fast);';
           adminLink.innerHTML = `
@@ -463,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Check cache immediately on navigation load
   try {
-    const cached = sessionStorage.getItem('profile_cache');
+    const cached = sessionStorage.getItem('profile_cache') || localStorage.getItem('profile_cache');
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed.displayName) {

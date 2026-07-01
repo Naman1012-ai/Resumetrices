@@ -661,7 +661,56 @@ const getPublicStats = async () => {
 };
 
 /**
- * Deletes all user data from Firebase RTDB (analyses + profile).
+ * Retrieves all data node values for a user from Firebase RTDB.
+ * @param {string} userId
+ * @returns {Promise<object>}
+ */
+const getUserData = async (userId) => {
+  if (!isFirebaseInitialized) {
+    throw new Error('Firebase Admin SDK is not initialized.');
+  }
+  if (!userId || typeof userId !== 'string') {
+    throw new Error('Database Validation Error: userId must be a non-empty string.');
+  }
+
+  // If in fallback mode without real credentials, return mock data structure
+  if (!hasCredentials) {
+    logger.warn('Firebase', `⚠️ Running in fallback mode. Returning mock export data for user: ${userId}`);
+    return {
+      userId: userId,
+      profile: {
+        displayName: 'John Doe',
+        email: 'demo@atspilot.co'
+      },
+      analyses: {
+        'mock_analysis_1': {
+          score: 72,
+          targetRole: 'Backend Developer',
+          createdAt: new Date().toISOString()
+        }
+      }
+    };
+  }
+
+  try {
+    const db = getDatabase();
+    const snap = await db.ref(`users/${userId}`).once('value');
+    if (snap.exists()) {
+      return snap.val();
+    }
+    return {
+      userId: userId,
+      profile: {},
+      info: 'No profile data found.'
+    };
+  } catch (error) {
+    logger.error('Firebase', `Firebase Retrieve User Data Failed: ${error.message}`, { userId });
+    throw new Error(`Firebase Retrieve User Data Failed: ${error.message}`);
+  }
+};
+
+/**
+ * Deletes all user data from Firebase RTDB (analyses + profile) and Firebase Auth.
  * @param {string} userId
  * @returns {Promise<boolean>}
  */
@@ -700,10 +749,14 @@ const deleteUserAccount = async (userId) => {
       await Promise.all(deletePromises);
     }
 
-    // 2. Delete the user node completely
+    // 2. Delete the user node completely from Realtime Database
     await db.ref(`users/${userId}`).remove();
 
-    logger.info('Firebase', `💀 User ${userId} account and all associated analyses successfully purged from Firebase RTDB.`);
+    // 3. Delete the user from Firebase Auth using Firebase Admin SDK
+    const { getAuth } = require('firebase-admin/auth');
+    await getAuth().deleteUser(userId);
+
+    logger.info('Firebase', `💀 User ${userId} account and all associated analyses successfully purged from Firebase RTDB and Firebase Auth.`);
     return true;
   } catch (error) {
     logger.error('Firebase', `Firebase User Data Purge Failed: ${error.message}`, { userId });
@@ -1450,6 +1503,34 @@ if (isFirebaseInitialized && hasCredentials) {
   loadActiveGuardrails();
 }
 
+/**
+ * Updates a user's profile details in the Realtime Database.
+ * @param {string} userId - The target user UID.
+ * @param {object} profileUpdate - Object containing displayName, targetDomain, etc.
+ * @returns {Promise<boolean>}
+ */
+const updateUserProfile = async (userId, profileUpdate) => {
+  if (!userId || typeof userId !== 'string') {
+    throw new Error('userId must be a non-empty string.');
+  }
+
+  // Mock/fallback mode
+  if (!isFirebaseInitialized || !hasCredentials) {
+    logger.warn('Firebase', `⚠️ Mock mode: would update user ${userId} profile with ${JSON.stringify(profileUpdate)}`);
+    return true;
+  }
+
+  try {
+    const db = getDatabase();
+    await db.ref(`users/${userId}/profile`).update(profileUpdate);
+    logger.info('Firebase', `✅ User ${userId} profile updated: ${JSON.stringify(profileUpdate)}`);
+    return true;
+  } catch (error) {
+    logger.error('Firebase', `Failed to update user ${userId} profile: ${error.message}`);
+    throw new Error(`Failed to update user profile: ${error.message}`);
+  }
+};
+
 module.exports = {
   saveAnalysis,
   getUserHistory,
@@ -1459,9 +1540,11 @@ module.exports = {
   deleteAnalysis,
   renameAnalysis,
   deleteUserAccount,
+  getUserData,
   getAdminDashboardStats,
   getAdminUserList,
   updateUserQuota,
+  updateUserProfile,
   getAdminReports,
   getAdminReportDetails,
   getGuardrailsConfig,

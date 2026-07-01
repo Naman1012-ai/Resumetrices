@@ -136,6 +136,161 @@ const hasSemanticSkillMatch = (skill, text) => {
 };
 
 /**
+ * Evaluates architectural complexity for a given missing skill.
+ * If candidate demonstrates high complexity in project descriptions, partial competence is granted.
+ * @param {string} skill
+ * @param {string} text
+ * @returns {boolean}
+ */
+const checkArchitecturalComplexity = (skill, text) => {
+  if (!skill || !text) return false;
+  const s = skill.toLowerCase().trim();
+  
+  // DevOps / Deployment family complexity
+  if (['docker', 'kubernetes', 'ci/cd', 'terraform', 'ansible', 'argocd', 'jenkins'].some(x => s.includes(x))) {
+    const devOpsRegex = /\b(?:docker-compose|k8s|kubernetes|helm|ci\/cd|pipeline|pipelines|github\s*actions|jenkins|terraform|infrastructure\s*as\s*code|iac|orchestrat|multi-container|cluster)\b/i;
+    return devOpsRegex.test(text);
+  }
+  
+  // Database / Storage family complexity
+  if (['sql', 'nosql', 'postgresql', 'mongodb', 'redis', 'database', 'mariadb', 'mysql', 'sqlite', 'dynamodb'].some(x => s.includes(x))) {
+    const dbRegex = /\b(?:3-layer|sharding|replication|partitioning|redundant\s*storage|ipfs|s3|indexing|query\s*optimization|cache|caching|nosql|postgresql|mongodb|schema|transactions?|migration)\b/i;
+    return dbRegex.test(text);
+  }
+  
+  // Cloud family complexity
+  if (['aws', 'gcp', 'azure', 'cloud'].some(x => s.includes(x))) {
+    const cloudRegex = /\b(?:s3|ec2|lambda|cloud\s*provider|multi-cloud|vpc|autoscaling|load\s*balancer|serverless|iam|route53|rds|dynamodb|gke|cloudrun)\b/i;
+    return cloudRegex.test(text);
+  }
+  
+  // Security family complexity
+  if (['security', 'cryptography', 'aes', 'encryption', 'jwt', 'oauth', 'auth'].some(x => s.includes(x))) {
+    const secRegex = /\b(?:aes-256|aes|encryption|vaults?|hashing|bcrypt|ssl|https|cors|owasp|token-based|rbac|auth|jwt)\b/i;
+    return secRegex.test(text);
+  }
+  
+  // Backend API family complexity
+  if (['node.js', 'express', 'django', 'flask', 'fastapi', 'spring', 'rest api', 'graphql', 'apis', 'backend'].some(x => s.includes(x))) {
+    const apiRegex = /\b(?:restful|endpoints?|middleware|graphql|grpc|asynchronous|concurrency|mvc|orm|microservices?)\b/i;
+    return apiRegex.test(text);
+  }
+
+  // Frontend family complexity
+  if (['react', 'next.js', 'angular', 'vue', 'tailwind', 'sass', 'responsive design', 'frontend'].some(x => s.includes(x))) {
+    const frontRegex = /\b(?:spa|state\s*management|redux|context\s*api|server-side\s*rendering|ssr|responsive|mobile-first|flexbox|grid|typography|accessibility)\b/i;
+    return frontRegex.test(text);
+  }
+  
+  return false;
+};
+
+/**
+ * Computes dynamic weighting mapping based on resolved job role.
+ * Ensures the weights sum to exactly 100 points.
+ * @param {string} roleName
+ * @returns {object}
+ */
+const getDynamicWeights = (roleName) => {
+  const isTech = /software|developer|engineer|devops|cloud|qa|full\s*stack|backend|frontend|mobile|ai|ml/i.test(roleName);
+  const isMgmt = /manager|lead|director|product|pm/i.test(roleName);
+
+  if (isTech) {
+    // Technical/Engineering Roles: Allocate 50% entirely to 'Skills' and 'Projects'
+    return {
+      contact: 5,
+      formatting: 5,
+      skills: 25,
+      projects: 25,
+      experience: 20,
+      education: 10,
+      keywords: 10,
+      achievements: 5
+    };
+  } else if (isMgmt) {
+    // Management/Leadership Roles: Heavy weights to Experience, Leadership Scope, and Impact Metrics
+    return {
+      contact: 5,
+      formatting: 5,
+      skills: 10,
+      projects: 10,
+      experience: 35,
+      education: 10,
+      keywords: 15,
+      achievements: 10
+    };
+  } else {
+    // Default balanced weights (Other/General)
+    return {
+      contact: 10,
+      formatting: 10,
+      skills: 20,
+      projects: 15,
+      experience: 20,
+      education: 10,
+      keywords: 10,
+      achievements: 5
+    };
+  }
+};
+
+/**
+ * Helper to identify individual project entries in section text
+ */
+const parseProjectEntries = (text) => {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const entries = [];
+  let currentEntry = null;
+
+  for (const line of lines) {
+    const isBullet = /^[-•*+]\s+/.test(line);
+    if (!isBullet && line.length < 80) {
+      if (currentEntry) {
+        entries.push(currentEntry);
+      }
+      currentEntry = {
+        title: line,
+        details: []
+      };
+    } else if (currentEntry) {
+      currentEntry.details.push(line);
+    }
+  }
+  if (currentEntry) {
+    entries.push(currentEntry);
+  }
+  return entries;
+};
+
+/**
+ * Helper to identify individual experience entries in section text
+ */
+const parseExperienceEntries = (text) => {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const entries = [];
+  let currentEntry = null;
+
+  for (const line of lines) {
+    const isBullet = /^[-•*+]\s+/.test(line);
+    if (!isBullet && line.length < 100) {
+      if (currentEntry) {
+        entries.push(currentEntry);
+      }
+      currentEntry = {
+        title: line,
+        details: []
+      };
+    } else if (currentEntry) {
+      currentEntry.details.push(line);
+    }
+  }
+  if (currentEntry) {
+    entries.push(currentEntry);
+  }
+  return entries;
+};
+
+/**
  * Scores a resume based on realistic ATS evaluation criteria with 8 required categories.
  * @param {string} text - Raw resume text content.
  * @param {string} targetRole - Target role.
@@ -234,62 +389,87 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   const weaknesses = [];
   const recommendations = [];
 
-  // Date and chronological indicators (regex to detect year ranges, supporting month names on the same line)
+  // Date and chronological indicators
   const dateRangeRegex = /\b(?:19|20)\d{2}\b[^\n]*\b(?:(?:19|20)\d{2}|present|current|now)\b/i;
   const singleDateRegex = /\b(?:19|20)\d{2}\b/i;
 
-  // Extract Section Text Blocks for contextual/evidence scoring
-  // Next header stop regex matching any major header starting on a line
-  const nextHeaderRegex = /(?:^|\n)\s*(?:summary|objective|profile|about\s*me|professional\s*summary|experience|work\s*experience|employment|professional\s*experience|work\s*history|projects|personal\s*projects|academic\s*projects|portfolio|skills|technical\s*skills|technologies|core\s*competencies|education|academic\s*background|academic\s*history|achievements|awards|accomplishments|leadership|certifications)\b/i;
-
-  // Helper to slice text after contact info (approx first 5 lines) to avoid matching contact links as headers
-  let searchStartIndex = 0;
-  const lines = normalizedText.split('\n');
-  if (lines.length > 5) {
-    searchStartIndex = lines.slice(0, 5).join('\n').length + 1;
-  }
-
-  const extractSectionText = (headersRegex, stopRegex) => {
-    const textToSearch = normalizedText.slice(searchStartIndex);
-    const match = textToSearch.match(headersRegex);
-    if (!match) return '';
-    const startIndex = searchStartIndex + match.index;
-    const headerWordIndex = startIndex + match[0].length;
-    const nextNewline = normalizedText.indexOf('\n', headerWordIndex);
-    const sliceStart = nextNewline !== -1 ? nextNewline + 1 : headerWordIndex;
-    const subsequentIndex = normalizedText.slice(sliceStart).search(stopRegex);
-    return subsequentIndex !== -1 
-      ? normalizedText.slice(startIndex, sliceStart + subsequentIndex)
-      : normalizedText.slice(startIndex);
+  // ----------------------------------------------------
+  // FIX 1: Robust line-by-line Section Boundary Detection
+  // ----------------------------------------------------
+  const lines = normalizedText.split(/\r?\n/);
+  
+  const sectionMapping = {
+    summary: ['summary', 'objective', 'profile', 'about me', 'professional summary', 'career objective'],
+    experience: ['experience', 'work experience', 'employment', 'professional experience', 'work history', 'employment history', 'professional background'],
+    projects: ['projects', 'personal projects', 'academic projects', 'portfolio', 'selected projects', 'technical projects'],
+    skills: ['skills', 'technical skills', 'technologies', 'core competencies', 'skills & technologies', 'professional skills', 'skills & tools', 'tools'],
+    education: ['education', 'academic background', 'academic history', 'educational background', 'education history'],
+    achievements: ['achievements', 'awards', 'accomplishments', 'certifications', 'honors', 'leadership']
   };
 
-  // Sections definitions
-  const experienceText = extractSectionText(
-    /(?:^|\n)\s*(?:experience|work\s*experience|employment|professional\s*experience|work\s*history)\b/i,
-    nextHeaderRegex
-  );
-  
-  const projectsText = extractSectionText(
-    /(?:^|\n)\s*(?:projects|personal\s*projects|academic\s*projects|portfolio)\b/i,
-    nextHeaderRegex
-  );
+  const sections = {
+    header: [],
+    summary: [],
+    experience: [],
+    projects: [],
+    skills: [],
+    education: [],
+    achievements: []
+  };
 
-  const skillsText = extractSectionText(
-    /(?:^|\n)\s*(?:skills|technical\s*skills|technologies|core\s*competencies)\b/i,
-    nextHeaderRegex
-  );
+  let currentSection = 'header';
 
-  const educationText = extractSectionText(
-    /(?:^|\n)\s*(?:education|academic\s*background|academic\s*history)\b/i,
-    nextHeaderRegex
-  );
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      sections[currentSection].push(line);
+      continue;
+    }
 
-  // Fallbacks: If sections aren't cleanly extracted because of headers, use whole text but track section presence
-  const hasExperienceHeader = /experience|work experience|employment|history|internship|professional experience/i.test(normalizedText);
-  const hasProjectsHeader = /projects|personal projects|academic projects|portfolio/i.test(normalizedText);
-  const hasSkillsHeader = /skills|technologies|languages|frameworks|tools|competencies/i.test(normalizedText);
-  const hasEducationHeader = /education|academic|degree|university|college|school/i.test(normalizedText);
-  const hasSummaryHeader = /summary|objective|profile|about me|professional summary/i.test(normalizedText);
+    let foundHeader = false;
+    for (const [key, synonyms] of Object.entries(sectionMapping)) {
+      if (synonyms.some(syn => {
+        const escaped = syn.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`^\\s*(?:[^a-zA-Z0-9]*\\s*)?${escaped}(?:\\s*[^a-zA-Z0-9]*)?\\s*$`, 'i');
+        return regex.test(trimmed);
+      })) {
+        currentSection = key;
+        foundHeader = true;
+        break;
+      }
+    }
+
+    if (!foundHeader) {
+      sections[currentSection].push(line);
+    }
+  }
+
+  // Join the sections back into text blocks
+  const summaryText = sections.summary.join('\n');
+  const experienceText = sections.experience.join('\n');
+  const projectsText = sections.projects.join('\n');
+  const skillsText = sections.skills.join('\n');
+  const educationText = sections.education.join('\n');
+  const achievementsText = sections.achievements.join('\n');
+
+  // Log the character count of each extracted section so failures are immediately visible
+  logger.info('ATSScorer', `Extracted Sections - Summary: ${summaryText.length} chars, Experience: ${experienceText.length} chars, Projects: ${projectsText.length} chars, Skills: ${skillsText.length} chars, Education: ${educationText.length} chars, Achievements: ${achievementsText.length} chars.`);
+
+  const hasExperienceHeader = experienceText.trim().length > 0;
+  const hasProjectsHeader = projectsText.trim().length > 0;
+  const hasSkillsHeader = skillsText.trim().length > 0;
+  const hasEducationHeader = educationText.trim().length > 0;
+  const hasSummaryHeader = summaryText.trim().length > 0;
+
+  // Dynamic career stage detection (Timeline longevity check)
+  const years = (normalizedText.match(/\b(20\d{2})\b/g) || []).map(Number);
+  const maxYear = years.length > 0 ? Math.max(...years) : new Date().getFullYear();
+  const minYear = years.length > 0 ? Math.min(...years) : new Date().getFullYear();
+  const timelineSpan = maxYear - minYear;
+
+  const hasFresherKeywords = /\b(?:student|intern|internship|undergrad|undergraduate|freshman|sophomore|co-op|fresher|graduate|academic\s*project|hackathon|gpa|cgpa|expected\s*graduation)\b/i.test(normalizedText);
+  const hasSeniorKeywords = /\b(?:senior|lead|principal|architect|manager|director|head|vp)\b/i.test(normalizedText);
+  const isFresher = (timelineSpan <= 4 || hasFresherKeywords) && !hasSeniorKeywords;
 
   // ----------------------------------------------------
   // 1. Contact Information & Profile Details (Raw Max 10)
@@ -319,15 +499,12 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   // 2. Formatting & Structural Design (Raw Max 10)
   // ----------------------------------------------------
   let formattingScore = 0;
-  // Standard section completeness (Up to 6 points)
   if (hasExperienceHeader) formattingScore += 2; else weaknesses.push('Missing a standard Work Experience section.');
   if (hasSkillsHeader) formattingScore += 2; else weaknesses.push('Missing a dedicated Technical Skills section.');
   if (hasEducationHeader) formattingScore += 2; else weaknesses.push('Missing a standard Education section.');
 
-  // Professional Summary (Up to 2 points)
   if (hasSummaryHeader) formattingScore += 2; else recommendations.push('Add a Professional Summary or Profile Objective at the top of your resume.');
 
-  // Stylistic / Layout indicators (Up to 2 points)
   const hasBullets = /\n\s*[-•*+]\s+/.test(normalizedText);
   const hasDates = dateRangeRegex.test(normalizedText);
   if (hasBullets) formattingScore += 1;
@@ -351,6 +528,9 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     if (hasSemanticSkillMatch(skill, normalizedText)) {
       essentialMatchedCount++;
       matchedSkillsList.push(skill);
+    } else if (checkArchitecturalComplexity(skill, normalizedText)) {
+      essentialMatchedCount += 0.85; // Semantic Complexity Credit
+      matchedSkillsList.push(skill + " (Evidence-based Match)");
     } else {
       missingSkillsFromEssential.push(skill);
     }
@@ -360,24 +540,23 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     if (hasSemanticSkillMatch(skill, normalizedText)) {
       recommendedMatchedCount++;
       matchedSkillsList.push(skill);
+    } else if (checkArchitecturalComplexity(skill, normalizedText)) {
+      recommendedMatchedCount += 0.85; // Semantic Complexity Credit
+      matchedSkillsList.push(skill + " (Evidence-based Match)");
     }
   });
 
-  // Calculate evidence-based skills score
-  // Essential (Max 12 pts): 4+ matches = 12, 3 = 10, 2 = 7, 1 = 4, 0 = 0
   let skillsScoreEssential = 0;
   if (essentialMatchedCount >= 4) skillsScoreEssential = 12;
-  else if (essentialMatchedCount === 3) skillsScoreEssential = 10;
-  else if (essentialMatchedCount === 2) skillsScoreEssential = 7;
-  else if (essentialMatchedCount === 1) skillsScoreEssential = 4;
+  else if (essentialMatchedCount >= 3) skillsScoreEssential = 10;
+  else if (essentialMatchedCount >= 2) skillsScoreEssential = 7;
+  else if (essentialMatchedCount >= 1) skillsScoreEssential = 4;
 
-  // Recommended (Max 5 pts): 3+ matches = 5, 2 = 4, 1 = 2, 0 = 0
   let skillsScoreRecommended = 0;
   if (recommendedMatchedCount >= 3) skillsScoreRecommended = 5;
   else if (recommendedMatchedCount === 2) skillsScoreRecommended = 4;
   else if (recommendedMatchedCount === 1) skillsScoreRecommended = 2;
 
-  // Skill organization (Max 3 pts)
   let skillsOrganizationScore = 0;
   const targetText = skillsText || normalizedText;
   const hasCategories = /languages|frameworks|libraries|databases|tools|platforms|technologies|developer tools|operating systems/i.test(targetText);
@@ -396,69 +575,134 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   }
 
   // ----------------------------------------------------
-  // 4. Experience & Impact Metrics (Raw Max 20)
+  // FIX 2: Projects & Core Stack Presence (Raw Max 15)
+  // ----------------------------------------------------
+  let rawProjectsScore = 0;
+  const projTargetText = projectsText || normalizedText;
+
+  if (projTargetText.trim().length > 0) {
+    const projectEntries = parseProjectEntries(projTargetText);
+    let qualifyingCount = 0;
+
+    projectEntries.forEach(entry => {
+      if (!entry.title) return;
+
+      // Tech stack count (at least 2 keywords, matched semantically to support synonyms)
+      const matchedTech = techKeywords.filter(kw => {
+        return hasSemanticSkillMatch(kw, entry.title) || entry.details.some(d => hasSemanticSkillMatch(kw, d));
+      });
+
+      const detailsText = entry.details.join(' ');
+      const hasLink = /github\.com|gitlab|bitbucket|vercel|netlify|heroku|app\s*store|live|\bhttp|https\b/i.test(detailsText) || /github\.com|vercel|netlify/i.test(entry.title);
+      const hasMetric = /\b(?:\d+%\s*|\$\d+|\d+\s*x\s*|latency|throughput|saved \d+ hours)\b|\b\d+(?:\s*[kKmM]\+?)?\s*(?:active\s*)?(?:users|downloads|requests|queries|records|percent|%)\b/i.test(detailsText);
+      const hasFeature = detailsText.length >= 20;
+
+      if (matchedTech.length >= 2 && (hasLink || hasMetric || hasFeature)) {
+        qualifyingCount++;
+      }
+    });
+
+    // Score: 1 project = 4.0 pts, 2 = 8.0 pts, 3 = 11.5 pts, 4+ = 13.0 pts
+    let entryPoints = 0;
+    if (qualifyingCount === 1) entryPoints = 4.0;
+    else if (qualifyingCount === 2) entryPoints = 8.0;
+    else if (qualifyingCount === 3) entryPoints = 11.5;
+    else if (qualifyingCount >= 4) entryPoints = 13.0;
+
+    // Advanced concepts: up to 2 points
+    let advancedScore = 0;
+    concepts.forEach(c => {
+      if (c.regex.test(projTargetText)) {
+        advancedScore += 0.5;
+      }
+    });
+    advancedScore = Math.min(2.0, advancedScore);
+
+    rawProjectsScore = Math.min(15, entryPoints + advancedScore);
+    rawProjectsScore = Math.round(rawProjectsScore * 2) / 2;
+  }
+
+  if (rawProjectsScore >= 12) {
+    strengths.push('Technical projects demonstrate good architectural complexity, database usage, deployment, and security considerations.');
+  }
+
+  // ----------------------------------------------------
+  // FIX 3: Experience & Impact Metrics (Raw Max 20)
   // ----------------------------------------------------
   let experienceScore = 0;
   const expTargetText = experienceText || normalizedText;
 
-  if (hasExperienceHeader || expTargetText.trim().length > 0) {
-    // A. Title & Activity Alignment (Max 4 points)
-    let activityScore = 0;
-    const escapedTitles = experienceTitles.map(t => t.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
-    const titleRegex = new RegExp(`\\b(?:${escapedTitles})\\b`, 'i');
-    
-    const internRegex = /\b(?:intern|internship|co-op|apprentice|trainee)\b/i;
-    const openSourceRegex = /\b(?:open\s*source|contributor|contribution|github\s*pull\s*request|pr|pull\s*request)\b/i;
-    const researchRegex = /\b(?:research\s*project|researcher|lab|academic|publication|published|conference)\b/i;
-    const communityRegex = /\b(?:community|leadership|organizer|mentor|mentored|club|society|volunteer)\b/i;
+  if (expTargetText.trim().length > 0) {
+    const expEntries = parseExperienceEntries(expTargetText);
+    let baseScore = 0;
 
-    if (titleRegex.test(expTargetText)) activityScore = 4;
-    else if (internRegex.test(expTargetText) || openSourceRegex.test(expTargetText) || researchRegex.test(expTargetText) || communityRegex.test(expTargetText)) activityScore = 4;
-    else activityScore = 3;
+    expEntries.forEach(entry => {
+      if (!entry.title) return;
 
-    experienceScore += activityScore;
+      const isIntern = /\b(?:intern|internship|co-op|apprentice|trainee|placement)\b/i.test(entry.title);
+      const isExtraOrLead = /\b(?:lead|leader|president|vice|officer|secretary|organizer|treasurer|chair|founder|mentor|coordinator|captain|representative|committee|chapter|club|society|ieee|acm|gdsc|team)\b/i.test(entry.title);
+      const isJob = experienceTitles.some(t => new RegExp(`\\b${t}\\b`, 'i').test(entry.title)) || /\b(?:developer|engineer|analyst|specialist|programmer|architect)\b/i.test(entry.title);
 
-    // B & C. Role Competencies (Max 8 points)
+      const detailsText = entry.details.join(' ');
+      const metricRegex = /\b(?:\d+%\s*|\$\d+|\d+\s*x\s*|latency|throughput|uptime|test coverage)\b|\b\d+(?:\s*[kKmM]\+?)?\s*(?:active\s*)?(?:users|requests|queries|records|endpoints|tasks|jobs|servers|databases|gb|tb|mb|kb|percent|%)\b/i;
+      const hasQuantified = metricRegex.test(detailsText);
+
+      let rolePoints = 0;
+      if (isJob) {
+        rolePoints = 5;
+      } else if (isIntern) {
+        rolePoints = 4;
+      } else if (isExtraOrLead) {
+        rolePoints = 3;
+      } else {
+        rolePoints = 2;
+      }
+
+      if (hasQuantified) {
+        rolePoints += 2;
+      }
+
+      baseScore += rolePoints;
+    });
+
+    baseScore = Math.min(16, baseScore);
+
+    // Criteria alignment / context score (Up to 4 points)
     let criteriaScore = 0;
     experienceCriteria.forEach(crit => {
-      criteriaScore += Math.min(crit.maxPoints, crit.evaluate(expTargetText));
+      criteriaScore += Math.min(crit.maxPoints / 2, crit.evaluate(expTargetText) / 2);
     });
-    experienceScore += criteriaScore;
+    criteriaScore = Math.min(4.0, criteriaScore);
 
-    // D. Quantified Business Impact & Metrics (Max 6 points)
-    let metricsScore = 0;
-    
-    const latencyMetricRegex = /\b(?:reduced|decreased|cut|lower)\s+latency\b|latency\s+(?:reduced|decreased|improved|by\s+\d+)\b|\b(?:latency|response\s*time)\b[^\n]*\b(?:\d+%|\d+\s*ms)\b/i;
-    const perfMetricRegex = /\b(?:improved|increased|boosted|optimized)\s+performance\b|\b(?:scalable|scale)\s+systems?\b/i;
-    const apiMetricRegex = /\b(?:optimized|optimized\s*api|optimized\s*apis|reduced\s*query\s*time|query\s*time\s*reduced|query\s*latency)\b/i;
-    const genericMetricRegex = /\b(?:\d+%\s*|\$\d+|\d+\s*x\s*|uptime|test coverage)\b|\b\d+(?:\s*[kKmM]\+?)?\s*(?:active\s*)?(?:users|requests|queries|records|endpoints|tasks|jobs|servers|databases|gb|tb|mb|kb|percent|%)\b/i;
+    experienceScore = baseScore + criteriaScore;
 
-    let metricMatchesCount = 0;
-    if (latencyMetricRegex.test(expTargetText)) metricMatchesCount++;
-    if (perfMetricRegex.test(expTargetText)) metricMatchesCount++;
-    if (apiMetricRegex.test(expTargetText)) metricMatchesCount++;
-    if (genericMetricRegex.test(expTargetText)) metricMatchesCount++;
+    // Apply Fresher Safeguard alternative calculations to prevent penalizing student timelines
+    if (isFresher) {
+      let academicScore = 0;
+      const gpaRegex = /\b(?:gpa|cgpa)\b\s*(?:of\s*)?([3-4]\.\d+|[8-9]\.\d+|10(?:\.0)?)\b|\b(?:dean's\s*list|academic\s*excellence|first\s*class|distinction|graduated\s*with\s*honors)\b/i;
+      if (gpaRegex.test(normalizedText)) {
+        academicScore = 8;
+      } else if (hasEducationHeader) {
+        academicScore = 6;
+      }
 
-    if (metricMatchesCount >= 3) metricsScore = 6;
-    else if (metricMatchesCount === 2) metricsScore = 4;
-    else if (metricMatchesCount === 1) metricsScore = 2;
+      let chapterScore = 0;
+      const chapterRegex = /\b(?:hackathon|ieee|acm|gdsc|club|society|volunteer|organizer|chapter|contribution|open\s*source|github|pr|pull\s*request)\b/i;
+      const chapterMatches = (normalizedText.match(chapterRegex) || []).length;
+      if (chapterMatches >= 3) chapterScore = 6;
+      else if (chapterMatches >= 1) chapterScore = 4;
 
-    experienceScore += metricsScore;
+      let projectComplexityScore = 0;
+      if (rawProjectsScore >= 12) projectComplexityScore = 6;
+      else if (rawProjectsScore >= 8) projectComplexityScore = 4;
+      else projectComplexityScore = 2;
 
-    // E. Leadership & Mentorship (Max 2 points)
-    let leadScore = 0;
-    const leadershipRegex = /\b(?:led|managed|spearheaded|coordinated|mentored|mentorship|lead|ownership|architected|collaborated|team)\b/gi;
-    const leadMatches = new Set(expTargetText.toLowerCase().match(leadershipRegex) || []);
-    if (leadMatches.size >= 2) {
-      leadScore = 2;
-    } else if (leadMatches.size === 1) {
-      leadScore = 1;
+      const fresherScore = academicScore + chapterScore + projectComplexityScore;
+      experienceScore = Math.max(experienceScore, fresherScore);
     }
-
-    experienceScore += leadScore;
   }
 
-  const rawExperienceScore = Math.min(20, experienceScore);
+  let rawExperienceScore = Math.min(20, experienceScore);
 
   if (rawExperienceScore >= 15) {
     strengths.push('Professional history demonstrates strong role alignment, active contributions, and quantitative impact.');
@@ -467,53 +711,24 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   }
 
   // ----------------------------------------------------
-  // 5. Projects & Core Stack Presence (Raw Max 15)
+  // EVIDENCE-BASED METRIC MULTIPLIER (Up to 1.25x multiplier for quantified phrasing)
   // ----------------------------------------------------
-  let rawProjectsScore = 0;
-  const projTargetText = projectsText || normalizedText;
+  const latencyMetricRegexAll = /\b(?:reduced|decreased|cut|lower)\s+latency\b|latency\s+(?:reduced|decreased|improved|by\s+\d+)\b|\b(?:latency|response\s*time)\b[^\n]*\b(?:\d+%|\d+\s*ms)\b/gi;
+  const perfMetricRegexAll = /\b(?:improved|increased|boosted|optimized)\s+performance\b|\b(?:scalable|scale)\s+systems?\b/gi;
+  const apiMetricRegexAll = /\b(?:optimized|optimized\s*api|optimized\s*apis|reduced\s*query\s*time|query\s*time\s*reduced|query\s*latency)\b/gi;
+  const genericMetricRegexAll = /\b(?:\d+%\s*|\$\d+|\d+\s*x\s*|uptime|test coverage)\b|\b\d+(?:\s*[kKmM]\+?)?\s*(?:active\s*)?(?:users|requests|queries|records|endpoints|tasks|jobs|servers|databases|gb|tb|mb|kb|percent|%)\b/gi;
 
-  if (hasProjectsHeader || projTargetText.trim().length > 0) {
-    // A. Evaluate Core Engineering/Product/Design Dimensions (Each yields +1 point, max 8)
-    let coreScore = 0;
-    projectConcepts.forEach(dim => {
-      if (dim.regex.test(projTargetText)) coreScore += 1;
-    });
-    coreScore = Math.min(8, coreScore);
+  const latMatches = normalizedText.match(latencyMetricRegexAll) || [];
+  const perfMatches = normalizedText.match(perfMetricRegexAll) || [];
+  const apiMatches = normalizedText.match(apiMetricRegexAll) || [];
+  const genMatches = normalizedText.match(genericMetricRegexAll) || [];
 
-    // B. Detect Advanced Engineering/Domain Concepts (Each yields +1 point, max 7)
-    let advancedScore = 0;
-    const matchedConcepts = [];
-    concepts.forEach(c => {
-      if (c.regex.test(projTargetText)) {
-        advancedScore += 1;
-        matchedConcepts.push(c.name);
-      }
-    });
-    advancedScore = Math.min(7, advancedScore);
+  const totalMetricsCount = latMatches.length + perfMatches.length + apiMatches.length + genMatches.length;
+  const metricMultiplier = Math.min(1.25, 1.0 + (totalMetricsCount * 0.05));
 
-    // Sum base score (max 15)
-    let baseScore = coreScore + advancedScore;
-
-    // C. Complexity Tier Classification
-    const isCrud = /crud|to-do|todo|task\s*manager|task\s*list|tasks?|calculator|weather|blog|recipe|clone\b/i.test(projTargetText);
-    const isPortfolio = /portfolio|personal\s*website|about\s*me/i.test(projTargetText);
-
-    const applyComplexityCaps = role.applyComplexityCaps !== undefined ? role.applyComplexityCaps : true;
-
-    if (applyComplexityCaps && (isCrud || isPortfolio) && advancedScore <= 2) {
-      rawProjectsScore = Math.min(6, baseScore);
-    } else if (applyComplexityCaps && advancedScore <= 4) {
-      rawProjectsScore = Math.min(11.5, baseScore);
-    } else {
-      rawProjectsScore = Math.min(15, baseScore);
-    }
-
-    rawProjectsScore = Math.round(rawProjectsScore * 2) / 2; // Round to nearest 0.5 points
-  }
-
-  if (rawProjectsScore >= 12) {
-    strengths.push('Technical projects demonstrate good architectural complexity, database usage, deployment, and security considerations.');
-  }
+  // Reward complexity & metric indicators
+  rawExperienceScore = Math.min(20, rawExperienceScore * metricMultiplier);
+  rawProjectsScore = Math.min(15, rawProjectsScore * metricMultiplier);
 
   // ----------------------------------------------------
   // 6. Education & Academic Alignment (Raw Max 10)
@@ -521,7 +736,6 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   let educationScore = 0;
   const eduTargetText = educationText || normalizedText;
 
-  // A. Degree & Field Relevance (Up to 5 points)
   const relevantDegreeRegex = /\b(?:computer science|software engineering|information technology|data science|math|mathematics|physics|electrical engineering|electronics engineering|cs|ce|se|it|ee|ece|b\.tech|m\.tech|btech|mtech|b\.e|m\.e|b\.s|m\.s|bsc|msc|bachelor|master|phd|doctorate)\b/i;
   const bootcampRegex = /\b(?:bootcamp|udemy|coursera|nanodegree|certification|certified|credential)\b/i;
   
@@ -533,12 +747,10 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     educationScore += 2;
   }
 
-  // B. Section Structure & University Indicators (Up to 3 points)
   if (hasEducationHeader) educationScore += 2;
   const universityRegex = /\b(?:university|college|school|institute|academy|polytechnic)\b/i;
   if (universityRegex.test(eduTargetText)) educationScore += 1;
 
-  // C. Expected / Completed Date presence (Up to 2 points)
   const hasEduDate = dateRangeRegex.test(eduTargetText) || singleDateRegex.test(eduTargetText);
   if (hasEduDate) educationScore += 2;
 
@@ -549,20 +761,14 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   // ----------------------------------------------------
   let keywordsScore = 0;
 
-  // A. Primary Keywords (Max 3 points)
-  // +0.5 points per matched essential target role skill
   const primaryCount = matchedSkillsList.filter(s => essentialSkills.includes(s.toLowerCase())).length;
   const primaryScore = Math.min(3, primaryCount * 0.5);
   keywordsScore += primaryScore;
 
-  // B. Secondary Keywords (Max 2 points)
-  // +0.5 points per matched recommended target role skill
   const secondaryCount = matchedSkillsList.filter(s => recommendedSkills.includes(s.toLowerCase())).length;
   const secondaryScore = Math.min(2, secondaryCount * 0.5);
   keywordsScore += secondaryScore;
 
-  // C. Contextual Keywords (Max 2 points)
-  // Core engineering domain practices present in sentence structure
   const domainPracticesRegex = /\b(?:optimization|scalability|architecture|infrastructure|deployment|integration|security|collaboration|performance|monitoring|testing|maintenance|development)\b/gi;
   const matchesDomain = new Set(normalizedText.toLowerCase().match(domainPracticesRegex) || []);
   let contextualScore = 0;
@@ -571,9 +777,6 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   else if (matchesDomain.size === 1) contextualScore = 0.5;
   keywordsScore += contextualScore;
 
-  // D. Evidence Keywords (Max 3 points)
-  // Active implementation structures matching: <verb> ... <technology>
-  // e.g. "Implemented secure JWT authentication using Express middleware"
   const evidenceRegex = /\b(?:implemented|designed|built|integrated|optimized|automated|migrated|scaled|secured)\b[^\n.]{1,80}\b(?:jwt|oauth|oauth2|api|apis|docker|kubernetes|aws|redis|kafka|database|postgres|mongodb|ci\/cd|pipeline|microservice|microservices|caching|security|scale)\b/gi;
   const evidenceMatches = new Set(normalizedText.toLowerCase().match(evidenceRegex) || []);
   let evidenceScore = 0;
@@ -584,8 +787,6 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
 
   let rawKeywordsScore = Math.min(10, Math.round(keywordsScore * 2) / 2);
 
-  // E. Repetition / Keyword Stuffing Penalty Cap
-  // If keyword frequency is high but verb evidence is extremely low, cap the score at 4.0
   const stuffedKeywordsRegex = /\b(?:jwt|oauth|docker|kubernetes|aws|redis|kafka|database|postgres|mongodb|ci\/cd|pipeline|microservices)\b/gi;
   const totalKeywordsFrequency = (normalizedText.toLowerCase().match(stuffedKeywordsRegex) || []).length;
   if (totalKeywordsFrequency > 25 && evidenceMatches.size <= 2) {
@@ -597,11 +798,9 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   // ----------------------------------------------------
   let achievementsScore = 0;
 
-  // A. Quantifiable business metrics (Up to 2.5 points)
   const metricCheck = /(?:\d+%\s*|\$\d+|\d+\s*x\s*|latency|throughput|saved \d+ hours)/i.test(normalizedText);
   if (metricCheck) achievementsScore += 2.5;
 
-  // B. Leadership & Professional Recognition (Up to 2.5 points)
   const recognitionRegex = /\b(?:award|scholarship|hackathon|winner|placed|publication|patent|certificate|certified|promotion|promoted|lead|spearheaded|honors|dean's list)\b/i;
   if (recognitionRegex.test(normalizedText)) achievementsScore += 2.5;
 
@@ -620,24 +819,26 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     contact: 10,
     formatting: 10,
     skills: 20,
-    experience: 20,
     projects: 15,
+    experience: 20,
     education: 10,
     keywords: 10,
     achievements: 5
   };
 
-  const defaultWeights = {
-    contact: 10,
-    formatting: 10,
-    skills: 20,
-    experience: 20,
-    projects: 15,
-    education: 10,
-    keywords: 10,
-    achievements: 5
-  };
-  const roleWeights = role.weights || defaultWeights;
+  const roleWeights = getDynamicWeights(resolvedRole);
+
+  // Fresher safeguard weights re-allocation
+  if (isFresher) {
+    const expWeight = roleWeights.experience;
+    if (expWeight > 10) {
+      const shift = expWeight - 10;
+      roleWeights.experience = 10;
+      roleWeights.skills += Math.ceil(shift * 0.4);
+      roleWeights.projects += Math.floor(shift * 0.3);
+      roleWeights.education += Math.floor(shift * 0.3);
+    }
+  }
 
   const rawScores = {
     contact: rawContactScore,
@@ -658,10 +859,10 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     breakdown[category] = Math.round((rawVal / maxVal) * weightVal);
   });
 
-  // Compute overall score deterministically by summing the 8 breakdown category scores
+  // Compute overall score deterministically
   const overallScore = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
 
-  // Collect missing sections for the UI
+  // Collect missing sections
   const missingSections = [];
   if (!hasSummaryHeader) missingSections.push('Professional Summary');
   if (!hasEducationHeader) missingSections.push('Education');
@@ -669,9 +870,7 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   if (!hasProjectsHeader) missingSections.push('Projects');
   if (!hasExperienceHeader) missingSections.push('Work Experience');
 
-  // ----------------------------------------------------
-  // TRANSPARENT SCORE JUSTIFICATION ENGINE
-  // ----------------------------------------------------
+  // Justifications Setup
   const contactDetected = [];
   const contactMissing = [];
   if (hasEmail) contactDetected.push('Email'); else contactMissing.push('Email');
@@ -699,14 +898,21 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   const skillsDetected = matchedSkillsList.map(s => s.charAt(0).toUpperCase() + s.slice(1));
   const skillsMissing = [];
   essentialSkills.concat(recommendedSkills).forEach(skill => {
-    if (!matchedSkillsList.includes(skill.toLowerCase())) {
+    if (!matchedSkillsList.some(s => s.toLowerCase().startsWith(skill.toLowerCase()))) {
       skillsMissing.push(skill.charAt(0).toUpperCase() + skill.slice(1));
     }
   });
 
   const experienceDetected = [];
   const experienceMissing = [];
-  if (hasExperienceHeader || expTargetText.trim().length > 0) {
+  const gpaRegex = /\b(?:gpa|cgpa)\b\s*(?:of\s*)?([3-4]\.\d+|[8-9]\.\d+|10(?:\.0)?)\b|\b(?:dean's\s*list|academic\s*excellence|first\s*class|distinction|graduated\s*with\s*honors)\b/i;
+  const chapterRegex = /\b(?:hackathon|ieee|acm|gdsc|club|society|volunteer|organizer|chapter|contribution|open\s*source|github|pr|pull\s*request)\b/i;
+
+  if (isFresher) {
+    experienceDetected.push('Fresher Safeguard Routed');
+    if (gpaRegex.test(normalizedText)) experienceDetected.push('Strong GPA/Grades Performance'); else experienceMissing.push('CGPA/GPA Mentions');
+    if (chapterRegex.test(normalizedText)) experienceDetected.push('Core Technical Chapter/Society Contributions'); else experienceMissing.push('Core Technical Chapter/Society Contributions');
+  } else if (hasExperienceHeader || expTargetText.trim().length > 0) {
     const escapedTitles = experienceTitles.map(t => t.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
     const titleRegex = new RegExp(`\\b(?:${escapedTitles})\\b`, 'i');
     if (titleRegex.test(expTargetText)) experienceDetected.push('Developer/Intern Title Alignment'); else experienceMissing.push('Developer/Intern Title Alignment');
@@ -763,7 +969,6 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
 
   const educationDetected = [];
   const educationMissing = [];
-
   if (relevantDegreeRegex.test(eduTargetText)) {
     educationDetected.push('Relevant STEM/CS Degree');
   } else if (bootcampRegex.test(eduTargetText)) {
@@ -841,7 +1046,7 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     }
   };
 
-  logger.info('ATSScorer', `Deterministic Dynamic Scoring Complete. Overall Score: ${overallScore}/100.`);
+  logger.info('ATSScorer', `Universal Dynamic Scorer Complete. Score: ${overallScore}/100. Career Stage: ${isFresher ? 'Fresher' : 'Experienced'}.`);
 
   return {
     overallScore,

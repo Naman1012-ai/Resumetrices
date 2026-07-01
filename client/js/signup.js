@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mockQuery = mockParam ? (mockParam.startsWith('?') ? mockParam : '?' + mockParam) : '';
 
     if (user && user.email === adminEmail) {
-      window.location.href = `/admin/dashboard${mockQuery}`;
+      window.location.href = `/admin/dashboard.html${mockQuery}`;
       return;
     }
 
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pendingFile) {
       window.location.href = `new-analysis.html${mockQuery}`;
     } else {
-      window.location.href = `/dashboard${mockQuery}`;
+      window.location.href = `/dashboard.html${mockQuery}`;
     }
   }
 

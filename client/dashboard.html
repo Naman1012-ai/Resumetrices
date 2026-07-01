@@ -3,8 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <script>
-    // Synchronously block rendering to prevent layout flash before auth state resolves
+        // Synchronously block rendering to prevent layout flash before auth state resolves
     document.documentElement.style.visibility = 'hidden';
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard - Resumetrices</title>
@@ -202,10 +210,7 @@
               <h4>Product</h4>
               <ul>
                 <li><a href="new-analysis.html">Resume Analysis</a></li>
-                <li><a href="new-analysis.html">ATS Score</a></li>
-                <li><a href="skill-gap.html">Skill Gap Analysis</a></li>
                 <li><a href="interview.html">Interview Preparation</a></li>
-                <li><a href="roadmap.html">Learning Roadmap</a></li>
                 <li><a href="dashboard.html">Dashboard</a></li>
               </ul>
             </div>

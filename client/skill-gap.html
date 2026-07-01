@@ -3,8 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <script>
-    // Synchronously block rendering to prevent layout flash before auth state resolves
+        // Synchronously block rendering to prevent layout flash before auth state resolves
     document.documentElement.style.visibility = 'hidden';
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Skill Gap Analysis - Resumetrices</title>

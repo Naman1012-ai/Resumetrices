@@ -1,6 +1,8 @@
 import { auth, isMockMode } from './firebase-config.js';
 
-const API_BASE = '/api';
+const API_BASE = (window.location.port === '5000' || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.protocol !== 'file:'))
+  ? '/api'
+  : 'http://localhost:5000/api';
 
 let cachedDashboardStats = null;
 const analysisCache = new Map();
@@ -128,6 +130,37 @@ const FirebaseService = {
     if (!response.ok) throw new Error(data.message || 'Failed to purge user data.');
     cachedDashboardStats = null;
     return true;
+  },
+
+  async exportUserData() {
+    if (isMockMode) {
+      return {
+        userId: 'anonymous_mock_user',
+        profile: {
+          displayName: 'John Doe',
+          email: 'demo@atspilot.co'
+        },
+        analyses: {
+          'mock_analysis_1': {
+            score: 72,
+            targetRole: 'Backend Developer',
+            createdAt: new Date().toISOString()
+          }
+        }
+      };
+    }
+    const user = auth.currentUser;
+    if (!user) throw new Error('Authorization required.');
+    const idToken = await user.getIdToken();
+
+    const response = await fetch(`${API_BASE}/user/export`, {
+      headers: { 'Authorization': `Bearer ${idToken}` }
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to export user profile data.');
+    }
+    return await response.json();
   },
 
   async loadAnalysisById(analysisId) {

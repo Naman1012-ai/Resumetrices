@@ -7,6 +7,16 @@
   <meta name="description" content="Free online Resumetrices. Upload your CV in PDF format and get instant analysis on ATS compatibility, skills alignment, formatting, and key strengths.">
   <link rel="stylesheet" href="css/style.css">
   <script src="/env-config.js"></script>
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    })();
+  </script>
   
   
   
@@ -298,12 +308,7 @@
           <div class="footer-col">
             <h4>Product</h4>
             <ul>
-              <li><a href="new-analysis.html">Resume Analysis</a></li>
-              <li><a href="new-analysis.html">ATS Score</a></li>
-              <li><a href="skill-gap.html">Skill Gap Analysis</a></li>
-              <li><a href="interview.html">Interview Preparation</a></li>
-              <li><a href="roadmap.html">Learning Roadmap</a></li>
-              <li><a href="dashboard.html">Dashboard</a></li>
+              <li><a href="index.html">Dashboard</a></li>
             </ul>
           </div>
           
