@@ -10,24 +10,25 @@ const isTest = nodeEnv === 'test' || nodeEnv === 'testing';
 
 // Validate critical variables in production
 if (!isDev && !isTest) {
+  const missingVars = [];
   if (!process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY.trim().length === 0) {
-    throw new Error('FATAL: OPENROUTER_API_KEY environment variable is required in production.');
+    missingVars.push('OPENROUTER_API_KEY');
   }
-
   if (!process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID.trim().length === 0) {
-    throw new Error('FATAL: FIREBASE_PROJECT_ID environment variable is required in production.');
+    missingVars.push('FIREBASE_PROJECT_ID');
   }
-
   if (!process.env.FIREBASE_DATABASE_URL || process.env.FIREBASE_DATABASE_URL.trim().length === 0) {
-    throw new Error('FATAL: FIREBASE_DATABASE_URL environment variable is required in production.');
+    missingVars.push('FIREBASE_DATABASE_URL');
   }
-
   if (!process.env.FIREBASE_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL.trim().length === 0) {
-    throw new Error('FATAL: FIREBASE_CLIENT_EMAIL environment variable is required in production.');
+    missingVars.push('FIREBASE_CLIENT_EMAIL');
+  }
+  if (!process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY.trim().length === 0) {
+    missingVars.push('FIREBASE_PRIVATE_KEY');
   }
 
-  if (!process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY.trim().length === 0) {
-    throw new Error('FATAL: FIREBASE_PRIVATE_KEY environment variable is required in production.');
+  if (missingVars.length > 0) {
+    console.error(`[Startup] ⚠️ FATAL ENVIRONMENT WARNING: The following critical production variables are missing or empty: ${missingVars.join(', ')}. The server will start, but core features will fail.`);
   }
 }
 

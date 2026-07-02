@@ -9,12 +9,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 
-const resumeRoutes = require('./routes/resumeRoutes');
-const errorHandler = require('./middleware/errorHandler');
 const constants = require('./config/constants');
 const logger = require('./utils/logger');
-
 const env = require('./config/env');
+
+console.log('[Startup] Loading routes...');
+const resumeRoutes = require('./routes/resumeRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -43,26 +45,37 @@ app.use(helmet({
 // Enable trust proxy for correct IP identification behind reverse proxies (for rate limiting)
 app.set('trust proxy', 1);
 
-// Enable Cross-Origin Resource Sharing (CORS) with configuration from environment
-const clientUrl = env.CLIENT_URL;
+// Enable Cross-Origin Resource Sharing (CORS) with dynamic same-origin support
+const corsOptionsDelegate = (req, callback) => {
+  const origin = req.header('Origin');
+  let corsOptions = {
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  };
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (clientUrl === '*' || origin === clientUrl) {
-      return callback(null, true);
-    }
+  if (!origin) {
+    corsOptions.origin = true;
+  } else {
+    const clientUrl = env.CLIENT_URL;
+    const reqHost = req.get('host');
+    const sameOriginHttp = `http://${reqHost}`;
+    const sameOriginHttps = `https://${reqHost}`;
+    
+    const isSameOrigin = origin === sameOriginHttp || origin === sameOriginHttps;
+    const isConfiguredOrigin = clientUrl === '*' || origin === clientUrl;
     const isLocal = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:') || origin === 'null';
-    if (env.IS_DEV && isLocal) {
-      return callback(null, true);
+
+    if (isSameOrigin || isConfiguredOrigin || (env.IS_DEV && isLocal)) {
+      corsOptions.origin = true;
+    } else {
+      corsOptions.origin = false; // Block CORS in browser without throwing express 500 error
     }
-    callback(new Error('Not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  }
+
+  callback(null, corsOptions);
 };
-app.use(cors(corsOptions));
+app.use(cors(corsOptionsDelegate));
 
 // Body parser middlewares with strict size limits to prevent Denial of Service (DoS) attacks
 app.use(express.json({ limit: constants.BODY_LIMITS.JSON_MAX_SIZE }));
@@ -76,14 +89,12 @@ app.get('/env-config.js', (req, res) => {
   res.send(`window.process = { env: { VITE_ADMIN_EMAIL: ${JSON.stringify(env.VITE_ADMIN_EMAIL)} } };`);
 });
 
+console.log('[Startup] Loading middleware...');
 // Intercept traffic if Maintenance Mode is active (before static assets & consumer API routes)
 app.use(maintenanceMiddleware);
 
 // Serve client-side static files (HTML, CSS, JS) from client directory
 app.use(express.static(path.join(__dirname, '../client')));
-
-
-const adminRoutes = require('./routes/adminRoutes');
 
 // Page Routes (Direct browser address bar entry mapping)
 app.get('/dashboard', (req, res) => {
