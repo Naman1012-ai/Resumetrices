@@ -1,7 +1,7 @@
-const admin = require('firebase-admin');
+const { getAuth } = require('firebase-admin/auth');
 
 async function setAdminClaim(uid) {
-  await admin.auth().setCustomUserClaims(uid, { admin: true });
+  await getAuth().setCustomUserClaims(uid, { admin: true });
   console.log(`Admin claim set for UID: ${uid}`);
 }
 

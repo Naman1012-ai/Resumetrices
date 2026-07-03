@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!user && !isMockMode) return;
 
-    let cachedRoleTitle = 'Software Engineer';
+    let cachedRoleTitle = '';
     let cachedDisplayName = '';
     
     if (user) {
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Optimistically Render all profile fields immediately (Zero-Lag UI)
     if (profileDisplayName) profileDisplayName.textContent = displayName;
-    if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
+    updateRoleTitleUI(roleTitle);
     if (profileEmail) profileEmail.textContent = email;
     if (profileCreatedDate) profileCreatedDate.textContent = creationTime;
     if (profileProvider) profileProvider.textContent = provider;
@@ -107,9 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const val = snapshot.val();
           let needsUpdate = false;
           
-          if (val.targetDomain && val.targetDomain !== roleTitle) {
-            roleTitle = val.targetDomain;
-            if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
+          const dbRole = val.targetDomain || '';
+          if (dbRole !== roleTitle) {
+            roleTitle = dbRole;
+            updateRoleTitleUI(roleTitle);
             needsUpdate = true;
           }
           if (val.displayName && val.displayName !== displayName) {
@@ -135,6 +136,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Helper: Update Role Title UI
+  function updateRoleTitleUI(title) {
+    if (!profileRoleTitle) return;
+    if (title && title.trim() !== '') {
+      profileRoleTitle.textContent = title;
+      profileRoleTitle.style.color = 'var(--emerald)';
+    } else {
+      profileRoleTitle.innerHTML = `<a href="settings.html" style="color: var(--text-muted); text-decoration: underline; font-size: 0.8rem; font-weight: 500; transition: color var(--transition-fast);" onmouseover="this.style.color='var(--emerald)'" onmouseout="this.style.color='var(--text-muted)'">No target domain set. Please set in Settings.</a>`;
+    }
+  }
+
   // Helper: Update Avatar Image/Placeholder
   function updateAvatarUI(displayName) {
     const user = auth.currentUser;
@@ -154,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('profile-updated', (e) => {
     const { displayName, roleTitle } = e.detail;
     if (profileDisplayName) profileDisplayName.textContent = displayName;
-    if (profileRoleTitle) profileRoleTitle.textContent = roleTitle;
+    updateRoleTitleUI(roleTitle);
     updateAvatarUI(displayName);
   });
 

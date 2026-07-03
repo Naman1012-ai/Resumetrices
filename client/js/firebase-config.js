@@ -25,6 +25,7 @@ if (isMockMode) {
         email: 'demo@atspilot.co',
         displayName: 'Demo Pilot',
         photoURL: null,
+        emailVerified: true,
         metadata: { creationTime: 'Wed, 25 Jun 2026 00:00:00 GMT' },
         providerData: [{ providerId: 'google.com', email: 'demo@atspilot.co' }],
         getIdToken: async () => 'mock_token'

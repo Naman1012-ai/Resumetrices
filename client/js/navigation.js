@@ -119,9 +119,10 @@ document.addEventListener('DOMContentLoaded', () => {
       
       updateHeaderUI(displayName, avatarUrl);
 
-      // Dynamically add Admin Console link for administrators
+      // Dynamically add Admin Console link and back button for administrators
       const adminEmail = window.process?.env?.VITE_ADMIN_EMAIL || 'admin@resumetrices.com';
       if (user && user.email === adminEmail) {
+        // 1. Dropdown Link
         let adminLink = document.getElementById('dropdown-admin-link');
         if (!adminLink && avatarDropdownMenu) {
           adminLink = document.createElement('a');
@@ -137,6 +138,30 @@ document.addEventListener('DOMContentLoaded', () => {
           const dropdownHeader = avatarDropdownMenu.querySelector('.dropdown-header');
           if (dropdownHeader) {
             dropdownHeader.after(adminLink);
+          }
+        }
+
+        // 2. Visible Header Back Button
+        const profileHeader = document.getElementById('user-profile-header');
+        if (profileHeader) {
+          let adminBackButton = document.getElementById('admin-back-button');
+          if (!adminBackButton) {
+            adminBackButton = document.createElement('a');
+            adminBackButton.id = 'admin-back-button';
+            adminBackButton.href = `/admin/dashboard.html${mockParam ? '?' + mockParam : ''}`;
+            adminBackButton.className = 'btn-cta-secondary';
+            adminBackButton.style.cssText = 'padding: 0.45rem 1.05rem; border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem; border: 1px solid var(--rose, #f43f5e); color: var(--rose, #f43f5e); background: rgba(244, 63, 94, 0.05); transition: all 0.2s ease; margin-right: 0.5rem;';
+            adminBackButton.innerHTML = `
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              Back to Admin
+            `;
+            adminBackButton.addEventListener('mouseenter', () => {
+              adminBackButton.style.background = 'rgba(244, 63, 94, 0.12)';
+            });
+            adminBackButton.addEventListener('mouseleave', () => {
+              adminBackButton.style.background = 'rgba(244, 63, 94, 0.05)';
+            });
+            profileHeader.before(adminBackButton);
           }
         }
       }
@@ -186,13 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </svg>
             <span class="nav-label">Interview Prep</span>
           </a>
-          <a href="${getLinkUrl('profile.html')}" class="nav-item" id="nav-profile">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <span class="nav-label">Profile</span>
-          </a>
           <a href="${getLinkUrl('reports.html')}" class="nav-item" id="nav-reports">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
@@ -200,13 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
               <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
             <span class="nav-label">My Reports</span>
-          </a>
-          <a href="${getLinkUrl('settings.html')}" class="nav-item" id="nav-settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            <span class="nav-label">Settings</span>
           </a>
         </nav>
       </aside>
@@ -370,15 +381,11 @@ document.addEventListener('DOMContentLoaded', () => {
             © 2026 Resumetrices. All Rights Reserved.
           </div>
         </div>
-        
         <div class="footer-col">
           <h4>Product</h4>
           <ul>
             <li><a href="${getLinkUrl('new-analysis.html')}">Resume Analysis</a></li>
-            <li><a href="${getLinkUrl('new-analysis.html')}">ATS Score</a></li>
-            <li><a href="${getLinkUrl('skill-gap.html')}">Skill Gap Analysis</a></li>
             <li><a href="${getLinkUrl('interview.html')}">Interview Preparation</a></li>
-            <li><a href="${getLinkUrl('roadmap.html')}">Learning Roadmap</a></li>
             <li><a href="${getLinkUrl('dashboard.html')}">Dashboard</a></li>
           </ul>
         </div>
@@ -388,7 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <ul>
             <li><a href="#" class="disabled-link">About</a></li>
             <li><a href="#" class="disabled-link">Contact</a></li>
-            <li><a href="mailto:support@resumetrices.com">Support</a></li>
             <li><a href="#" class="disabled-link">FAQ</a></li>
             <li><a href="#" class="disabled-link">Release Notes</a></li>
           </ul>
@@ -412,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="version-tag">Version 1.2.0</span>
         </div>
         <div class="footer-bottom-middle">
-          <a href="mailto:support@resumetrices.com" class="support-email">support@resumetrices.com</a>
+          <a href="mailto:support.resumetrices@gmail.com" class="support-email">support.resumetrices@gmail.com</a>
         </div>
         <div class="footer-bottom-right social-links">
           <a href="https://github.com" target="_blank" rel="noopener noreferrer" aria-label="GitHub">

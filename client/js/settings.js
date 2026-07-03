@@ -68,6 +68,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Local State
   let primaryProvider = 'password';
   let authenticatedEmail = '';
+  let verificationPollInterval = null;
+
+  // Helper to sync email in database
+  async function syncDatabaseEmail(currentUser) {
+    if (!currentUser || isMockMode) return;
+    try {
+      const userRef = ref(db, `users/${currentUser.uid}`);
+      const snap = await get(userRef);
+      if (snap.exists()) {
+        const data = snap.val();
+        if (data.email !== currentUser.email) {
+          console.log(`Synchronizing database profile email identity row for ${currentUser.uid} to verified email: ${currentUser.email}`);
+          await update(userRef, { email: currentUser.email });
+          
+          const profileRef = ref(db, `users/${currentUser.uid}/profile`);
+          const profileSnap = await get(profileRef);
+          if (profileSnap.exists()) {
+            await update(profileRef, { email: currentUser.email });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error synchronizing database profile email:', err);
+    }
+  }
 
   // Load Settings Information
   async function loadSettings() {
@@ -99,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const profilePhotoFallback = document.getElementById('profile-photo-fallback');
 
     let displayName = isMockMode ? 'John Doe' : (user ? (user.displayName || '') : '');
-    let roleTitle = 'Software Engineer';
+    let roleTitle = '';
 
     const getAvatarUrl = (name) => {
       const fallbackChar = user?.email?.charAt(0) || 'U';
@@ -125,20 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('Failed to parse cache in settings:', e);
     }
 
-    // Fetch fresh details from RTDB
-    if (user && !isMockMode) {
-      try {
-        const profileSnap = await get(ref(db, `users/${user.uid}/profile`));
-        if (profileSnap.exists()) {
-          const val = profileSnap.val();
-          if (val.displayName !== undefined) displayName = val.displayName;
-          if (val.targetDomain !== undefined) roleTitle = val.targetDomain;
-        }
-      } catch (err) {
-        console.warn('Failed to load profile details from RTDB:', err);
-      }
-    }
-
+    // Populate inputs and avatar immediately (Zero-Lag UI)
     if (profileNameInput) profileNameInput.value = displayName;
     if (profileRoleInput) profileRoleInput.value = roleTitle;
 
@@ -155,55 +167,112 @@ document.addEventListener('DOMContentLoaded', () => {
       settingsEmailDisplay.textContent = userEmail;
     }
 
-    // Verification Status Badge display
+    // Verification Status Badge & Message display
     const vBadge = document.getElementById('verification-badge');
     const vBtn = document.getElementById('btn-trigger-verification');
-    
-    if (vBadge) {
-      if (isMockMode) {
+    const vMsg = document.getElementById('email-verification-message');
+
+    function updateVerificationUI(verifiedStatus) {
+      if (!vBadge) return;
+      if (verifiedStatus) {
         vBadge.textContent = 'Verified';
         vBadge.style.background = 'rgba(16, 185, 129, 0.1)';
         vBadge.style.color = 'var(--emerald)';
         vBadge.style.border = '1px solid rgba(16, 185, 129, 0.2)';
         if (vBtn) vBtn.style.display = 'none';
-      } else if (user) {
-        if (user.emailVerified) {
-          vBadge.textContent = 'Verified';
-          vBadge.style.background = 'rgba(16, 185, 129, 0.1)';
-          vBadge.style.color = 'var(--emerald)';
-          vBadge.style.border = '1px solid rgba(16, 185, 129, 0.2)';
-          if (vBtn) vBtn.style.display = 'none';
-        } else {
-          vBadge.textContent = 'Unverified';
-          vBadge.style.background = 'rgba(244, 63, 94, 0.1)';
-          vBadge.style.color = 'var(--rose)';
-          vBadge.style.border = '1px solid rgba(244, 63, 94, 0.2)';
-          if (vBtn) vBtn.style.display = 'inline-block';
-        }
+        if (vMsg) vMsg.style.display = 'none';
+      } else {
+        vBadge.textContent = 'Unverified';
+        vBadge.style.background = 'rgba(244, 63, 94, 0.1)';
+        vBadge.style.color = 'var(--rose)';
+        vBadge.style.border = '1px solid rgba(244, 63, 94, 0.2)';
+        if (vBtn) vBtn.style.display = 'inline-block';
+        if (vMsg) vMsg.style.display = 'block';
       }
     }
 
-    // Verify & synchronize profile email identity row on verification success
+    // Clear any existing polling interval
+    if (verificationPollInterval) {
+      clearInterval(verificationPollInterval);
+      verificationPollInterval = null;
+    }
+
+    // 1. Render current verification status immediately
+    let isVerified = isMockMode ? true : (user ? user.emailVerified : false);
+    updateVerificationUI(isVerified);
+
+    // Sync database email if verified on start
+    if (isVerified && user && !isMockMode) {
+      syncDatabaseEmail(user);
+    }
+
+    // 2. Start polling for verification status in the background if not verified
+    if (!isVerified && user && !isMockMode) {
+      verificationPollInterval = setInterval(async () => {
+        try {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            await currentUser.reload();
+            const refreshedUser = auth.currentUser;
+            if (refreshedUser.emailVerified) {
+              clearInterval(verificationPollInterval);
+              verificationPollInterval = null;
+              updateVerificationUI(true);
+              showToast('Email verified successfully!', 'success');
+              syncDatabaseEmail(refreshedUser);
+            }
+          }
+        } catch (err) {
+          console.error('Error in verification polling:', err);
+        }
+      }, 3000);
+    }
+
+    // 3. Do an immediate background reload check in case local cache is stale
     if (user && !isMockMode) {
-      const userRef = ref(db, `users/${user.uid}`);
-      get(userRef).then(async (snap) => {
-        if (snap.exists()) {
-          const data = snap.val();
-          if (data.email !== user.email) {
-            // User email changed/verified! Update primary database profile identity row
-            console.log(`Synchronizing database profile email identity row for ${user.uid} to verified email: ${user.email}`);
-            await update(userRef, { email: user.email });
-            
-            // Also update users/${uid}/profile/email if it exists
-            const profileRef = ref(db, `users/${user.uid}/profile`);
-            const profileSnap = await get(profileRef);
-            if (profileSnap.exists()) {
-              await update(profileRef, { email: user.email });
+      user.reload().then(() => {
+        const refreshedUser = auth.currentUser;
+        if (refreshedUser && refreshedUser.emailVerified !== isVerified) {
+          isVerified = refreshedUser.emailVerified;
+          updateVerificationUI(isVerified);
+          if (isVerified) {
+            if (verificationPollInterval) {
+              clearInterval(verificationPollInterval);
+              verificationPollInterval = null;
+            }
+            syncDatabaseEmail(refreshedUser);
+          }
+        }
+      }).catch((err) => {
+        console.warn('Failed to do initial user verification reload:', err);
+      });
+    }
+
+    // 4. Fetch fresh details from RTDB in background without blocking the UI
+    if (user && !isMockMode) {
+      get(ref(db, `users/${user.uid}/profile`)).then((profileSnap) => {
+        if (profileSnap.exists()) {
+          const val = profileSnap.val();
+          let needsUpdate = false;
+          if (val.displayName !== undefined && val.displayName !== displayName) {
+            displayName = val.displayName;
+            if (profileNameInput) profileNameInput.value = displayName;
+            needsUpdate = true;
+          }
+          if (val.targetDomain !== undefined && val.targetDomain !== roleTitle) {
+            roleTitle = val.targetDomain;
+            if (profileRoleInput) profileRoleInput.value = roleTitle;
+            needsUpdate = true;
+          }
+          if (needsUpdate) {
+            const currentAvatarUrl = getAvatarUrl(displayName);
+            if (profilePhotoPreview) {
+              profilePhotoPreview.src = currentAvatarUrl;
             }
           }
         }
-      }).catch(err => {
-        console.error('Error synchronizing database profile email:', err);
+      }).catch((err) => {
+        console.warn('Failed to load profile details from RTDB:', err);
       });
     }
 
