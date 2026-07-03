@@ -40,6 +40,12 @@ const extractText = async (filePath) => {
         logger.error('PDFParser', 'Failed to destroy PDF parser instance:', destroyError);
       }
     }
+    // Clean up uploaded file from local server disk
+    try {
+      await fs.unlink(filePath);
+    } catch (unlinkErr) {
+      logger.warn('PDFParser', `[pdfParser] Failed to delete temp file: ${filePath} ${unlinkErr.message}`);
+    }
   }
 };
 

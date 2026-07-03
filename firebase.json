@@ -1,1 +1,30 @@
-{}
+{
+  "rules": {
+    "analyses": {
+      "$analysisId": {
+        ".read": "auth != null && data.child('userId').val() === auth.uid",
+        ".write": "auth != null && data.child('userId').val() === auth.uid"
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "reports": {
+      ".read": false,
+      ".write": "auth != null"
+    },
+    "anonymous": {
+      "$sessionId": {
+        ".read": false,
+        ".write": true
+      }
+    },
+    "config": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

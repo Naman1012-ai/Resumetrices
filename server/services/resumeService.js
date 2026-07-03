@@ -97,7 +97,7 @@ global.fetch = async function(url, options) {
 /**
  * Stage 1-7: Complete resume analysis pipeline.
  */
-async function processResumeAnalysis(userId, file, targetRole) {
+async function processResumeAnalysis(userId, file, targetRole, onProgress) {
   const { path: filePath, originalname } = file;
 
   // 1. Validate targetRole
@@ -112,6 +112,7 @@ async function processResumeAnalysis(userId, file, targetRole) {
   let extractedText;
   try {
     extractedText = await pdfParser.extractText(filePath);
+    if (onProgress) onProgress({ stage: 'extracting', label: 'Detecting Skills', percent: 10 });
   } catch (parseError) {
     logger.error('Pipeline', `Parsing Error: ${parseError.message}`);
     const error = new Error('Failed to parse PDF content. Ensure the file is not corrupted.');
@@ -159,6 +160,7 @@ async function processResumeAnalysis(userId, file, targetRole) {
   let scoreAnalysis;
   try {
     scoreAnalysis = atsScorer.scoreResume(extractedText, targetRole);
+    if (onProgress) onProgress({ stage: 'scoring', label: 'Calculating ATS Score', percent: 20 });
   } catch (scoreError) {
     logger.error('Pipeline', `Scoring Error: ${scoreError.message}`);
     const error = new Error('Failed to calculate ATS score.');
@@ -171,6 +173,7 @@ async function processResumeAnalysis(userId, file, targetRole) {
   let aiAnalysis;
   try {
     aiAnalysis = await aiAnalyzer.analyzeResumeText(extractedText, targetRole, scoreAnalysis);
+    if (onProgress) onProgress({ stage: 'ai_analysis', label: 'Running AI Resume Analysis', percent: 50 });
   } catch (aiError) {
     logger.error('Pipeline', `AI Analysis failed: ${aiError.message}`);
     const isInvalid = aiError.message.includes('AI_RESPONSE_INVALID') || 
@@ -190,6 +193,7 @@ async function processResumeAnalysis(userId, file, targetRole) {
   let interviewPrep = null;
   try {
     skillGap = await aiAnalyzer.analyzeSkillGap(extractedText, targetRole, scoreAnalysis.detectedSkills || []);
+    if (onProgress) onProgress({ stage: 'skill_gap', label: 'Generating Skill Gap', percent: 65 });
     if (skillGap) {
       skillGap.targetRole = targetRole;
     }
@@ -221,6 +225,7 @@ async function processResumeAnalysis(userId, file, targetRole) {
       candidateProfile,
       scoreAnalysis.overallScore
     );
+    if (onProgress) onProgress({ stage: 'profiling', label: 'Building Candidate Profile', percent: 70 });
     interviewPrep = await aiAnalyzer.generateInterviewQuestions(
       extractedText,
       {
@@ -235,6 +240,7 @@ async function processResumeAnalysis(userId, file, targetRole) {
       candidateProfile,
       difficultyMetadata
     );
+    if (onProgress) onProgress({ stage: 'interview', label: 'Preparing Interview Questions', percent: 78 });
   } catch (ipErr) {
     logger.error('Pipeline', `Interview Prep failed: ${ipErr.message}`);
     const isInvalid = ipErr.message.includes('AI_RESPONSE_INVALID') || 
@@ -291,11 +297,13 @@ async function processResumeAnalysis(userId, file, targetRole) {
     error.code = 'INTEGRITY_CHECK_FAILED';
     throw error;
   }
+  if (onProgress) onProgress({ stage: 'validation', label: 'Validating Results', percent: 88 });
 
   logger.info('Pipeline', `💾 Saving results to Firebase under ID: ${analysisId}...`);
   try {
     await firebaseService.saveAnalysis(analysisId, record);
     logger.info('Pipeline', '✅ Saved to Firebase successfully.');
+    if (onProgress) onProgress({ stage: 'saving', label: 'Saving Analysis', percent: 95 });
   } catch (dbError) {
     logger.error('Pipeline', `Database Write Error: ${dbError.message}`);
     const error = new Error('Failed to save analysis record to database.');
@@ -304,6 +312,7 @@ async function processResumeAnalysis(userId, file, targetRole) {
     throw error;
   }
 
+  if (onProgress) onProgress({ stage: 'complete', label: 'Done', percent: 100 });
   return {
     analysisId,
     record

@@ -5030,7 +5030,8 @@ textarea:focus-visible {
   font-weight: 600;
 }
 
-.landing-role-select select {
+.landing-role-select select,
+.landing-role-select input {
   background: #030712;
   border: 1px solid var(--border-color);
   color: var(--text-main);
@@ -5038,11 +5039,15 @@ textarea:focus-visible {
   border-radius: 8px;
   font-size: 0.95rem;
   outline: none;
-  cursor: pointer;
   transition: var(--transition-smooth);
 }
 
-.landing-role-select select:focus {
+.landing-role-select select {
+  cursor: pointer;
+}
+
+.landing-role-select select:focus,
+.landing-role-select input:focus {
   border-color: var(--emerald);
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
 }

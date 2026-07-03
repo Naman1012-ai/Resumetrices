@@ -24,6 +24,7 @@ uploads/*
 *.sln
 *.sw?
 
+.firebaserc
 BRAIN.md
 API_DOCS.md
 no-hallucination.md

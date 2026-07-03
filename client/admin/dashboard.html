@@ -729,6 +729,7 @@
   <!-- Sidebar toggle and tab routing script -->
   <script type="module">
     import { auth, isMockMode } from '../js/firebase-config.js';
+    import { formatTimeAgo } from '../js/utils.js';
 
     document.addEventListener('DOMContentLoaded', () => {
       // 1. Sidebar tab switching engine
@@ -823,26 +824,35 @@
           const res = await fetch('/api/admin/scan-reports', {
             headers: { 'Authorization': `Bearer ${idToken}` }
           });
+          
+          if (!res.ok) {
+            if (res.status === 401 || res.status === 403) {
+              renderReportTableFallback('Admin access required. Verify your account permissions.');
+            } else {
+              renderReportTableFallback('Server error loading reports. Try refreshing.');
+            }
+            return;
+          }
+
           const data = await res.json();
-          if (res.ok && data.success) {
-            reportAuditData = data.reports;
+          if (data && data.success) {
+            reportAuditData = data.reports || [];
             renderReportTable(reportAuditData);
           } else {
-            console.error('Failed to load reports:', data.message);
-            renderReportTableFallback();
+            renderReportTableFallback('Server error loading reports. Try refreshing.');
           }
         } catch (err) {
           console.error('Report audit fetch error:', err);
-          renderReportTableFallback();
+          renderReportTableFallback('Cannot reach server. Check your connection.');
         }
       }
 
-      function renderReportTableFallback() {
+      function renderReportTableFallback(message = 'Unable to load platform report runs. Check server connectivity.') {
         const tbody = document.getElementById('report-audit-list');
         if (!tbody) return;
-        tbody.innerHTML = `<tr><td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted);">Unable to load platform report runs. Check server connectivity.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted);">${escapeHTML(message)}</td></tr>`;
         const countLabel = document.getElementById('report-count-label');
-        if (countLabel) countLabel.textContent = '0 report runs recorded';
+        if (countLabel) countLabel.textContent = 'Error loading reports';
       }
 
       function renderReportTable(reports) {
@@ -858,20 +868,32 @@
         }
 
         tbody.innerHTML = reports.map(r => {
-          const hashId = `#REP-${(r.analysisId || '').substring(0, 5).toUpperCase()}`;
+          let scoreColor = 'var(--rose)';
+          if (r.score >= 70) {
+            scoreColor = 'var(--emerald)';
+          } else if (r.score >= 40) {
+            scoreColor = '#f59e0b';
+          }
+
+          const identityHTML = r.userId === 'anonymous'
+            ? `<span>anonymous</span>`
+            : `<span>${escapeHTML(r.userId)}</span>
+               <br>
+               <span class="muted">${escapeHTML(r.userEmail || 'email unavailable')}</span>`;
+
           return `
             <tr style="border-bottom: 1px solid var(--border-color);" class="admin-table-row">
-              <td style="padding: 1rem; font-family: 'Fira Code', monospace; font-size: 0.85rem; font-weight: 700; color: var(--rose);">${escapeHTML(hashId)}</td>
-              <td style="padding: 1rem; color: var(--text-main); font-weight: 500;">${escapeHTML(r.email)}</td>
-              <td style="padding: 1rem; color: var(--text-muted);">${escapeHTML(r.targetRole)}</td>
-              <td style="padding: 1rem; text-align: center;">
-                <span class="score-badge ${getScoreClass(r.score || 0)}" style="padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 700;">
-                  ${r.score || 0}%
-                </span>
+              <td style="padding: 1rem; font-family: 'Fira Code', monospace; font-size: 0.85rem; font-weight: 700; color: var(--rose);">${escapeHTML(r.analysisId)}</td>
+              <td style="padding: 1rem; color: var(--text-main); font-weight: 500;">
+                ${identityHTML}
               </td>
-              <td style="padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">${new Date(r.createdAt).toLocaleString()}</td>
+              <td style="padding: 1rem; color: var(--text-muted);">${escapeHTML(r.targetRole || '')}</td>
+              <td style="padding: 1rem; text-align: center;">
+                <span style="color: ${scoreColor}; font-weight: 700;">${r.score || 0}/100</span>
+              </td>
+              <td style="padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">${formatTimeAgo(r.createdAt)}</td>
               <td style="padding: 1rem; text-align: right;">
-                <button class="inspect-report-btn" data-id="${escapeHTML(r.analysisId)}">View Output</button>
+                <button class="inspect-report-btn" data-id="${escapeHTML(r.analysisId)}">View Full Report</button>
               </td>
             </tr>`;
         }).join('');
@@ -896,7 +918,8 @@
           }
           const filtered = reportAuditData.filter(r =>
             (r.analysisId || '').toLowerCase().includes(query) ||
-            (r.email || '').toLowerCase().includes(query) ||
+            (r.userEmail || '').toLowerCase().includes(query) ||
+            (r.userDisplayName || '').toLowerCase().includes(query) ||
             (r.targetRole || '').toLowerCase().includes(query)
           );
           renderReportTable(filtered);
@@ -930,7 +953,7 @@
           if (res.ok && data.success) {
             renderInspectorContent(data.report);
           } else {
-            inspectorBody.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--danger);">Failed to load report: ${data.message}</div>`;
+            inspectorBody.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--danger);">Failed to load report: ${escapeHTML(data.message)}</div>`;
           }
         } catch (err) {
           console.error('Inspector load error:', err);

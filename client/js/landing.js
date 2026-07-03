@@ -103,8 +103,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const landingPreviewFilesize = document.getElementById('landing-preview-filesize');
   const landingBtnRemoveFile = document.getElementById('landing-btn-remove-file');
   const landingRoleSelectInput = document.getElementById('landing-role-select-input');
+  const landingCustomRoleInput = document.getElementById('landing-custom-role-input');
   const btnLandingAnalyze = document.getElementById('btn-landing-analyze');
   const landingErrorBox = document.getElementById('landing-error-box');
+
+  if (landingRoleSelectInput && landingCustomRoleInput) {
+    landingRoleSelectInput.addEventListener('change', () => {
+      const isOther = landingRoleSelectInput.value === 'Other';
+      if (isOther) {
+        landingCustomRoleInput.removeAttribute('disabled');
+        landingCustomRoleInput.focus();
+      } else {
+        landingCustomRoleInput.setAttribute('disabled', 'true');
+        landingCustomRoleInput.value = '';
+      }
+    });
+  }
 
   const serverStatusDot = document.getElementById('server-status-dot');
   const serverStatusText = document.getElementById('server-status-text');
@@ -394,9 +408,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Intercept & Handle Free Analysis submission
   if (btnLandingAnalyze) {
     btnLandingAnalyze.addEventListener('click', async () => {
-      const selectedRole = landingRoleSelectInput ? landingRoleSelectInput.value : '';
+      let selectedRole = landingRoleSelectInput ? landingRoleSelectInput.value : '';
+      if (selectedRole === 'Other' && landingCustomRoleInput) {
+        selectedRole = landingCustomRoleInput.value.trim();
+      }
       if (!landingSelectedFile || !selectedRole) {
-        showLandingError('Please upload your resume and select a target job role.');
+        showLandingError('Please upload your resume and select/specify a target job role.');
         return;
       }
 
@@ -460,7 +477,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const result = await response.json();
         if (!response.ok) {
-          throw new Error(result.message || 'Analysis pipeline execution failed.');
+          const errMessage = result.userMessage || result.message || 'Analysis pipeline execution failed.';
+          const err = new Error(errMessage);
+          err.status = response.status;
+          throw err;
         }
 
         const sessionId = 'anon_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);

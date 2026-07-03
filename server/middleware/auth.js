@@ -19,18 +19,20 @@ const requireAuth = async (req, res, next) => {
   const allowMockAuth = env.ALLOW_MOCK_AUTH;
 
   // 1. Mock token authentication bypass (only allowed in explicit development environments)
-  if (authHeader && authHeader.startsWith('Bearer mock-token') && isDevMode && allowMockAuth) {
-    const tokenSuffix = authHeader.substring('Bearer mock-token'.length).replace(/^-/, '');
-    const uid = tokenSuffix ? `mock-uid-${tokenSuffix}` : 'anonymous-local-dev-uid';
-    const email = tokenSuffix ? `${tokenSuffix}@mock.local` : 'dev@local.local';
-    
-    logger.warn('Auth', `⚠️ Bypassing authentication check (mock-token detected for UID: ${uid} in development mode).`);
-    req.user = { uid, email };
-    return next();
+  if (env.IS_DEV === true && env.ALLOW_MOCK_AUTH === true) {
+    if (authHeader && authHeader.startsWith('Bearer mock-token')) {
+      const tokenSuffix = authHeader.substring('Bearer mock-token'.length).replace(/^-/, '');
+      const uid = tokenSuffix ? `mock-uid-${tokenSuffix}` : 'anonymous-local-dev-uid';
+      const email = tokenSuffix ? `${tokenSuffix}@mock.local` : 'dev@local.local';
+      
+      logger.warn('Auth', `⚠️ Bypassing authentication check (mock-token detected for UID: ${uid} in development mode).`);
+      req.user = { uid, email };
+      return next();
+    }
   }
 
   // 2. Unauthenticated local fallback bypass (only allowed in explicit development environments without credentials)
-  if (isDevMode && !authHeader && (!isInitialized() || (typeof hasCredentials === 'function' && !hasCredentials()))) {
+  if (env.IS_DEV === true && !authHeader && (!isInitialized() || (typeof hasCredentials === 'function' && !hasCredentials()))) {
     logger.warn('Auth', '⚠️ Bypassing authentication check (running in unauthenticated local development fallback mode).');
     req.user = { uid: 'anonymous-local-dev-uid', email: 'dev@local.local' };
     return next();

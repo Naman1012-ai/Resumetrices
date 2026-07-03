@@ -27,11 +27,33 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const cleanJsonString = (rawText) => {
   let cleaned = rawText.trim();
   
-  // Find first { and last } to extract JSON block if preamble exists
-  const startIdx = cleaned.indexOf('{');
-  const endIdx = cleaned.lastIndexOf('}');
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    cleaned = cleaned.substring(startIdx, endIdx + 1);
+  // Find first occurrence of either '{' or '['
+  const firstBrace = cleaned.indexOf('{');
+  const firstBracket = cleaned.indexOf('[');
+  let startIdx = -1;
+  let expectedChar = '';
+  
+  if (firstBrace !== -1 && firstBracket !== -1) {
+    if (firstBrace < firstBracket) {
+      startIdx = firstBrace;
+      expectedChar = '}';
+    } else {
+      startIdx = firstBracket;
+      expectedChar = ']';
+    }
+  } else if (firstBrace !== -1) {
+    startIdx = firstBrace;
+    expectedChar = '}';
+  } else if (firstBracket !== -1) {
+    startIdx = firstBracket;
+    expectedChar = ']';
+  }
+  
+  if (startIdx !== -1) {
+    const endIdx = cleaned.lastIndexOf(expectedChar);
+    if (endIdx !== -1 && endIdx > startIdx) {
+      cleaned = cleaned.substring(startIdx, endIdx + 1);
+    }
   }
   
   cleaned = cleaned.replace(/^```(?:json)?\s*/i, '');
@@ -47,34 +69,32 @@ if (apiKey && !apiKey.startsWith('sk-or-')) {
   logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY does not start with standard "sk-or-" prefix. API calls may fail.');
 }
 
-const OPENROUTER_MODELS = [
-  env.AI.MODEL_ID || 'google/gemini-2.5-flash:free',
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'mistralai/mistral-7b-instruct:free',
-  'meta-llama/llama-3-8b-instruct:free',
+const FALLBACK_MODELS = [
   'google/gemini-2.5-flash:free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'qwen/qwen-2.5-coder-32b-instruct:free',
-  'meta-llama/llama-3.2-3b-instruct:free',
-  'deepseek/deepseek-r1:free',
   'google/gemma-2-9b-it:free',
-  'microsoft/phi-3-medium-128k-instruct:free',
-  'openrouter/free'
-];
+  'meta-llama/llama-3.1-8b-instruct:free',
+  'qwen/qwen-2.5-7b-instruct:free',
+  'mistralai/mistral-7b-instruct:free'
+].filter(Boolean);
+
+const OPENROUTER_MODELS = [
+  process.env.OPENROUTER_MODEL_ID,
+  ...FALLBACK_MODELS
+].filter((val, idx, self) => val && self.indexOf(val) === idx);
 
 /**
- * Checks if the error returned from OpenRouter is terminal (e.g. key invalid, credit/daily limit reached).
+ * Checks if the error returned from OpenRouter is terminal (e.g. key invalid, bad request).
  * @param {Error} error
  * @returns {boolean}
  */
 const isTerminalError = (error) => {
   if (!error || !error.message) return false;
+  const status = error?.response?.status;
+  if (status === 400 || status === 401) return true;
   const msg = error.message.toLowerCase();
   return msg.includes('401') || 
-         msg.includes('402') || 
-         msg.includes('credit limit') || 
-         msg.includes('insufficient credit') ||
-         msg.includes('payment required');
+         msg.includes('bad request') ||
+         msg.includes('(400)');
 };
 
 /**
@@ -1079,6 +1099,8 @@ const fetchJsonWithTimeout = async (url, options = {}, timeoutMs = OPENROUTER.RE
         error = new Error(`OpenRouter Credit Insufficient (402)${detailMessage}`);
       } else if (status === 429) {
         error = new Error(`OpenRouter Rate Limit Exceeded (429)${detailMessage}`);
+      } else if (status === 404) {
+        error = new Error(`OpenRouter Model Not Found (404)${detailMessage}`);
       } else if (status === 503) {
         error = new Error(`OpenRouter Model Overloaded or Down (503)${detailMessage}`);
       } else {
@@ -1129,21 +1151,22 @@ const extractHttpStatus = (error) => {
 };
 
 /**
- * Unified helper to execute an AI API request with up to automatic retries and model cycling failovers.
+ * Unified helper to execute an AI API request with automatic retries and model cycling failovers.
+ * Uses PRIMARY_TIMEOUT_MS for the first attempt and FALLBACK_TIMEOUT_MS for all subsequent attempts.
+ * Handles 404, 429, 400, 401, 502, 503 with differentiated logic.
  * Returns parsed JSON object if successful, or throws a user-friendly error on final failure.
  */
 const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) => {
-  let attempt = 0;
-  let modelIndex = OPENROUTER_MODELS.indexOf(modelName);
-  if (modelIndex === -1) modelIndex = 0;
-
-  const maxAttempts = Math.max(3, OPENROUTER_MODELS.length);
+  const maxAttempts = OPENROUTER_MODELS.length;
+  const failureRecords = []; // Track {model, status} for post-loop analysis
   
-  while (attempt < maxAttempts) {
-    const currentModel = OPENROUTER_MODELS[(modelIndex + attempt) % OPENROUTER_MODELS.length] || 'openrouter/free';
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const currentModel = OPENROUTER_MODELS[attempt] || OPENROUTER_MODELS[0];
+    const timeoutMs = attempt === 0 ? OPENROUTER.PRIMARY_TIMEOUT_MS : OPENROUTER.FALLBACK_TIMEOUT_MS;
     const runStartTime = Date.now();
     try {
-      const resultString = await fetchFunc(currentModel);
+      logger.info('AIAnalyzer', `[aiAnalyzer] Attempting model: ${currentModel} (attempt ${attempt + 1}/${maxAttempts})`);
+      const resultString = await fetchFunc(currentModel, timeoutMs);
       
       if (!resultString || resultString.trim().length === 0) {
         throw new Error('Received empty response from AI provider.');
@@ -1167,25 +1190,83 @@ const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) 
       console.error('[OpenRouter Error] Message:', error?.message);
 
       const duration = Date.now() - runStartTime;
-      const status = extractHttpStatus(error);
+      const status = error?.response?.status || extractHttpStatus(error);
       
       logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/${maxAttempts} failed. Model: ${currentModel}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${error.message}`);
       
-      attempt++;
-      if (attempt < maxAttempts) {
-        const nextModel = OPENROUTER_MODELS[(modelIndex + attempt) % OPENROUTER_MODELS.length] || 'openrouter/free';
-        const delay = attempt === 1 ? 1000 : 2000;
-        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying/Failover to model ${nextModel} (Attempt ${attempt + 1}/${maxAttempts}) in ${delay}ms...`);
-        await sleep(delay);
-      } else {
-        logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Request pipeline terminated. Final result: Failure.`);
-        const finalErr = new Error("Analysis could not be generated. Please try again.");
+      failureRecords.push({ model: currentModel, status: status });
+
+      // 400 Bad Request — prompt/payload is broken, no model will fix it
+      if (status === 400) {
+        logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Bad request (400) — throwing immediately, no model will fix this.`);
+        const finalErr = new Error('AI request rejected: bad request. Check prompt construction.');
         finalErr.code = 'AI_ANALYSIS_FAILED';
         finalErr.originalError = error;
         throw finalErr;
       }
+
+      // 401 Unauthorized — auth failure affects all models
+      if (status === 401) {
+        logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Auth failure (401) — throwing immediately, affects all models.`);
+        const finalErr = new Error('AI authentication failed. Check API key configuration.');
+        finalErr.code = 'AI_ANALYSIS_FAILED';
+        finalErr.originalError = error;
+        throw finalErr;
+      }
+
+      // 404 Model not found — log removal warning, continue immediately
+      if (status === 404) {
+        logger.error('AIAnalyzer', `[Req ID: ${requestId}] Model ${currentModel} no longer available — remove from list.`);
+        // Continue to next model immediately, no delay
+        if (attempt + 1 < maxAttempts) {
+          const nextModel = OPENROUTER_MODELS[attempt + 1];
+          logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) immediately...`);
+        }
+        continue;
+      }
+
+      // 502/503 Service unavailable — continue to next model immediately
+      if (status === 502 || status === 503) {
+        logger.warn('AIAnalyzer', `[Req ID: ${requestId}] Service unavailable (${status}) for ${currentModel}, moving to next model.`);
+        if (attempt + 1 < maxAttempts) {
+          const nextModel = OPENROUTER_MODELS[attempt + 1];
+          logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) immediately...`);
+        }
+        continue;
+      }
+
+      // 429 Rate limited — continue to next model with delay
+      if (status === 429) {
+        logger.warn('AIAnalyzer', `[Req ID: ${requestId}] Rate limited (429) on ${currentModel}.`);
+        if (attempt + 1 < maxAttempts) {
+          const nextModel = OPENROUTER_MODELS[attempt + 1];
+          logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) in ${OPENROUTER.FALLBACK_DELAY_MS}ms...`);
+          await sleep(OPENROUTER.FALLBACK_DELAY_MS);
+        }
+        continue;
+      }
+
+      // All other errors — apply standard delay between fallback attempts
+      if (attempt + 1 < maxAttempts) {
+        const nextModel = OPENROUTER_MODELS[attempt + 1];
+        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying/Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) in ${OPENROUTER.FALLBACK_DELAY_MS}ms...`);
+        await sleep(OPENROUTER.FALLBACK_DELAY_MS);
+      }
     }
   }
+
+  // All models exhausted — check if all were rate-limited
+  logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Request pipeline terminated. Final result: Failure.`);
+  const allRateLimited = failureRecords.length > 0 && failureRecords.every(e => e.status === 429);
+  if (allRateLimited) {
+    const rateLimitErr = new Error('AI_RATE_LIMIT_EXHAUSTED');
+    rateLimitErr.code = 'AI_RATE_LIMIT_EXHAUSTED';
+    throw rateLimitErr;
+  }
+
+  const finalErr = new Error('Analysis could not be generated. Please try again.');
+  finalErr.code = 'AI_ANALYSIS_FAILED';
+  throw finalErr;
 };
 
 const analyzeResumeText = async (text, targetRole, atsAnalysisContext) => {
@@ -1261,7 +1342,7 @@ The JSON response must conform exactly to this schema:
 
   const requestId = `res_${crypto.randomUUID()}`;
 
-  const fetchFunc = async (model) => {
+  const fetchFunc = async (model, timeoutMs) => {
     const payloadObject = JSON.parse(bodyBaseStr);
     const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
     payloadObject.models = [
@@ -1286,7 +1367,7 @@ The JSON response must conform exactly to this schema:
 
     const fetch_start_time = Date.now();
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), OPENROUTER.REQUEST_TIMEOUT_MS);
+    const id = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await fetch(OPENROUTER.URL, {
@@ -1433,7 +1514,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
 
   const requestId = `sg_${crypto.randomUUID()}`;
 
-  const fetchFunc = async (model) => {
+  const fetchFunc = async (model, timeoutMs) => {
     const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
     const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
       method: 'POST',
@@ -1460,7 +1541,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
         frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
         presence_penalty: OPENROUTER.PRESENCE_PENALTY
       })
-    });
+    }, timeoutMs);
     
     if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
       throw new Error('Malformed completion response structure received from OpenRouter API.');
@@ -1590,7 +1671,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     (difficultyMetadata ? `Adaptive Interview Guidelines: Classification=${difficultyMetadata.difficultyClassification}, Suggested Question Difficulty=${difficultyMetadata.questionDifficulty}, Depth Focus=${difficultyMetadata.focusArea}\n` : '') +
     `\nResume Text:\n\n${resumeText}`;
 
-  const fetchFunc = async (model) => {
+  const fetchFunc = async (model, timeoutMs) => {
     const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
     const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
       method: 'POST',
@@ -1617,7 +1698,7 @@ Do not include any preamble, introduction, markdown code block backticks (like \
         frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
         presence_penalty: OPENROUTER.PRESENCE_PENALTY
       })
-    });
+    }, timeoutMs);
     
     if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
       throw new Error('Malformed completion response structure received from OpenRouter API.');
@@ -1728,7 +1809,8 @@ Your response must contain ONLY the category name. Do not include explanation, m
 
   let attempt = 0;
   while (attempt <= maxRetries) {
-    const currentModel = OPENROUTER_MODELS[attempt] || 'openrouter/free';
+    const currentModel = OPENROUTER_MODELS[attempt] || OPENROUTER_MODELS[0];
+    const timeoutMs = attempt === 0 ? OPENROUTER.PRIMARY_TIMEOUT_MS : OPENROUTER.FALLBACK_TIMEOUT_MS;
     try {
       logger.info('AIAnalyzer', `🤖 Requesting document classification using ${currentModel}...`);
       
@@ -1755,7 +1837,7 @@ Your response must contain ONLY the category name. Do not include explanation, m
           max_tokens: 30,
           temperature: 0.1
         })
-      });
+      }, timeoutMs);
 
       if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
         throw new Error('Malformed classification response from OpenRouter.');

@@ -78,6 +78,12 @@ exports.analyzeResume = async (req, res, next) => {
         userMessage: 'Analysis could not be completed. Please try again in a moment.'
       });
     }
+    if (error.message === 'AI_RATE_LIMIT_EXHAUSTED' || error.code === 'AI_RATE_LIMIT_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Our AI analysis service is temporarily at capacity. Please try again in a few hours.'
+      });
+    }
     // All other errors
     console.error('[resumeController] Unexpected error:', error);
     return res.status(500).json({
@@ -158,6 +164,12 @@ exports.analyzePublicResume = async (req, res, next) => {
         userMessage: 'Analysis could not be completed. Please try again in a moment.'
       });
     }
+    if (error.message === 'AI_RATE_LIMIT_EXHAUSTED' || error.code === 'AI_RATE_LIMIT_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Our AI analysis service is temporarily at capacity. Please try again in a few hours.'
+      });
+    }
     // All other errors
     console.error('[resumeController] Unexpected error:', error);
     return res.status(500).json({
@@ -168,6 +180,129 @@ exports.analyzePublicResume = async (req, res, next) => {
     // Clean up uploaded file from local server disk
     if (filePathToDelete) {
       const fs = require('fs');
+      fs.unlink(filePathToDelete, (err) => {
+        if (err) {
+          logger.error('Pipeline', `Failed to clean up uploaded file: ${filePathToDelete}`, { error: err.message });
+        } else {
+          logger.info('Pipeline', `🧹 Successfully cleaned up uploaded file from disk: ${filePathToDelete}`);
+        }
+      });
+    }
+  }
+};
+
+exports.analyzeResumeStream = async (req, res, next) => {
+  const startTime = Date.now();
+  logger.info('Pipeline', '🚀 Starting streaming resume analysis pipeline...');
+
+  let filePathToDelete = null;
+  let isClientConnected = true;
+
+  req.on('close', () => {
+    if (isClientConnected) {
+      isClientConnected = false;
+      logger.warn('Pipeline', '🔌 Client disconnected from SSE stream. Aborting pipeline...');
+      if (filePathToDelete && fs.existsSync(filePathToDelete)) {
+        try {
+          fs.unlinkSync(filePathToDelete);
+          logger.info('Pipeline', `🧹 Cleaned up file on disconnect: ${filePathToDelete}`);
+        } catch (err) {
+          logger.error('Pipeline', `Failed to unlink file on disconnect: ${err.message}`);
+        }
+      }
+    }
+  });
+
+  try {
+    // 1. File Validation
+    if (!req.file) {
+      logger.error('Pipeline', 'Validation Error: No file uploaded.');
+      return res.status(400).json({
+        success: false,
+        userMessage: 'No file uploaded. Please select a PDF resume file.'
+      });
+    }
+
+    const { path: filePath, originalname } = req.file;
+    filePathToDelete = filePath;
+    const userId = req.user ? req.user.uid : 'anonymous';
+    if (userId === 'anonymous' && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({
+        success: false,
+        userMessage: 'Access denied. Authentication required.'
+      });
+    }
+
+    const { targetRole } = req.body;
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const onProgress = (data) => {
+      if (!isClientConnected) {
+        throw new Error('CLIENT_DISCONNECTED');
+      }
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    const { analysisId, record } = await resumeService.processResumeAnalysis(userId, req.file, targetRole, onProgress);
+
+    const result = {
+      analysisId: analysisId,
+      userId: userId,
+      resumeName: originalname,
+      targetRole: targetRole,
+      score: record.score,
+      breakdown: record.breakdown,
+      explanations: record.explanations,
+      strengths: record.strengths,
+      weaknesses: record.weaknesses,
+      recommendations: record.recommendations,
+      atsTips: record.atsTips,
+      rewriteSuggestions: record.rewriteSuggestions,
+      missingKeywords: record.missingKeywords,
+      missingSections: record.missingSections,
+      recruiterFeedback: record.recruiterFeedback,
+      skillGap: record.skillGap,
+      interviewPrep: record.interviewPrep,
+      createdAt: record.createdAt
+    };
+
+    const duration = Date.now() - startTime;
+    logger.info('Pipeline', `⏱️ Streaming resume analysis completed in ${duration}ms.`);
+
+    if (isClientConnected) {
+      res.write(`data: ${JSON.stringify({ stage: 'result', data: result })}\n\n`);
+      res.end();
+    }
+  } catch (error) {
+    if (error.message === 'CLIENT_DISCONNECTED') {
+      logger.info('Pipeline', 'Pipeline aborted due to client disconnect.');
+      return;
+    }
+
+    logger.error('Pipeline', `Stream Analysis Error: ${error.message}`);
+    
+    if (isClientConnected) {
+      const isInvalid = error.message === 'AI_RESPONSE_INVALID';
+      const isRateLimited = error.message === 'AI_RATE_LIMIT_EXHAUSTED' || error.code === 'AI_RATE_LIMIT_EXHAUSTED';
+      let userMessage;
+      if (isInvalid) {
+        userMessage = 'Analysis could not be completed. Please try again in a moment.';
+      } else if (isRateLimited) {
+        userMessage = 'Our AI analysis service is temporarily at capacity. Please try again in a few hours.';
+      } else {
+        userMessage = error.message || 'Something went wrong. Please try again.';
+      }
+      
+      res.write(`data: ${JSON.stringify({ stage: 'error', message: userMessage })}\n\n`);
+      res.end();
+    }
+  } finally {
+    if (filePathToDelete && fs.existsSync(filePathToDelete)) {
       fs.unlink(filePathToDelete, (err) => {
         if (err) {
           logger.error('Pipeline', `Failed to clean up uploaded file: ${filePathToDelete}`, { error: err.message });
@@ -269,21 +404,9 @@ exports.getAnalysisById = async (req, res, next) => {
     logger.info('AnalysisDetail', `📂 Retrieving analysis detail for ID: ${id}`);
     
     const analysis = await firebaseService.getAnalysisById(id);
-    
-    if (!analysis) {
-      const error = new Error('Analysis record not found.');
-      error.statusCode = 404;
-      error.code = 'NOT_FOUND';
-      return next(error);
-    }
-
-    // Security Check: Verify user owns the record. Enforce in all environments.
-    if (analysis.userId !== userId) {
-      logger.warn('AnalysisDetail', `Access denied: User ${userId} requested record owned by ${analysis.userId}`);
-      const error = new Error('Access denied. You are not authorized to view this analysis.');
-      error.statusCode = 403;
-      error.code = 'FORBIDDEN';
-      return next(error);
+    if (!analysis) return res.status(404).json({ success: false, message: 'Not found' });
+    if (analysis.userId !== req.user.uid) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
     if (analysis) {
@@ -418,20 +541,9 @@ exports.deleteAnalysis = async (req, res, next) => {
 
     // Verify record exists first
     const analysis = await firebaseService.getAnalysisById(id);
-    if (!analysis) {
-      const error = new Error('Analysis record not found.');
-      error.statusCode = 404;
-      error.code = 'NOT_FOUND';
-      return next(error);
-    }
-
-    // Verify ownership
-    if (analysis.userId !== userId) {
-      logger.warn('DeleteAnalysis', `Access denied: User ${userId} tried to delete record owned by ${analysis.userId}`);
-      const error = new Error('Access denied. You are not authorized to delete this analysis.');
-      error.statusCode = 403;
-      error.code = 'FORBIDDEN';
-      return next(error);
+    if (!analysis) return res.status(404).json({ success: false, message: 'Not found' });
+    if (analysis.userId !== req.user.uid) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
     // Delete
@@ -473,20 +585,9 @@ exports.renameAnalysis = async (req, res, next) => {
 
     // Verify record exists first
     const analysis = await firebaseService.getAnalysisById(id);
-    if (!analysis) {
-      const error = new Error('Analysis record not found.');
-      error.statusCode = 404;
-      error.code = 'NOT_FOUND';
-      return next(error);
-    }
-
-    // Verify ownership
-    if (analysis.userId !== userId) {
-      logger.warn('RenameAnalysis', `Access denied: User ${userId} tried to rename record owned by ${analysis.userId}`);
-      const error = new Error('Access denied. You are not authorized to rename this analysis.');
-      error.statusCode = 403;
-      error.code = 'FORBIDDEN';
-      return next(error);
+    if (!analysis) return res.status(404).json({ success: false, message: 'Not found' });
+    if (analysis.userId !== req.user.uid) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
     // Rename

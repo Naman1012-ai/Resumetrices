@@ -1107,71 +1107,43 @@ const getAdminReports = async () => {
     return [
       {
         analysisId: 'mock-analysis-001',
-        reportId: 'mock-analysis-001',
         userId: 'mock-uid-001',
-        email: 'naman@resumetrices.com',
-        userIdentity: 'naman@resumetrices.com',
-        resumeName: 'Naman_PM_Resume.pdf',
-        documentName: 'Naman_PM_Resume.pdf',
+        userDisplayName: 'Naman Modi',
+        userEmail: 'naman@resumetrices.com',
         targetRole: 'Product Manager',
-        targetJobRole: 'Product Manager',
-        targetJobTitle: 'Product Manager',
         score: 92,
-        atsScore: 92,
-        createdAt: '2026-06-20T10:05:00Z',
-        processedAt: '2026-06-20T10:05:00Z',
-        timestamp: '2026-06-20T10:05:00Z'
+        resumeName: 'Naman_PM_Resume.pdf',
+        createdAt: '2026-06-20T10:05:00Z'
       },
       {
         analysisId: 'mock-analysis-002',
-        reportId: 'mock-analysis-002',
         userId: 'mock-uid-002',
-        email: 'alice@techcorp.io',
-        userIdentity: 'alice@techcorp.io',
-        resumeName: 'Alice_SDE3_Backend.pdf',
-        documentName: 'Alice_SDE3_Backend.pdf',
+        userDisplayName: 'Alice Smith',
+        userEmail: 'alice@techcorp.io',
         targetRole: 'Software Engineer',
-        targetJobRole: 'Software Engineer',
-        targetJobTitle: 'Software Engineer',
         score: 81,
-        atsScore: 81,
-        createdAt: '2026-06-22T14:35:00Z',
-        processedAt: '2026-06-22T14:35:00Z',
-        timestamp: '2026-06-22T14:35:00Z'
+        resumeName: 'Alice_SDE3_Backend.pdf',
+        createdAt: '2026-06-22T14:35:00Z'
       },
       {
         analysisId: 'mock-analysis-003',
-        reportId: 'mock-analysis-003',
-        userId: 'mock-uid-003',
-        email: 'bob.chen@enterprise.dev',
-        userIdentity: 'bob.chen@enterprise.dev',
-        resumeName: 'Bob_DevOps_Specialist.pdf',
-        documentName: 'Bob_DevOps_Specialist.pdf',
+        userId: 'anonymous',
+        userDisplayName: 'anonymous',
+        userEmail: null,
         targetRole: 'DevOps Architect',
-        targetJobRole: 'DevOps Architect',
-        targetJobTitle: 'DevOps Architect',
         score: 74,
-        atsScore: 74,
-        createdAt: '2026-06-25T08:20:00Z',
-        processedAt: '2026-06-25T08:20:00Z',
-        timestamp: '2026-06-25T08:20:00Z'
+        resumeName: 'Bob_DevOps_Specialist.pdf',
+        createdAt: '2026-06-25T08:20:00Z'
       },
       {
         analysisId: 'mock-analysis-004',
-        reportId: 'mock-analysis-004',
         userId: 'mock-uid-004',
-        email: 'sarah.w@startup.co',
-        userIdentity: 'sarah.w@startup.co',
-        resumeName: 'Sarah_UX_Designer.pdf',
-        documentName: 'Sarah_UX_Designer.pdf',
+        userDisplayName: 'Sarah Williams',
+        userEmail: 'sarah.w@startup.co',
         targetRole: 'Product Designer',
-        targetJobRole: 'Product Designer',
-        targetJobTitle: 'Product Designer',
         score: 88,
-        atsScore: 88,
-        createdAt: '2026-06-27T16:50:00Z',
-        processedAt: '2026-06-27T16:50:00Z',
-        timestamp: '2026-06-27T16:50:00Z'
+        resumeName: 'Sarah_UX_Designer.pdf',
+        createdAt: '2026-06-27T16:50:00Z'
       }
     ];
   }
@@ -1188,40 +1160,69 @@ const getAdminReports = async () => {
     const analysesVal = analysesSnapshot.val();
     const keys = Object.keys(analysesVal);
     
-    // Fetch all users to map uid to email
-    const users = await getAdminUserList();
-    const userEmailMap = {};
-    users.forEach(u => {
-      userEmailMap[u.uid] = u.email;
-    });
+    const emailCache = {};
+    const reports = [];
     
-    const reports = keys.map(id => {
+    for (const id of keys) {
       const item = analysesVal[id];
-      const email = userEmailMap[item.userId] || 'anonymous@resumetrices.com';
+      const userId = item.userId || 'anonymous';
+      
+      let userDisplayName = userId;
+      let userEmail = null;
+
+      if (userId === 'anonymous' || !userId) {
+        userDisplayName = 'anonymous';
+        userEmail = null;
+      } else {
+        // Resolve Display Name
+        try {
+          const profileSnap = await db.ref(`users/${userId}/profile/displayName`).once('value');
+          if (profileSnap.exists() && profileSnap.val()) {
+            userDisplayName = profileSnap.val();
+          }
+        } catch (err) {
+          logger.warn('Firebase', `Failed to read displayName for user ${userId}: ${err.message}`);
+        }
+
+        // Fetch User Email (with cache)
+        if (emailCache[userId] !== undefined) {
+          userEmail = emailCache[userId];
+          if (userEmail === null) {
+            userDisplayName = userId;
+          }
+        } else {
+          try {
+            const userRecord = await admin.auth().getUser(userId);
+            userEmail = userRecord.email || null;
+            emailCache[userId] = userEmail;
+          } catch (err) {
+            logger.warn('Firebase', `Failed to fetch Firebase Auth email for user ${userId}: ${err.message}`);
+            userEmail = null;
+            userDisplayName = userId; // Fallback as requested when getUser fails
+            emailCache[userId] = null;
+          }
+        }
+      }
+      
       const scoreVal = item.score || 0;
-      const atsScoreVal = item.atsScore || scoreVal;
       const timestampVal = item.createdAt || new Date().toISOString();
       const targetRoleVal = item.targetRole || 'Developer';
       const resName = item.resumeName || 'Resume.pdf';
       
-      return {
+      reports.push({
         analysisId: id,
-        reportId: id,
-        userId: item.userId || 'anonymous',
-        email: email,
-        userIdentity: email,
-        resumeName: resName,
-        documentName: resName,
+        userId: userId === 'anonymous' || !userId ? 'anonymous' : userId,
+        userDisplayName: userDisplayName,
+        userEmail: userEmail,
         targetRole: targetRoleVal,
-        targetJobRole: targetRoleVal,
-        targetJobTitle: targetRoleVal,
         score: scoreVal,
-        atsScore: atsScoreVal,
-        createdAt: timestampVal,
-        processedAt: timestampVal,
-        timestamp: timestampVal
-      };
-    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        resumeName: resName,
+        createdAt: timestampVal
+      });
+    }
+    
+    // Sort by createdAt descending (newest first)
+    reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     return reports;
   } catch (error) {

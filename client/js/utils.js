@@ -93,8 +93,11 @@ export function mapFriendlyErrorMessage(error) {
   if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('fetch')) {
     return "We couldn't connect to our servers right now. Please check your internet connection and try again.";
   }
-  // OpenRouter Rate Limit / Model Down
-  if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('429') || msg.includes('503') || msg.includes('overloaded') || msg.includes('down') || msg.includes('ai_analysis_failed') || msg.includes('analysis could not be generated') || msg.includes('completions') || msg.includes('ai engine')) {
+  if (msg.includes('unexpected token') || msg.includes('is not valid json') || msg.includes('json.parse') || msg.includes('syntaxerror') || msg.includes('unexpected character')) {
+    return "The server is starting up or temporarily busy. Please wait a few seconds and try refreshing.";
+  }
+  // OpenRouter Rate Limit / Model Down / Pipeline Timeout
+  if (error.status === 503 || error.status === 504 || msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('429') || msg.includes('503') || msg.includes('overloaded') || msg.includes('down') || msg.includes('ai_analysis_failed') || msg.includes('analysis could not be generated') || msg.includes('could not be completed') || msg.includes('pipeline execution failed') || msg.includes('completions') || msg.includes('ai engine')) {
     return "Analysis temporarily unavailable — please try again in a few seconds.";
   }
   if (msg.includes('timeout') || msg.includes('abort') || msg.includes('timed out')) {
@@ -328,7 +331,7 @@ export function showPersistentNotice(message, container = null) {
 }
 
 // showAnalysisProgress helper
-export function showAnalysisProgress() {
+export function showAnalysisProgress(isStreaming = false) {
   const overlay = document.createElement('div');
   overlay.className = 'loading-overlay';
   overlay.id = 'loading-overlay';
@@ -452,7 +455,27 @@ export function showAnalysisProgress() {
     }, 200);
   }
 
-  startCrawl();
+  if (!isStreaming) {
+    startCrawl();
+  }
+
+  // Update function to call when streaming events arrive
+  function update(label, percent) {
+    currentPercent = Math.max(currentPercent, percent);
+    progressBarFill.style.width = `${currentPercent}%`;
+    progressPercentText.textContent = `${Math.floor(currentPercent)}%`;
+    progressStatusText.textContent = `${label}...`;
+
+    const lowerLabel = label.toLowerCase();
+    const stageIdx = stages.findIndex(s => s.toLowerCase().includes(lowerLabel) || lowerLabel.includes(s.toLowerCase()));
+    if (stageIdx !== -1) {
+      for (let i = activeStageIdx; i < stageIdx; i++) {
+        updateStageUI(i, 'completed');
+      }
+      updateStageUI(stageIdx, 'active');
+      activeStageIdx = stageIdx;
+    }
+  }
 
   // Complete function to call when backend completes
   function complete(callback) {
@@ -496,7 +519,7 @@ export function showAnalysisProgress() {
     overlay.remove();
   }
 
-  return { complete, cancel };
+  return { complete, cancel, update };
 }
 
 /**

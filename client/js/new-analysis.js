@@ -11,11 +11,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRemoveFile = document.getElementById('btn-remove-file');
   const btnAnalyze = document.getElementById('btn-analyze');
   const targetRoleSelect = document.getElementById('target-role-select');
+  const customRoleInput = document.getElementById('custom-role-input');
 
   let selectedFile = null;
 
   function checkAnalyzeButtonState() {
-    if (selectedFile && targetRoleSelect.value) {
+    const isOther = targetRoleSelect && targetRoleSelect.value === 'Other';
+    const isRoleValid = isOther ? (customRoleInput && customRoleInput.value.trim() !== '') : (targetRoleSelect && !!targetRoleSelect.value);
+    
+    if (selectedFile && isRoleValid) {
       btnAnalyze.removeAttribute('disabled');
     } else {
       btnAnalyze.setAttribute('disabled', 'true');
@@ -81,7 +85,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (targetRoleSelect) {
-    targetRoleSelect.addEventListener('change', checkAnalyzeButtonState);
+    targetRoleSelect.addEventListener('change', () => {
+      const isOther = targetRoleSelect.value === 'Other';
+      if (customRoleInput) {
+        if (isOther) {
+          customRoleInput.removeAttribute('disabled');
+          customRoleInput.focus();
+        } else {
+          customRoleInput.setAttribute('disabled', 'true');
+          customRoleInput.value = '';
+        }
+      }
+      checkAnalyzeButtonState();
+    });
+  }
+
+  if (customRoleInput) {
+    customRoleInput.addEventListener('input', checkAnalyzeButtonState);
   }
 
   // Load mini uploads list
@@ -138,14 +158,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle run analysis click
   if (btnAnalyze) {
     btnAnalyze.addEventListener('click', async () => {
-      const selectedRole = targetRoleSelect ? targetRoleSelect.value : '';
+      let selectedRole = targetRoleSelect ? targetRoleSelect.value : '';
+      if (selectedRole === 'Other' && customRoleInput) {
+        selectedRole = customRoleInput.value.trim();
+      }
       if (!selectedFile || !selectedRole) {
-        showToast('Please upload your resume and select a target job role before starting the analysis.', 'error');
+        showToast('Please upload your resume and select/specify a target job role before starting the analysis.', 'error');
         return;
       }
 
-      // Show loader
-      const progressTracker = showAnalysisProgress();
+      let progressTracker = null;
 
       btnAnalyze.setAttribute('disabled', 'true');
       btnAnalyze.textContent = 'Analyzing Resume...';
@@ -157,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         if (isMockMode) {
+          progressTracker = showAnalysisProgress(false);
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 2000));
           const mockId = 'mock_' + Date.now();
@@ -174,25 +197,60 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!user) throw new Error('Authorization required.');
         const idToken = await user.getIdToken();
 
-        const response = await fetch(`${FirebaseService.getApiBase()}/analyze`, {
+        progressTracker = showAnalysisProgress(true);
+
+        const response = await fetch(`${FirebaseService.getApiBase()}/upload/stream`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${idToken}` },
           body: formData
         });
 
-        const result = await response.json();
         if (!response.ok) {
-          throw new Error(result.message || 'Analysis pipeline execution failed.');
+          const result = await response.json().catch(() => ({}));
+          const errMessage = result.userMessage || result.message || 'Analysis pipeline execution failed.';
+          const err = new Error(errMessage);
+          err.status = response.status;
+          throw err;
         }
 
-        FirebaseService.clearCache();
-        sessionStorage.setItem('activeAnalysisId', result.analysisId);
-        
-        progressTracker.complete(() => {
-          showToast('Analysis completed successfully!', 'success');
-          const mockParam = isMockMode ? '&mock=true' : '';
-          window.location.href = `analysis.html?id=${result.analysisId}${mockParam}`;
-        });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data: ')) continue;
+            
+            const eventData = JSON.parse(trimmed.slice(6));
+            
+            if (eventData.stage === 'result') {
+              const result = eventData.data;
+              FirebaseService.clearCache();
+              sessionStorage.setItem('activeAnalysisId', result.analysisId);
+              
+              progressTracker.complete(() => {
+                showToast('Analysis completed successfully!', 'success');
+                const mockParam = isMockMode ? '&mock=true' : '';
+                window.location.href = `analysis.html?id=${result.analysisId}${mockParam}`;
+              });
+              return;
+            } else if (eventData.stage === 'error') {
+              const err = new Error(eventData.message || 'Analysis failed.');
+              err.status = 500;
+              throw err;
+            } else {
+              progressTracker.update(eventData.label, eventData.percent);
+            }
+          }
+        }
 
       } catch (error) {
         const msg = (error.message || String(error)).toLowerCase();
@@ -209,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
           console.error('Analysis error:', error);
         }
         
-        progressTracker.cancel();
+        if (progressTracker) progressTracker.cancel();
         showToast(mapFriendlyErrorMessage(error), 'error');
         btnAnalyze.removeAttribute('disabled');
         btnAnalyze.textContent = 'Run Pipeline Analysis';

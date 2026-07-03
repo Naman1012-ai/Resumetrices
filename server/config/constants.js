@@ -53,6 +53,9 @@ module.exports = {
     FREQUENCY_PENALTY: 0,
     PRESENCE_PENALTY: 0,
     REQUEST_TIMEOUT_MS: env.AI.REQUEST_TIMEOUT_MS,  // timeout per request from environment
+    PRIMARY_TIMEOUT_MS: 15000,      // 15 seconds for the primary model attempt
+    FALLBACK_TIMEOUT_MS: 10000,     // 10 seconds for each fallback model attempt
+    FALLBACK_DELAY_MS: 500,         // 500ms delay between fallback attempts
     BACKOFF_BASE_MS: 1500
   },
 

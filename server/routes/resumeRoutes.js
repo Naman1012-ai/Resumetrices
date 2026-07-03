@@ -14,6 +14,9 @@ const rateLimiter = require('../middleware/rateLimiter');
 // POST /api/upload - Handle resume upload and comprehensive pipeline analysis
 router.post('/upload', requireAuth, rateLimiter('upload'), upload.single('resume'), resumeController.analyzeResume);
 
+// POST /api/upload/stream - Handle resume upload and comprehensive pipeline analysis with real-time SSE progress
+router.post('/upload/stream', requireAuth, rateLimiter('upload'), upload.single('resume'), resumeController.analyzeResumeStream);
+
 // POST /api/analyze - Alias route for complete pipeline analysis
 router.post('/analyze', requireAuth, rateLimiter('upload'), upload.single('resume'), resumeController.analyzeResume);
 

@@ -25,20 +25,30 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://www.gstatic.com", "https://apis.google.com", "https://*.firebaseapp.com"],
+      scriptSrc: [
+        "'self'",
+        "https://www.gstatic.com",
+        "https://apis.google.com",
+        "https://cdnjs.cloudflare.com"
+      ],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https://*.googleusercontent.com"],
       connectSrc: [
-        "'self'", 
-        "https://identitytoolkit.googleapis.com", 
-        "https://securetoken.googleapis.com", 
-        "https://*.firebasedatabase.app", 
-        "https://*.firebaseio.com", 
-        "https://*.googleapis.com",
-        "https://www.gstatic.com"
+        "'self'",
+        "https://*.firebaseio.com",
+        "https://*.firebasedatabase.app",
+        "https://identitytoolkit.googleapis.com",
+        "https://securetoken.googleapis.com",
+        "https://openrouter.ai"
       ],
-      frameSrc: ["'self'", "https://*.firebaseapp.com", "https://accounts.google.com"]
+      imgSrc: [
+        "'self'",
+        "data:",
+        "https://ui-avatars.com",
+        "https://*.googleusercontent.com"
+      ],
+      frameSrc: ["'self'", "https://*.firebaseapp.com"],
+      objectSrc: ["'none'"]
     }
   }
 }));

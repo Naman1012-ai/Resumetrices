@@ -26,6 +26,11 @@ try {
   const PORT = env.PORT;
   const NODE_ENV = env.NODE_ENV;
 
+  if (process.env.ALLOW_MOCK_AUTH === 'true' && process.env.NODE_ENV !== 'development') {
+    logger.error('Server', '[SECURITY] ALLOW_MOCK_AUTH is enabled in non-development environment. Refusing to start.');
+    process.exit(1);
+  }
+
   const server = app.listen(PORT, () => {
     logger.info('Server', `🚀 Resumetrices Server Started!`);
     logger.info('Server', `📢 Mode: ${NODE_ENV}`);

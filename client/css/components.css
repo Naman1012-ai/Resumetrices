@@ -631,4 +631,13 @@ body::-webkit-scrollbar-track {
   cursor: not-allowed;
 }
 
+input:disabled,
+select:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  background-color: rgba(255, 255, 255, 0.01) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text-muted) !important;
+}
+
 /* ==========================================================================
