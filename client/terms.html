@@ -183,9 +183,9 @@
       <div class="footer-col">
         <h4>Company</h4>
         <ul>
-          <li><a href="#" class="disabled-link">About</a></li>
-          <li><a href="#" class="disabled-link">Contact</a></li>
-          <li><a href="#" class="disabled-link">FAQ</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="mailto:support.resumetrices@gmail.com">Contact</a></li>
+          <li><a href="faq.html">FAQ</a></li>
           <li><a href="#" class="disabled-link">Release Notes</a></li>
         </ul>
       </div>
@@ -196,7 +196,7 @@
           <li><a href="privacy.html">Privacy Policy</a></li>
           <li><a href="terms.html">Terms of Service</a></li>
           <li><a href="#" class="disabled-link">Cookie Policy</a></li>
-          <li><a href="#" class="disabled-link">Data Security</a></li>
+          <li><a href="security.html">Data Security</a></li>
         </ul>
       </div>
     </div>
@@ -228,27 +228,8 @@
     // Reveal Document once CSS is processed
     document.documentElement.style.visibility = 'visible';
 
-    // Interactive safe back navigation
-    const btnBackNav = document.getElementById('btn-back-nav');
-    if (btnBackNav) {
-      // Set label context based on referrer
-      if (document.referrer && document.referrer.includes('/admin/')) {
-        btnBackNav.textContent = '← Back to Dashboard';
-      } else if (document.referrer && document.referrer.includes('/dashboard')) {
-        btnBackNav.textContent = '← Back to Dashboard';
-      } else {
-        btnBackNav.textContent = '← Back to Home';
-      }
 
-      btnBackNav.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (document.referrer && document.referrer.includes(window.location.host)) {
-          window.history.back();
-        } else {
-          window.location.href = 'index.html';
-        }
-      });
-    }
   </script>
+  <script type="module" src="js/footer.js"></script>
 </body>
 </html>

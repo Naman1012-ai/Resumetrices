@@ -123,7 +123,7 @@ async function processResumeAnalysis(userId, file, targetRole, onProgress) {
 
   // Validate text length
   if (!extractedText || extractedText.trim().length < 100) {
-    const error = new Error('Resume content could not be extracted.');
+    const error = new Error('We could not read text from your PDF. It may be a scanned image or a corrupted file. Please try a different PDF.');
     error.statusCode = 400;
     error.code = 'EXTRACTION_FAILED';
     throw error;
@@ -137,22 +137,19 @@ async function processResumeAnalysis(userId, file, targetRole, onProgress) {
   }
 
   // 3. Document Type Classification
-  let docType;
+  let classification;
   try {
-    docType = await aiAnalyzer.classifyDocument(extractedText);
+    classification = await aiAnalyzer.classifyDocument(extractedText);
   } catch (classError) {
     logger.error('Pipeline', `Document classification failed: ${classError.message}`);
-    docType = 'Unknown';
+    classification = { documentType: 'unknown', confidence: 0 };
   }
 
-  if (docType !== 'Resume' && docType !== 'CV') {
-    const message = docType === 'Unknown'
-      ? 'Unable to determine document type. Please upload a valid resume.'
-      : 'Uploaded document is not a resume. ATS analysis unavailable.';
-    const error = new Error(message);
+  if (classification.documentType === 'unknown') {
+    const error = new Error("This doesn't appear to be a resume. Please upload a resume PDF.");
     error.statusCode = 400;
     error.code = 'INVALID_DOCUMENT_TYPE';
-    error.documentType = docType;
+    error.documentType = 'unknown';
     throw error;
   }
 

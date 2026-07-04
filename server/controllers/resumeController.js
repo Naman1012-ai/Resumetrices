@@ -72,6 +72,24 @@ exports.analyzeResume = async (req, res, next) => {
     });
 
   } catch (error) {
+    if (error.code === 'EXTRACTION_FAILED') {
+      return res.status(400).json({
+        success: false,
+        userMessage: 'We could not read text from your PDF. It may be a scanned image or a corrupted file. Please try a different PDF.'
+      });
+    }
+    if (error.code === 'INVALID_DOCUMENT_TYPE') {
+      return res.status(400).json({
+        success: false,
+        userMessage: error.message || "This doesn't appear to be a resume. Please upload a resume PDF."
+      });
+    }
+    if (error.message === 'AI_DAILY_LIMIT_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Daily analysis limit reached. Please try again after midnight UTC.'
+      });
+    }
     if (error.message === 'AI_RESPONSE_INVALID') {
       return res.status(503).json({
         success: false,
@@ -158,6 +176,24 @@ exports.analyzePublicResume = async (req, res, next) => {
       createdAt: record.createdAt
     });
   } catch (error) {
+    if (error.code === 'EXTRACTION_FAILED') {
+      return res.status(400).json({
+        success: false,
+        userMessage: 'We could not read text from your PDF. It may be a scanned image or a corrupted file. Please try a different PDF.'
+      });
+    }
+    if (error.code === 'INVALID_DOCUMENT_TYPE') {
+      return res.status(400).json({
+        success: false,
+        userMessage: error.message || "This doesn't appear to be a resume. Please upload a resume PDF."
+      });
+    }
+    if (error.message === 'AI_DAILY_LIMIT_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Daily analysis limit reached. Please try again after midnight UTC.'
+      });
+    }
     if (error.message === 'AI_RESPONSE_INVALID') {
       return res.status(503).json({
         success: false,
@@ -287,10 +323,13 @@ exports.analyzeResumeStream = async (req, res, next) => {
     logger.error('Pipeline', `Stream Analysis Error: ${error.message}`);
     
     if (isClientConnected) {
+      const isDailyLimited = error.message === 'AI_DAILY_LIMIT_EXHAUSTED';
       const isInvalid = error.message === 'AI_RESPONSE_INVALID';
       const isRateLimited = error.message === 'AI_RATE_LIMIT_EXHAUSTED' || error.code === 'AI_RATE_LIMIT_EXHAUSTED';
       let userMessage;
-      if (isInvalid) {
+      if (isDailyLimited) {
+        userMessage = 'Daily analysis limit reached. Please try again after midnight UTC.';
+      } else if (isInvalid) {
         userMessage = 'Analysis could not be completed. Please try again in a moment.';
       } else if (isRateLimited) {
         userMessage = 'Our AI analysis service is temporarily at capacity. Please try again in a few hours.';
@@ -455,6 +494,12 @@ exports.analyzeSkillGap = async (req, res, next) => {
     });
     
   } catch (error) {
+    if (error.message === 'AI_DAILY_LIMIT_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Daily analysis limit reached. Please try again after midnight UTC.'
+      });
+    }
     logger.error('SkillGap', `Unexpected Skill Gap Error: ${error.message}`);
     next(error);
   }
@@ -494,6 +539,12 @@ exports.generateInterviewQuestions = async (req, res, next) => {
     });
     
   } catch (error) {
+    if (error.message === 'AI_DAILY_LIMIT_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        userMessage: 'Daily analysis limit reached. Please try again after midnight UTC.'
+      });
+    }
     logger.error('InterviewPrep', `Unexpected Interview Questions Error: ${error.message}`);
     next(error);
   }

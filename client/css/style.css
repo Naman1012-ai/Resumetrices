@@ -5487,6 +5487,46 @@ textarea:focus-visible {
   .server-status {
     display: none !important;
   }
+
+  .mobile-nav-drawer {
+    display: flex !important;
+    justify-content: flex-end;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(3, 7, 18, 0);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+    pointer-events: none;
+    transition: background 0.3s ease, backdrop-filter 0.3s ease;
+  }
+
+  .mobile-nav-drawer.active {
+    background: rgba(3, 7, 18, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    pointer-events: auto;
+  }
+
+  .mobile-nav-drawer > div {
+    width: 100%;
+    max-width: 320px;
+    height: 100%;
+    background: var(--bg-card, #0f172a);
+    border-left: 1px solid var(--border-color, #1e293b);
+    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.5);
+    transform: translateY(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    gap: 0.25rem;
+    box-sizing: border-box;
+  }
+
+  .mobile-nav-drawer.active > div {
+    transform: translateY(0) !important;
+  }
 }
 
 /* Keyboard Navigation & Focus Indicators (Accessibility) */

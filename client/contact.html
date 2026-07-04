@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us - Resumetrices</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .contact-main {
+      max-width: 800px;
+      margin: 4rem auto;
+      padding: 0 1.5rem;
+      min-height: 70vh;
+      box-sizing: border-box;
+    }
+    .contact-card {
+      padding: 3rem 2.5rem;
+      background: var(--bg-card, rgba(15, 23, 42, 0.45));
+      border: 1px solid var(--border-color, rgba(148, 163, 184, 0.12));
+      border-radius: var(--radius-xl, 16px);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .contact-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--text-main, #f8fafc);
+      margin: 0 0 0.75rem 0;
+      letter-spacing: -0.03em;
+    }
+    .contact-subtitle {
+      color: var(--text-muted, #94a3b8);
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin: 0 0 3rem 0;
+      font-weight: 400;
+    }
+    .contact-info-box {
+      border: 1px solid var(--border-color, rgba(148, 163, 184, 0.12));
+      padding: 2rem;
+      border-radius: var(--radius-lg, 12px);
+      background: rgba(255, 255, 255, 0.01);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .contact-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .contact-label {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main, #f8fafc);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .contact-email-placeholder {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--emerald, #10b981);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .contact-email-placeholder:hover {
+      color: var(--text-main, #f8fafc);
+      text-decoration: underline;
+    }
+    
+    @media (max-width: 768px) {
+      .contact-main {
+        margin: 2rem auto;
+      }
+      .contact-card {
+        padding: 2rem 1.5rem;
+      }
+      .contact-title {
+        font-size: 2rem;
+      }
+      .contact-email-placeholder {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+  <script src="/env-config.js"></script>
+</head>
+<body>
+
+  <!-- Premium Header -->
+  <header class="app-header" style="position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color, #1e293b); background: rgba(10, 15, 29, 0.8);">
+    <div class="header-container" style="max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <a href="index.html" class="logo-link" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
+          <img src="logo.png" alt="Resumetrices Logo" style="height: 32px; width: 32px; object-fit: contain;">
+          <span class="logo-text" style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">Resumetrices</span>
+        </a>
+      </div>
+      <div>
+        <button id="btn-back-nav" style="
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--border-color, #1e293b);
+          border-radius: var(--radius-md, 8px);
+          color: var(--text-main, #ffffff);
+          padding: 0.55rem 1.1rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: 'Outfit', sans-serif;
+        ">← Back</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contact Content -->
+  <main class="contact-main">
+    <article class="contact-card">
+      <h1 class="contact-title">Contact Us</h1>
+      <p class="contact-subtitle">We'd love to hear from you.</p>
+
+      <div class="contact-info-box">
+        <span class="contact-icon" aria-hidden="true">✉️</span>
+        <span class="contact-label">Support Email</span>
+        <!-- Labeled placeholder for Support Email -->
+        <a href="mailto:support.resumetrices@gmail.com" class="contact-email-placeholder" id="support-email-field">{{ SUPPORT_EMAIL }}</a>
+      </div>
+    </article>
+  </main>
+
+  <!-- Footer -->
+  <footer class="enterprise-footer"></footer>
+
+  <script type="module" src="js/footer.js"></script>
+  <script>
+    // Reveal Document once CSS is processed
+    document.documentElement.style.visibility = 'visible';
+
+
+  </script>
+</body>
+</html>

@@ -69,18 +69,7 @@ if (apiKey && !apiKey.startsWith('sk-or-')) {
   logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY does not start with standard "sk-or-" prefix. API calls may fail.');
 }
 
-const FALLBACK_MODELS = [
-  'google/gemini-2.5-flash:free',
-  'google/gemma-2-9b-it:free',
-  'meta-llama/llama-3.1-8b-instruct:free',
-  'qwen/qwen-2.5-7b-instruct:free',
-  'mistralai/mistral-7b-instruct:free'
-].filter(Boolean);
-
-const OPENROUTER_MODELS = [
-  process.env.OPENROUTER_MODEL_ID,
-  ...FALLBACK_MODELS
-].filter((val, idx, self) => val && self.indexOf(val) === idx);
+const OPENROUTER_MODELS = OPENROUTER.ALL_MODELS;
 
 /**
  * Checks if the error returned from OpenRouter is terminal (e.g. key invalid, bad request).
@@ -1191,62 +1180,40 @@ const executeWithRetry = async (requestId, modelName, fetchFunc, validatorFunc) 
 
       const duration = Date.now() - runStartTime;
       const status = error?.response?.status || extractHttpStatus(error);
+      const responseData = error?.response?.data;
       
       logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/${maxAttempts} failed. Model: ${currentModel}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${error.message}`);
       
       failureRecords.push({ model: currentModel, status: status });
 
-      // 400 Bad Request — prompt/payload is broken, no model will fix it
-      if (status === 400) {
-        logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Bad request (400) — throwing immediately, no model will fix this.`);
-        const finalErr = new Error('AI request rejected: bad request. Check prompt construction.');
-        finalErr.code = 'AI_ANALYSIS_FAILED';
-        finalErr.originalError = error;
-        throw finalErr;
+      // Fix 5: Detect daily rate limit exhaustion
+      const isAccountRateLimited = (
+        status === 429 &&
+        (responseData?.error?.message?.includes('free-models-per-day') ||
+         error.message?.includes('free-models-per-day'))
+      );
+
+      if (isAccountRateLimited) {
+        throw new Error('AI_DAILY_LIMIT_EXHAUSTED');
       }
 
-      // 401 Unauthorized — auth failure affects all models
-      if (status === 401) {
-        logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Auth failure (401) — throwing immediately, affects all models.`);
-        const finalErr = new Error('AI authentication failed. Check API key configuration.');
-        finalErr.code = 'AI_ANALYSIS_FAILED';
-        finalErr.originalError = error;
-        throw finalErr;
-      }
-
-      // 404 Model not found — log removal warning, continue immediately
+      // Fix 4: Handle 404, 429/503/502, 400/401
       if (status === 404) {
-        logger.error('AIAnalyzer', `[Req ID: ${requestId}] Model ${currentModel} no longer available — remove from list.`);
-        // Continue to next model immediately, no delay
-        if (attempt + 1 < maxAttempts) {
-          const nextModel = OPENROUTER_MODELS[attempt + 1];
-          logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) immediately...`);
-        }
+        logger.error('AIAnalyzer', `[aiAnalyzer] Model ${currentModel} is not available on free tier (404) — remove from FALLBACK_MODELS`);
+        continue; // no delay, move to next immediately
+      }
+
+      if (status === 429 || status === 503 || status === 502) {
+        logger.warn('AIAnalyzer', `[aiAnalyzer] Model ${currentModel} rate limited or unavailable (${status})`);
+        await new Promise(resolve => setTimeout(resolve, 500));
         continue;
       }
 
-      // 502/503 Service unavailable — continue to next model immediately
-      if (status === 502 || status === 503) {
-        logger.warn('AIAnalyzer', `[Req ID: ${requestId}] Service unavailable (${status}) for ${currentModel}, moving to next model.`);
-        if (attempt + 1 < maxAttempts) {
-          const nextModel = OPENROUTER_MODELS[attempt + 1];
-          logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) immediately...`);
-        }
-        continue;
+      if (status === 400 || status === 401) {
+        throw error; // not a model problem — fail fast
       }
 
-      // 429 Rate limited — continue to next model with delay
-      if (status === 429) {
-        logger.warn('AIAnalyzer', `[Req ID: ${requestId}] Rate limited (429) on ${currentModel}.`);
-        if (attempt + 1 < maxAttempts) {
-          const nextModel = OPENROUTER_MODELS[attempt + 1];
-          logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) in ${OPENROUTER.FALLBACK_DELAY_MS}ms...`);
-          await sleep(OPENROUTER.FALLBACK_DELAY_MS);
-        }
-        continue;
-      }
-
-      // All other errors — apply standard delay between fallback attempts
+      // All other errors (timeouts, network, etc.) — apply standard delay between fallback attempts
       if (attempt + 1 < maxAttempts) {
         const nextModel = OPENROUTER_MODELS[attempt + 1];
         logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying/Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) in ${OPENROUTER.FALLBACK_DELAY_MS}ms...`);
@@ -1739,138 +1706,32 @@ Do not include any preamble, introduction, markdown code block backticks (like \
  * @param {number} maxRetries - Maximum number of API retries.
  * @returns {Promise<string>} - One of the allowed document types.
  */
-const classifyDocument = async (text, maxRetries = OPENROUTER_MODELS.length - 1) => {
-  const snippet = (text || '').substring(0, 1500);
-  
-  // Heuristic classifier as a fallback or if apiKey is missing
-  const runHeuristicClassification = (t) => {
-    const lower = t.toLowerCase();
-    
-    // Check for Resume/CV indicators first
-    if (
-      lower.includes('experience') || 
-      lower.includes('education') || 
-      lower.includes('skills') || 
-      lower.includes('projects') || 
-      lower.includes('work history') || 
-      lower.includes('employment') || 
-      lower.includes('curriculum vitae') || 
-      lower.includes('professional summary') || 
-      lower.includes('summary of qualifications')
-    ) {
-      return 'Resume';
-    }
-    
-    if (
-      lower.includes('invoice') || 
-      lower.includes('bill to') || 
-      lower.includes('purchase order') || 
-      lower.includes('amount due')
-    ) {
-      return 'Invoice';
-    }
-    
-    if (
-      lower.includes('transcript of record') || 
-      lower.includes('marksheet') || 
-      lower.includes('grade card') || 
-      lower.includes('semester report') || 
-      lower.includes('academic transcript') || 
-      lower.includes('academic result')
-    ) {
-      return 'Academic Result';
-    }
-    
-    if (
-      lower.includes('dgs') || 
-      lower.includes('directorate general')
-    ) {
-      return 'DGS';
-    }
-    
-    return 'Unknown';
+const classifyDocument = (resumeText) => {
+  logger.info(`[classifier] Text length: ${resumeText?.length}, preview: ${resumeText?.slice(0, 100)}`);
+
+  if (!resumeText || resumeText.trim().length < 100) {
+    return {
+      documentType: 'unknown',
+      confidence: 0
+    };
+  }
+
+  const text = resumeText.toLowerCase();
+  const resumeSignals = [
+    'experience', 'education', 'skills', 'resume', 'cv',
+    'objective', 'summary', 'employment', 'university',
+    'bachelor', 'master', 'internship', 'projects',
+    'work history', 'qualifications', 'achievements',
+    'professional', 'career', 'degree', 'certification',
+    'gpa', 'cgpa', 'b.tech', 'b.sc', 'engineer', 'developer',
+    'languages', 'frameworks', 'tools', 'github', 'linkedin'
+  ];
+  const matches = resumeSignals.filter(signal => text.includes(signal));
+  const confidence = Math.min(matches.length / 5, 1.0);
+  return {
+    documentType: confidence >= 0.2 ? 'resume' : 'unknown',
+    confidence: parseFloat(confidence.toFixed(2))
   };
-
-  if (!apiKey) {
-    logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY not configured for classification. Using heuristics.');
-    return runHeuristicClassification(snippet);
-  }
-
-  const systemPrompt = `You are a document classifier.
-Analyze the document text snippet and classify it into exactly one of these categories:
-- Resume
-- CV
-- Academic Result
-- DGS
-- Invoice
-- Unknown
-
-Your response must contain ONLY the category name. Do not include explanation, markdown code blocks, or punctuation. If the document is a curriculum vitae, return "CV". If it is a resume, return "Resume". If it is an academic transcript/grade sheet/result, return "Academic Result". If it is a DGS document, return "DGS". If it is an invoice/bill, return "Invoice". Otherwise, return "Unknown".`;
-
-  let attempt = 0;
-  while (attempt <= maxRetries) {
-    const currentModel = OPENROUTER_MODELS[attempt] || OPENROUTER_MODELS[0];
-    const timeoutMs = attempt === 0 ? OPENROUTER.PRIMARY_TIMEOUT_MS : OPENROUTER.FALLBACK_TIMEOUT_MS;
-    try {
-      logger.info('AIAnalyzer', `🤖 Requesting document classification using ${currentModel}...`);
-      
-      const modelIdx = OPENROUTER_MODELS.indexOf(currentModel) !== -1 ? OPENROUTER_MODELS.indexOf(currentModel) : 0;
-      const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': env.CLIENT_URL,
-          'X-Title': 'Resumetrices'
-        },
-        body: JSON.stringify({
-          models: [
-            currentModel,
-            OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
-            OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
-          ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3),
-          route: "fallback",
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Document snippet:\n\n${snippet}` }
-          ],
-          max_tokens: 30,
-          temperature: 0.1
-        })
-      }, timeoutMs);
-
-      if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
-        throw new Error('Malformed classification response from OpenRouter.');
-      }
-
-      const content = payload.choices[0].message.content.trim();
-      logger.info('AIAnalyzer', `Raw classification response: "${content}"`);
-      
-      // Sanitize the response
-      const allowedTypes = ['Resume', 'CV', 'Academic Result', 'DGS', 'Invoice', 'Unknown'];
-      const matchedType = allowedTypes.find(type => content.toLowerCase().includes(type.toLowerCase()));
-      
-      if (matchedType) {
-        return matchedType;
-      }
-      
-      throw new Error(`LLM returned invalid classification type: "${content}"`);
-    } catch (error) {
-      logger.error('AIAnalyzer', `❌ Classification attempt ${attempt + 1} failed: ${error.message}`);
-      
-      if (isTerminalError(error)) {
-        logger.warn('AIAnalyzer', '⚠️ Terminal OpenRouter error detected during classification. Falling back to heuristics immediately.');
-        return runHeuristicClassification(snippet);
-      }
-      
-      attempt++;
-      if (attempt > maxRetries) {
-        logger.warn('AIAnalyzer', '⚠️ Classification API failed. Falling back to heuristics.');
-        return runHeuristicClassification(snippet);
-      }
-      await sleep(200); // Small delay when switching models to avoid long timeouts
-    }
-  }
 };
 
 module.exports = {

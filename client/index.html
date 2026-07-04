@@ -34,7 +34,7 @@
         </a>
       </div>
       <div style="display: flex; align-items: center; gap: 1.5rem;">
-        <button class="public-hamburger" id="public-hamburger" aria-label="Open navigation menu" style="display: none; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem; cursor: pointer; color: var(--text-main);">
+        <button class="public-hamburger" id="public-hamburger" aria-expanded="false" aria-controls="mobile-nav-drawer" aria-label="Open navigation menu" style="display: none; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.5rem; cursor: pointer; color: var(--text-main);">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
         <nav class="public-nav" id="public-nav" style="display: flex; gap: 1.25rem; align-items: center; margin-right: 1rem;">
@@ -50,11 +50,11 @@
   </header>
 
   <!-- Mobile Navigation Drawer -->
-  <div id="mobile-nav-drawer" class="mobile-nav-drawer" style="display: none; position: fixed; inset: 0; z-index: 999; background: rgba(3, 7, 18, 0.92); backdrop-filter: blur(12px);">
-    <div style="display: flex; flex-direction: column; padding: 2rem; gap: 0.25rem; max-width: 320px; margin-left: auto; height: 100%; background: var(--bg-card, #0f172a); border-left: 1px solid var(--border-color, #1e293b); box-shadow: -8px 0 30px rgba(0,0,0,0.5);">
+  <div id="mobile-nav-drawer" class="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
+    <div>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
         <span style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">Menu</span>
-        <button id="mobile-nav-close" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem;">
+        <button id="mobile-nav-close" aria-label="Close navigation menu" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem;">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
@@ -322,9 +322,9 @@
           <div class="footer-col">
             <h4>Company</h4>
             <ul>
-              <li><a href="#" class="disabled-link">About</a></li>
+              <li><a href="about.html">About</a></li>
               <li><a href="mailto:support.resumetrices@gmail.com">Contact</a></li>
-              <li><a href="#faq" class="pub-nav-link">FAQ</a></li>
+              <li><a href="faq.html">FAQ</a></li>
               <li><a href="#" class="disabled-link">Release Notes</a></li>
             </ul>
           </div>
@@ -335,7 +335,7 @@
               <li><a href="privacy.html">Privacy Policy</a></li>
               <li><a href="terms.html">Terms of Service</a></li>
               <li><a href="#" class="disabled-link">Cookie Policy</a></li>
-              <li><a href="#" class="disabled-link">Data Security</a></li>
+              <li><a href="security.html">Data Security</a></li>
             </ul>
           </div>
         </div>
@@ -498,21 +498,64 @@
   <script type="module" src="js/landing.js"></script>
   <script>
     // Mobile Navigation Drawer Toggle
-    document.addEventListener('DOMContentLoaded', () => {
+    (function() {
       const hamburger = document.getElementById('public-hamburger');
       const drawer = document.getElementById('mobile-nav-drawer');
       const closeBtn = document.getElementById('mobile-nav-close');
+
+      function openDrawer() {
+        if (!drawer) return;
+        drawer.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        if (hamburger) hamburger.setAttribute('aria-expanded', 'true');
+        if (closeBtn) closeBtn.focus();
+      }
+
+      function closeDrawer() {
+        if (!drawer) return;
+        drawer.classList.remove('active');
+        document.body.style.overflow = '';
+        if (hamburger) {
+          hamburger.setAttribute('aria-expanded', 'false');
+          hamburger.focus();
+        }
+      }
+
       if (hamburger && drawer) {
-        hamburger.addEventListener('click', () => { drawer.style.display = 'block'; });
-        if (closeBtn) closeBtn.addEventListener('click', () => { drawer.style.display = 'none'; });
-        // Close drawer when clicking overlay background
-        drawer.addEventListener('click', (e) => { if (e.target === drawer) drawer.style.display = 'none'; });
-        // Close drawer when clicking any nav link
-        drawer.querySelectorAll('.mobile-nav-link').forEach(link => {
-          link.addEventListener('click', () => { drawer.style.display = 'none'; });
+        hamburger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openDrawer();
         });
       }
-    });
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeDrawer();
+        });
+      }
+
+      if (drawer) {
+        drawer.addEventListener('click', (e) => {
+          if (e.target === drawer) {
+            closeDrawer();
+          }
+        });
+
+        drawer.querySelectorAll('.mobile-nav-link').forEach(link => {
+          link.addEventListener('click', () => {
+            closeDrawer();
+          });
+        });
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && drawer && drawer.classList.contains('active')) {
+          closeDrawer();
+        }
+      });
+    })();
   </script>
+  <script type="module" src="js/footer.js"></script>
 </body>
 </html>

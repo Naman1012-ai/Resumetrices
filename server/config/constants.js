@@ -54,9 +54,29 @@ module.exports = {
     PRESENCE_PENALTY: 0,
     REQUEST_TIMEOUT_MS: env.AI.REQUEST_TIMEOUT_MS,  // timeout per request from environment
     PRIMARY_TIMEOUT_MS: 15000,      // 15 seconds for the primary model attempt
-    FALLBACK_TIMEOUT_MS: 10000,     // 10 seconds for each fallback model attempt
+    FALLBACK_TIMEOUT_MS: 8000,       // 8 seconds for each fallback model attempt
     FALLBACK_DELAY_MS: 500,         // 500ms delay between fallback attempts
-    BACKOFF_BASE_MS: 1500
+    BACKOFF_BASE_MS: 1500,
+    FALLBACK_MODELS: [
+      'meta-llama/llama-3.3-70b-instruct:free',   // 131K context, strong general
+      'openai/gpt-oss-120b:free',                  // 131K context, OpenAI open weight
+      'openai/gpt-oss-20b:free',                   // 131K context, lighter/faster
+      'nvidia/nemotron-3-super-120b-a12b:free',    // 1M context, smaller nemotron
+      'nvidia/nemotron-nano-9b-v2:free',           // 128K context, fast fallback
+      'nousresearch/hermes-3-llama-3.1-405b:free', // 131K context
+      'meta-llama/llama-3.2-3b-instruct:free',     // 131K context, fastest fallback
+    ].filter(Boolean),
+    ALL_MODELS: [...new Set([
+      process.env.OPENROUTER_MODEL_ID || env.AI.MODEL_ID,
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'openai/gpt-oss-120b:free',
+      'openai/gpt-oss-20b:free',
+      'nvidia/nemotron-3-super-120b-a12b:free',
+      'nvidia/nemotron-nano-9b-v2:free',
+      'nousresearch/hermes-3-llama-3.1-405b:free',
+      'meta-llama/llama-3.2-3b-instruct:free',
+      'openrouter/free'
+    ])].filter(Boolean)
   },
 
   // Server configuration

@@ -1,0 +1,154 @@
+/* security.css - Resumetrices Dark Premium Styling */
+
+.security-main {
+  max-width: 800px;
+  margin: 3rem auto;
+  padding: 0 1.5rem;
+  min-height: 70vh;
+  box-sizing: border-box;
+}
+
+.security-card {
+  padding: 2.5rem;
+  background: var(--bg-card, rgba(15, 23, 42, 0.45));
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.12));
+  border-radius: var(--radius-xl, 16px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.security-header {
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border-color, rgba(148, 163, 184, 0.12));
+  padding-bottom: 1.5rem;
+}
+
+.security-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--text-main, #f8fafc);
+  margin: 0 0 0.75rem 0;
+  letter-spacing: -0.03em;
+}
+
+.security-subtitle {
+  color: var(--text-muted, #94a3b8);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin: 0;
+  font-weight: 400;
+}
+
+.security-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.security-section h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-main, #f8fafc);
+  margin: 0 0 1rem 0;
+  letter-spacing: -0.01em;
+}
+
+.security-section p {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text-muted, #94a3b8);
+  margin: 0 0 1rem 0;
+}
+
+.security-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.security-list li {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-muted, #94a3b8);
+  position: relative;
+}
+
+.security-list li::marker {
+  color: var(--emerald, #10b981);
+}
+
+.security-list li strong {
+  color: var(--text-main, #f8fafc);
+  font-weight: 600;
+}
+
+.security-pledge {
+  margin: 2.5rem 0 0 0;
+  padding: 1.5rem 2rem;
+  border-left: 3px solid var(--emerald, #10b981);
+  background: rgba(16, 185, 129, 0.03);
+  border-radius: 0 var(--radius-md, 8px) var(--radius-md, 8px) 0;
+  box-sizing: border-box;
+}
+
+.security-pledge p {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.1rem;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--text-main, #f8fafc);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .security-main {
+    margin: 2rem auto;
+  }
+  
+  .security-card {
+    padding: 2rem;
+    border-radius: var(--radius-lg, 12px);
+  }
+  
+  .security-title {
+    font-size: 1.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .security-main {
+    margin: 1rem auto;
+    padding: 0 1rem;
+  }
+  
+  .security-card {
+    padding: 1.5rem;
+    border-radius: var(--radius-md, 8px);
+  }
+  
+  .security-title {
+    font-size: 1.6rem;
+  }
+  
+  .security-subtitle {
+    font-size: 0.95rem;
+  }
+  
+  .security-pledge {
+    padding: 1.25rem 1.5rem;
+  }
+  
+  .security-pledge p {
+    font-size: 1rem;
+  }
+}

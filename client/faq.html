@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script>
+    // Synchronously block rendering to prevent layout flash before auth state resolves
+    document.documentElement.style.visibility = 'hidden';
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frequently Asked Questions - Resumetrices</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/faq.css">
+  <script src="/env-config.js"></script>
+</head>
+<body>
+
+  <!-- Premium Header -->
+  <header class="app-header" style="position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color, #1e293b); background: rgba(10, 15, 29, 0.8);">
+    <div class="header-container" style="max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <a href="index.html" class="logo-link" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
+          <img src="logo.png" alt="Resumetrices Logo" style="height: 32px; width: 32px; object-fit: contain;">
+          <span class="logo-text" style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">Resumetrices</span>
+        </a>
+      </div>
+      <div>
+        <button id="btn-back-nav" style="
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--border-color, #1e293b);
+          border-radius: var(--radius-md, 8px);
+          color: var(--text-main, #ffffff);
+          padding: 0.55rem 1.1rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: 'Outfit', sans-serif;
+        ">← Back</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- FAQ Content -->
+  <main class="faq-main">
+    <div class="faq-container">
+      
+      <header class="faq-header">
+        <h1 class="faq-title">Frequently Asked Questions</h1>
+        <p class="faq-subtitle">Get transparent answers on how Resumetrices parses, analyzes, and evaluates technical resumes.</p>
+      </header>
+
+      <!-- Accordion Container -->
+      <div class="accordion" role="presentation">
+        
+        <!-- Accordion Item 1 -->
+        <div class="accordion-item">
+          <button class="accordion-trigger" aria-expanded="false" aria-controls="faq-answer-1" id="faq-btn-1">
+            <span class="accordion-question">Why does my Resumetrices score differ from older ATS scanners?</span>
+            <span class="accordion-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </span>
+          </button>
+          <div class="accordion-content" id="faq-answer-1" role="region" aria-labelledby="faq-btn-1" style="max-height: 0;">
+            <div class="accordion-content-inner">
+              <p>Resumetrices evaluates resumes using evidence-based scoring instead of relying primarily on keyword counts. Our scoring engine utilizes:</p>
+              <ul class="faq-features-list">
+                <li><strong>Semantic evaluation:</strong> Understanding the actual context and complexity of your contributions rather than looking for simple word matches.</li>
+                <li><strong>Project complexity:</strong> Checking for system architecture descriptions, scaling metrics, and concrete engineering problem-solving.</li>
+                <li><strong>Experience quality:</strong> Emphasizing quantifiable business impact, leadership, and ownership over laundry lists of tools.</li>
+                <li><strong>Role-aware scoring:</strong> Calibrating evaluations specifically to the requirements of the job title you choose.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 2 -->
+        <div class="accordion-item">
+          <button class="accordion-trigger" aria-expanded="false" aria-controls="faq-answer-2" id="faq-btn-2">
+            <span class="accordion-question">How are candidates evaluated at different career stages?</span>
+            <span class="accordion-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </span>
+          </button>
+          <div class="accordion-content" id="faq-answer-2" role="region" aria-labelledby="faq-btn-2" style="max-height: 0;">
+            <div class="accordion-content-inner">
+              <p>Our scoring algorithm dynamically scales its criteria based on your career stage to ensure a fair evaluation:</p>
+              <ul class="faq-features-list">
+                <li><strong>Students and fresh graduates</strong> receive more emphasis on technical projects, academic achievements, core skill sets, and personal technical work rather than being penalized for limited professional experience.</li>
+                <li><strong>Experienced professionals</strong> receive more weight on professional experience, leadership initiatives, organizational influence, architectural scale, and concrete business impact.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accordion Item 3 -->
+        <div class="accordion-item">
+          <button class="accordion-trigger" aria-expanded="false" aria-controls="faq-answer-3" id="faq-btn-3">
+            <span class="accordion-question">How long does analysis take?</span>
+            <span class="accordion-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </span>
+          </button>
+          <div class="accordion-content" id="faq-answer-3" role="region" aria-labelledby="faq-btn-3" style="max-height: 0;">
+            <div class="accordion-content-inner">
+              <p>Most analyses complete within several seconds. The exact duration depends on the size of the resume document, the current AI provider response latency, and overall server load.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="enterprise-footer">
+    <div class="footer-grid">
+      <div class="footer-col brand-col">
+        <div class="footer-logo">
+          <img src="logo.png" alt="Resumetrices Logo" style="height: 32px; width: 32px; object-fit: contain;">
+          <span class="brand-name">Resumetrices</span>
+        </div>
+        <p class="brand-desc">
+          AI-powered ATS Resume Intelligence Platform helping candidates optimize resumes, identify skill gaps, and prepare for interviews.
+        </p>
+        <div class="copyright">
+          © 2026 Resumetrices. All Rights Reserved.
+        </div>
+      </div>
+      
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="new-analysis.html">Resume Analysis</a></li>
+          <li><a href="interview.html">Interview Preparation</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+        </ul>
+      </div>
+      
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="about.html">About</a></li>
+          <li><a href="mailto:support.resumetrices@gmail.com">Contact</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="#" class="disabled-link">Release Notes</a></li>
+        </ul>
+      </div>
+      
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="privacy.html">Privacy Policy</a></li>
+          <li><a href="terms.html">Terms of Service</a></li>
+          <li><a href="#" class="disabled-link">Cookie Policy</a></li>
+          <li><a href="security.html">Data Security</a></li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="footer-bottom">
+      <div class="footer-bottom-left">
+        <span>Made with ❤️ for job seekers.</span>
+        <span class="divider">•</span>
+        <span class="version-tag">Version 1.2.0</span>
+      </div>
+      <div class="footer-bottom-middle">
+        <a href="mailto:support.resumetrices@gmail.com" class="support-email">support.resumetrices@gmail.com</a>
+      </div>
+      <div class="footer-bottom-right social-links">
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+        </a>
+        <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+        </a>
+        <a href="https://x.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter/X">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/faq.js"></script>
+  <script>
+    // Reveal Document once CSS is processed
+    document.documentElement.style.visibility = 'visible';
+
+
+  </script>
+  <script type="module" src="js/footer.js"></script>
+</body>
+</html>

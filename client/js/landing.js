@@ -152,6 +152,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // If user is already logged in, redirect them to dashboard
   auth.onAuthStateChanged(async (user) => {
+    // Dynamically replace Login links with Dashboard links if authenticated
+    const loginNavLinks = document.querySelectorAll('.btn-login-nav, .mobile-nav-link[href="login.html"], .mobile-nav-link[href^="login.html"]');
+    const mockParam = isMockMode ? '?mock=true' : '';
+    const mockQuery = mockParam ? (mockParam.startsWith('?') ? mockParam : '?' + mockParam) : '';
+
+    if (user || isMockMode) {
+      loginNavLinks.forEach(link => {
+        link.textContent = 'Dashboard';
+        link.href = `dashboard.html${mockQuery}`;
+      });
+    } else {
+      loginNavLinks.forEach(link => {
+        link.textContent = 'Login';
+        link.href = `login.html${mockQuery}`;
+      });
+    }
+
     if (user) {
       const pendingReportAction = sessionStorage.getItem('pendingReportAction');
       if (pendingReportAction === 'true') {
