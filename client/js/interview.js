@@ -15,11 +15,17 @@ function renderQuestionsList(container, list) {
     li.className = 'q-item';
     
     // Check if question is an object or string
-    const questionText = typeof q === 'string' ? q : (q.question || '');
+    const questionText = typeof q === 'string' ? q : (q.questionText || q.question || '');
+    const focusArea = (q && typeof q === 'object' && q.focusArea) 
+      ? `<span class="q-badge" style="font-size: 0.7rem; background: rgba(59, 130, 246, 0.15); color: var(--blue); padding: 0.2rem 0.6rem; border-radius: var(--radius-sm); font-weight: 700; width: fit-content; border: 1px solid rgba(59, 130, 246, 0.25); text-transform: uppercase; letter-spacing: 0.03em;">${escapeHTML(q.focusArea)}</span>` 
+      : '';
 
     li.innerHTML = `
-      <span class="q-item-text">${escapeHTML(questionText)}</span>
-      <button class="btn-copy-q" title="Copy Flashcard Question">
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; width: calc(100% - 30px);">
+        <span class="q-item-text" style="font-size: 0.95rem; line-height: 1.5; color: var(--text-main); font-weight: 500;">${escapeHTML(questionText)}</span>
+        ${focusArea}
+      </div>
+      <button class="btn-copy-q" title="Copy Flashcard Question" style="align-self: flex-start; margin-top: 2px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -130,6 +136,11 @@ async function renderInterviewReport(analysis) {
     skillGapHeader.textContent = hasDomainKnowledge ? 'Domain Knowledge Benchmarks' : 'Skill Gap Questions';
   }
 
+  if (projectQuestionsList) projectQuestionsList.closest('.question-card').style.display = 'block';
+  if (skillgapQuestionsList) skillgapQuestionsList.closest('.question-card').style.display = 'block';
+  if (behavioralQuestionsList) behavioralQuestionsList.closest('.question-card').style.display = 'block';
+  if (hrQuestionsList) hrQuestionsList.closest('.question-card').style.display = 'block';
+
   renderQuestionsList(technicalQuestionsList, tech);
   renderQuestionsList(projectQuestionsList, proj);
   renderQuestionsList(skillgapQuestionsList, gap);
@@ -197,8 +208,29 @@ async function initInterviewPage() {
     setupStandaloneView(true);
     const interviewEmptyState = document.getElementById('interview-empty-state');
     const interviewResults = document.getElementById('interview-results');
-    if (interviewEmptyState) interviewEmptyState.style.display = 'block';
-    if (interviewResults) interviewResults.style.display = 'none';
+    if (interviewEmptyState) interviewEmptyState.style.display = 'none';
+    if (interviewResults) {
+      interviewResults.style.display = 'block';
+      
+      const technicalQuestionsList = document.getElementById('technical-questions-list');
+      const projectQuestionsList = document.getElementById('project-questions-list');
+      const skillgapQuestionsList = document.getElementById('skillgap-questions-list');
+      const behavioralQuestionsList = document.getElementById('behavioral-questions-list');
+      const hrQuestionsList = document.getElementById('hr-questions-list');
+
+      // Initialize all cards to "None generated." placeholder
+      renderQuestionsList(technicalQuestionsList, []);
+      renderQuestionsList(behavioralQuestionsList, []);
+      renderQuestionsList(hrQuestionsList, []);
+
+      // Hide non-standalone cards
+      if (projectQuestionsList) projectQuestionsList.closest('.question-card').style.display = 'none';
+      if (skillgapQuestionsList) skillgapQuestionsList.closest('.question-card').style.display = 'none';
+      
+      // Hide grading rubrics
+      const gradingRubricsContainer = document.getElementById('grading-rubrics-container');
+      if (gradingRubricsContainer) gradingRubricsContainer.style.display = 'none';
+    }
     return;
   }
 
@@ -270,6 +302,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (interviewResults) interviewResults.style.display = 'none';
       if (interviewEmptyState) interviewEmptyState.style.display = 'none';
       btnGenerateStandalone.disabled = true;
+      const originalBtnText = btnGenerateStandalone.innerHTML;
+      btnGenerateStandalone.textContent = 'Generating Prep...';
+
+      // 10s timer for micro-copy transition
+      const microCopyTimer = setTimeout(() => {
+        btnGenerateStandalone.textContent = "Analyzing deep structural patterns... parsing complex engineering matrices takes a brief moment.";
+      }, 10000);
 
       try {
         let payload = { targetRole: role };
@@ -281,46 +320,18 @@ document.addEventListener('DOMContentLoaded', () => {
           responseData = {
             success: true,
             technical: [
-              `Core competencies, lifecycle behaviors, and runtime paradigms in ${role} applications.`,
-              `Standard state synchronization, concurrency locks, and memory optimization guidelines for ${role}.`,
-              `Data caching policies, indexing lookups, and load distribution benchmarks used in ${role} systems.`,
-              `Unit/Integration testing pipelines, test-driven mock flows, and coverage verification for ${role}.`,
-              `Best practice API contract versioning, request serialization, and security strategies for ${role}.`
-            ],
-            projectBased: [
-              `Describe the architecture, component encapsulation, and schema mapping for a recent project you delivered as a ${role}.`,
-              `How did you handle telemetry logs, error boundaries, and trace diagnostic instrumentation on your ${role} codebase?`,
-              `Detail the deploy workflow, container images configuration, and release automation strategies you integrated for that project.`,
-              `What scaling limits or database locks did you discover under stress testing, and how did you resolve them?`,
-              `Explain the security audit, secret management variables, and permission checks implemented on that system.`
-            ],
-            domainKnowledge: [
-              `Explain how advanced caching layers (e.g. Redis) improve response times in high-throughput ${role} environments.`,
-              `What design patterns (e.g. Factory, Observer) solve scalability hurdles typically faced in ${role} architectures?`,
-              `How do database partitioning, read-replicas, and query optimization alleviate lock contention under heavy loads?`,
-              `Describe the trade-offs of microservices vs monolithic builds for this specific role profile.`,
-              `How do container orchestration tools (e.g. Kubernetes) optimize lifecycle availability for these applications?`
+              { id: 1, questionText: `Core competencies, lifecycle behaviors, and runtime paradigms in ${role} applications.`, focusArea: "Runtime Architecture" },
+              { id: 2, questionText: `Standard state synchronization, concurrency locks, and memory optimization guidelines for ${role}.`, focusArea: "Concurrency & Memory" },
+              { id: 3, questionText: `Data caching policies, indexing lookups, and load distribution benchmarks used in ${role} systems.`, focusArea: "Caching & Scaling" }
             ],
             behavioral: [
-              `Tell me about a time you had to align technical debt refactoring with business deadline expectations as a ${role}.`,
-              `Describe a scenario where you resolved a time management bottleneck with another engineer on a complex feature.`,
-              `How do you organize your work tasks and communicate progress to non-technical partners during rapid sprints?`,
-              `Tell me about a project target you missed. What did you learn, and how did you adjust your timeline estimates next time?`,
-              `Describe how you review pull requests to promote high-quality coding standards and mentor junior team members.`
+              { id: 1, questionText: `Tell me about a time you had to align technical debt refactoring with business deadline expectations as a ${role}.`, focusArea: "Technical Debt & Delivery" },
+              { id: 2, questionText: `Describe a scenario where you resolved a time management bottleneck with another engineer on a complex feature.`, focusArea: "Collaboration & Conflict" },
+              { id: 3, questionText: `Describe how you review pull requests to promote high-quality coding standards and mentor junior team members.`, focusArea: "Code Quality & Mentorship" }
             ],
-            hrQuestions: [
-              `What attracted you to apply for this target role: "${role}"?`,
-              `Where do you plan to grow your technical expertise and career focus over the next 3 to 5 years?`,
-              `What do you find most challenging about working in distributed or cross-functional developer teams?`,
-              `What are your expectations for onboarding, technical mentorship, and developer support in our organization?`,
-              `Why are you looking to start a new project engagement or transition roles at this point in your career?`
-            ],
-            gradingRubric: [
-              { category: "Technical questions", criteria: `Shows depth of understanding in ${role} technologies.`, excellentScoreGuidelines: `Mentions specific state synchronization or runtime paradigms for ${role}.` },
-              { category: "Project-based questions", criteria: `Explains project architectures and scaling limits.`, excellentScoreGuidelines: `Provides concrete telemetry or database optimization details.` },
-              { category: "Domain Knowledge Benchmarks", criteria: `Demonstrates knowledge of core tools like Redis, database structures, or message queues.`, excellentScoreGuidelines: `Contrasts architectural choices and maps concrete scaling benchmarks.` },
-              { category: "Behavioral questions", criteria: `Communicates collaboration, ownership, and conflict resolution.`, excellentScoreGuidelines: `Highlights concrete outcomes using the STAR framework.` },
-              { category: "HR questions", criteria: `Articulates career progression goals for ${role}.`, excellentScoreGuidelines: `Aligns growth with long-term leadership or technical milestones.` }
+            hr: [
+              { id: 1, questionText: `What attracted you to apply for this target role: "${role}"?`, focusArea: "Role Alignment" },
+              { id: 2, questionText: `Where do you plan to grow your technical expertise and career focus over the next 3 to 5 years?`, focusArea: "Career Growth" }
             ]
           };
         } else {
@@ -346,49 +357,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const behavioralQuestionsList = document.getElementById('behavioral-questions-list');
         const hrQuestionsList = document.getElementById('hr-questions-list');
 
-        // Update card header text dynamically
-        const skillGapHeader = document.querySelector('.q-header.skillgap span');
-        if (skillGapHeader) {
-          const hasDomainKnowledge = responseData.domainKnowledge && responseData.domainKnowledge.length > 0;
-          skillGapHeader.textContent = hasDomainKnowledge ? 'Domain Knowledge Benchmarks' : 'Skill Gap Questions';
-        }
-
         renderQuestionsList(technicalQuestionsList, responseData.technical);
-        renderQuestionsList(projectQuestionsList, responseData.projectBased);
-        
-        const gapData = (responseData.domainKnowledge && responseData.domainKnowledge.length > 0) ? responseData.domainKnowledge : (responseData.skillGap || []);
-        renderQuestionsList(skillgapQuestionsList, gapData);
-        
         renderQuestionsList(behavioralQuestionsList, responseData.behavioral);
-        renderQuestionsList(hrQuestionsList, responseData.hrQuestions);
+        renderQuestionsList(hrQuestionsList, responseData.hr);
 
-        // Render Grading Rubrics
+        // Hide only non-standalone cards, ensure Technical, Behavioral, and HR cards are shown
+        if (projectQuestionsList) projectQuestionsList.closest('.question-card').style.display = 'none';
+        if (skillgapQuestionsList) skillgapQuestionsList.closest('.question-card').style.display = 'none';
+        if (technicalQuestionsList) technicalQuestionsList.closest('.question-card').style.display = 'block';
+        if (behavioralQuestionsList) behavioralQuestionsList.closest('.question-card').style.display = 'block';
+        if (hrQuestionsList) hrQuestionsList.closest('.question-card').style.display = 'block';
+
+        // Hide Grading Rubrics
         const gradingRubricsContainer = document.getElementById('grading-rubrics-container');
-        const gradingRubricsList = document.getElementById('grading-rubrics-list');
-        const rubrics = responseData.gradingRubric || null;
-        if (rubrics && Array.isArray(rubrics) && rubrics.length > 0 && gradingRubricsContainer && gradingRubricsList) {
-          gradingRubricsList.innerHTML = '';
-          rubrics.forEach(rubric => {
-            const entry = document.createElement('div');
-            entry.style.background = 'rgba(255,255,255,0.02)';
-            entry.style.border = '1px solid var(--border-color)';
-            entry.style.borderRadius = 'var(--radius-md)';
-            entry.style.padding = '1rem';
-            entry.style.display = 'flex';
-            entry.style.flexDirection = 'column';
-            entry.style.gap = '0.25rem';
-            
-            entry.innerHTML = `
-              <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">${escapeHTML(rubric.category || '')}</div>
-              <div style="font-size: 0.85rem; color: var(--text-muted);"><strong style="color: var(--text-main);">Evaluation Criteria:</strong> ${escapeHTML(rubric.criteria || '')}</div>
-              <div style="font-size: 0.85rem; color: var(--emerald);"><strong style="color: var(--emerald);">Excellent Answer Guideline:</strong> ${escapeHTML(rubric.excellentScoreGuidelines || '')}</div>
-            `;
-            gradingRubricsList.appendChild(entry);
-          });
-          gradingRubricsContainer.style.display = 'block';
-        } else if (gradingRubricsContainer) {
-          gradingRubricsContainer.style.display = 'none';
-        }
+        if (gradingRubricsContainer) gradingRubricsContainer.style.display = 'none';
 
         // Update active role subtitle if present
         const ipActiveRole = document.getElementById('interview-active-role');
@@ -397,13 +379,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeRoleSubtitle) activeRoleSubtitle.style.display = 'block';
 
         if (interviewResults) interviewResults.style.display = 'block';
-        showToast('Successfully generated 25 practice questions!', 'success');
+        showToast('Successfully generated multi-pillar practice questions!', 'success');
       } catch (err) {
         console.error('Failed to generate standalone interview prep:', err);
         showToast(err.message || 'Failed to generate standalone questions.', 'error');
         if (interviewEmptyState) interviewEmptyState.style.display = 'block';
       } finally {
+        clearTimeout(microCopyTimer);
         if (interviewLoader) interviewLoader.style.display = 'none';
+        btnGenerateStandalone.innerHTML = originalBtnText;
         btnGenerateStandalone.disabled = false;
       }
     });

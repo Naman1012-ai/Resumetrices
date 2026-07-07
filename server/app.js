@@ -40,7 +40,6 @@ app.use(helmet({
         "https://*.firebasedatabase.app",
         "https://identitytoolkit.googleapis.com",
         "https://securetoken.googleapis.com",
-        "https://openrouter.ai",
         "https://accounts.google.com",
         "https://oauth2.googleapis.com",
         "https://openidconnect.googleapis.com"

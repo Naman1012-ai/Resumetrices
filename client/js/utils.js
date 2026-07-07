@@ -96,14 +96,14 @@ export function mapFriendlyErrorMessage(error) {
   if (msg.includes('unexpected token') || msg.includes('is not valid json') || msg.includes('json.parse') || msg.includes('syntaxerror') || msg.includes('unexpected character')) {
     return "The server is starting up or temporarily busy. Please wait a few seconds and try refreshing.";
   }
-  // OpenRouter Rate Limit / Model Down / Pipeline Timeout
+  // Native AI Provider Rate Limit / Model Down / Pipeline Timeout
   if (error.status === 503 || error.status === 504 || msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('429') || msg.includes('503') || msg.includes('overloaded') || msg.includes('down') || msg.includes('ai_analysis_failed') || msg.includes('analysis could not be generated') || msg.includes('could not be completed') || msg.includes('pipeline execution failed') || msg.includes('completions') || msg.includes('ai engine')) {
     return "Analysis temporarily unavailable — please try again in a few seconds.";
   }
   if (msg.includes('timeout') || msg.includes('abort') || msg.includes('timed out')) {
     return "The server request took too long to respond. Please check your network stability and try again in a few moments.";
   }
-  // OpenRouter Key/Auth errors or Bad Requests
+  // Native AI Provider Key/Auth errors or Bad Requests
   if (msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('401') || msg.includes('403') || msg.includes('auth') || msg.includes('400') || msg.includes('bad request') || msg.includes('malformed')) {
     return "Analysis unavailable — please contact support.";
   }

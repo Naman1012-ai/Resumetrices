@@ -199,7 +199,8 @@ Create a `.env` file in the project root directory:
 ```env
 PORT=5000
 
-OPENROUTER_API_KEY=your_openrouter_api_key
+GEMINI_API_KEY=your_gemini_api_key
+OPENAI_API_KEY=your_openai_api_key
 
 FIREBASE_DATABASE_URL=your_firebase_database_url
 
@@ -329,13 +330,13 @@ Verify:
 * Database URL
 * Service account configuration
 
-### OpenRouter Issues
+### AI Integration Issues
 
 Verify:
 
-* API key validity
-* Available credits
-* Selected model availability
+* API key validity (GEMINI_API_KEY, OPENAI_API_KEY)
+* Provider quotas and rate limits
+* Google Gemini / OpenAI service status
 
 ---
 

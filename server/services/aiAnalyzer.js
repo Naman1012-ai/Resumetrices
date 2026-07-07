@@ -9,11 +9,175 @@ const constants = require('../config/constants');
 const logger = require('../utils/logger');
 const groundingValidator = require('./groundingValidator');
 const aiResponseValidator = require('./aiResponseValidator');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 
-const { OPENROUTER } = constants;
+const { NATIVE_AI } = constants;
 logger.info(`[aiAnalyzer] Timeout config:
-  primary=${OPENROUTER.PRIMARY_TIMEOUT_MS}
-  fallback=${OPENROUTER.FALLBACK_TIMEOUT_MS}`);
+  primary (Gemini)=${NATIVE_AI.GEMINI_TIMEOUT_MS}ms
+  fallback (OpenAI)=${NATIVE_AI.OPENAI_TIMEOUT_MS}ms`);
+
+const RESUME_ANALYSIS_SCHEMA = {
+  type: "object",
+  properties: {
+    strengths: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          text: { type: "string" },
+          source_evidence: { type: "string" }
+        },
+        required: ["text", "source_evidence"]
+      }
+    },
+    weaknesses: {
+      type: "array",
+      items: { type: "string" }
+    },
+    missingKeywords: {
+      type: "array",
+      items: { type: "string" }
+    },
+    recommendations: {
+      type: "array",
+      items: { type: "string" }
+    },
+    roleFit: { type: "string" },
+    categoryExplanations: {
+      type: "object",
+      properties: {
+        contact: { type: "string" },
+        formatting: { type: "string" },
+        skills: { type: "string" },
+        experience: { type: "string" },
+        projects: { type: "string" },
+        education: { type: "string" },
+        keywords: { type: "string" },
+        achievements: { type: "string" }
+      },
+      required: [
+        "contact",
+        "formatting",
+        "skills",
+        "experience",
+        "projects",
+        "education",
+        "keywords",
+        "achievements"
+      ]
+    }
+  },
+  required: [
+    "strengths",
+    "weaknesses",
+    "missingKeywords",
+    "recommendations",
+    "roleFit",
+    "categoryExplanations"
+  ]
+};
+
+const SKILL_GAP_SCHEMA = {
+  type: "object",
+  properties: {
+    matchedSkills: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          source_evidence: { type: "string" }
+        },
+        required: ["name", "source_evidence"]
+      }
+    },
+    missingSkills: {
+      type: "array",
+      items: { type: "string" }
+    },
+    recommendedSkills: {
+      type: "array",
+      items: { type: "string" }
+    },
+    learningRoadmap: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          duration: { type: "string" },
+          topics: {
+            type: "array",
+            items: { type: "string" }
+          }
+        },
+        required: ["title", "duration", "topics"]
+      }
+    }
+  },
+  required: ["matchedSkills", "missingSkills", "recommendedSkills", "learningRoadmap"]
+};
+
+const INTERVIEW_QUESTIONS_SCHEMA = {
+  type: "object",
+  properties: {
+    technical: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          question: { type: "string" },
+          source_evidence: { type: "string" }
+        },
+        required: ["question", "source_evidence"]
+      }
+    },
+    projectBased: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          question: { type: "string" },
+          source_evidence: { type: "string" }
+        },
+        required: ["question", "source_evidence"]
+      }
+    },
+    domainKnowledge: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          question: { type: "string" },
+          source_evidence: { type: "string" }
+        },
+        required: ["question", "source_evidence"]
+      }
+    },
+    behavioral: {
+      type: "array",
+      items: { type: "string" }
+    },
+    hrQuestions: {
+      type: "array",
+      items: { type: "string" }
+    },
+    gradingRubric: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          category: { type: "string" },
+          criteria: { type: "string" },
+          excellentScoreGuidelines: { type: "string" }
+        },
+        required: ["category", "criteria", "excellentScoreGuidelines"]
+      }
+    }
+  },
+  required: ["technical", "projectBased", "domainKnowledge", "behavioral", "hrQuestions", "gradingRubric"]
+};
 
 /**
  * Helper to pause execution for a given number of milliseconds.
@@ -66,28 +230,14 @@ const cleanJsonString = (rawText) => {
 
 const env = require('../config/env');
 
-// Validate API key format on startup/loading
-const apiKey = env.OPENROUTER_API_KEY;
-if (apiKey && !apiKey.startsWith('sk-or-')) {
-  logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY does not start with standard "sk-or-" prefix. API calls may fail.');
+const geminiKey = env.GEMINI_API_KEY;
+const openaiKey = env.OPENAI_API_KEY;
+
+if (!geminiKey && !openaiKey) {
+  logger.warn('AIAnalyzer', '⚠️ Neither GEMINI_API_KEY nor OPENAI_API_KEY is configured. System will fallback to developer mocks.');
 }
 
-const OPENROUTER_MODELS = OPENROUTER.ALL_MODELS;
 
-/**
- * Checks if the error returned from OpenRouter is terminal (e.g. key invalid, bad request).
- * @param {Error} error
- * @returns {boolean}
- */
-const isTerminalError = (error) => {
-  if (!error || !error.message) return false;
-  const status = error?.response?.status;
-  if (status === 400 || status === 401) return true;
-  const msg = error.message.toLowerCase();
-  return msg.includes('401') || 
-         msg.includes('bad request') ||
-         msg.includes('(400)');
-};
 
 /**
  * Helper to check if a skill exists in the resume text or detectedSkills array.
@@ -1059,199 +1209,173 @@ const getMockInterviewQuestions = (targetRole = 'Software Engineer', detectedSki
   };
 };
 
-/**
- * Executes a fetch request and parses JSON response within a strict AbortController timeout.
- * @param {string} url
- * @param {object} options
- * @param {number} timeoutMs
- * @returns {Promise<object>} - Parsed JSON response.
- */
-const fetchJsonWithTimeout = async (url, options = {}, timeoutMs = OPENROUTER.REQUEST_TIMEOUT_MS) => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    
-    if (!response.ok) {
-      const status = response.status;
-      let detailMessage = '';
-      let errorData = null;
-      try {
-        const body = await response.text();
-        detailMessage = body ? ` - ${body}` : '';
-        errorData = JSON.parse(body);
-      } catch (err) {}
-      
-      let error;
-      if (status === 402) {
-        error = new Error(`OpenRouter Credit Insufficient (402)${detailMessage}`);
-      } else if (status === 429) {
-        error = new Error(`OpenRouter Rate Limit Exceeded (429)${detailMessage}`);
-      } else if (status === 404) {
-        error = new Error(`OpenRouter Model Not Found (404)${detailMessage}`);
-      } else if (status === 503) {
-        error = new Error(`OpenRouter Model Overloaded or Down (503)${detailMessage}`);
-      } else {
-        error = new Error(`OpenRouter API responded with status ${status}${detailMessage}`);
-      }
-      
-      error.response = {
-        status: status,
-        data: errorData
-      };
-      throw error;
-    }
-    
-    const data = await response.json();
-    return data;
-  } finally {
-    clearTimeout(id);
-  }
-};
+
 
 const crypto = require('crypto');
 
-const isTransientError = (err) => {
-  const msg = err.message || '';
-  // HTTP status checks: 429, 500, 502, 503, 504
-  if (msg.includes('status 429') || msg.includes('(429)') || msg.includes('429')) return true;
-  if (msg.includes('status 500') || msg.includes('(500)')) return true;
-  if (msg.includes('status 502') || msg.includes('(502)')) return true;
-  if (msg.includes('status 503') || msg.includes('(503)')) return true;
-  if (msg.includes('status 504') || msg.includes('(504)')) return true;
-  
-  // Network timeouts
-  if (err.name === 'AbortError' || msg.includes('aborted') || msg.includes('timeout') || msg.includes('timed out')) {
-    return true;
+
+const executeNativeAI = async (requestId, systemPrompt, userContent, validatorFunc, responseSchema) => {
+  const runStartTime = Date.now();
+  let resultString = "";
+  let primarySuccess = false;
+  let errorRecord = null;
+
+  // 1. Attempt Primary: Google Gemini (with 2x backoff retry loop)
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0) {
+    let attempt = 0;
+    const maxAttempts = 3; // Initial + 2 retries
+    
+    while (attempt < maxAttempts && !primarySuccess) {
+      attempt++;
+      const geminiStartTime = Date.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), NATIVE_AI.GEMINI_TIMEOUT_MS);
+      
+      try {
+        logger.info('AIAnalyzer', `[aiAnalyzer] Attempting primary model: ${NATIVE_AI.GEMINI_MODEL} (Attempt ${attempt}/${maxAttempts})`);
+        
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel(
+          {
+            model: NATIVE_AI.GEMINI_MODEL,
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: responseSchema
+            }
+          },
+          { timeout: NATIVE_AI.GEMINI_TIMEOUT_MS } // SDK-level timeout
+        );
+
+        const result = await model.generateContentStream({
+          contents: [{ role: 'user', parts: [{ text: userContent }] }],
+          systemInstruction: systemPrompt
+        });
+
+        let currentResultString = "";
+        for await (const chunk of result.stream) {
+          if (controller.signal.aborted) {
+            throw new Error('TIMEOUT');
+          }
+          try {
+            const text = chunk.text();
+            if (text) currentResultString += text;
+          } catch (chunkErr) {
+            logger.error('AIAnalyzer', `Gemini chunk extraction failed: ${chunkErr.message}`);
+            throw chunkErr;
+          }
+        }
+
+        resultString = currentResultString;
+        primarySuccess = true;
+        const duration = Date.now() - geminiStartTime;
+        logger.info('AIAnalyzer', `[Req ID: ${requestId}] ✅ Gemini Success. Model: ${NATIVE_AI.GEMINI_MODEL}, Duration: ${duration}ms (Attempt ${attempt})`);
+      } catch (geminiError) {
+        const duration = Date.now() - geminiStartTime;
+        errorRecord = geminiError;
+        logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Gemini Failed. Model: ${NATIVE_AI.GEMINI_MODEL}, Duration: ${duration}ms, Error: ${geminiError.message} (Attempt ${attempt})`);
+        
+        // If we have retries left, wait with exponential backoff
+        if (attempt < maxAttempts) {
+          const delay = Math.pow(2, attempt) * 1000;
+          logger.info('AIAnalyzer', `Sleeping ${delay}ms before next retry...`);
+          await sleep(delay);
+        }
+      } finally {
+        clearTimeout(timeoutId);
+        controller.abort(); // Prevent leak
+      }
+    }
+  } else {
+    logger.warn('AIAnalyzer', '⚠️ GEMINI_API_KEY is not configured. Skipping primary attempt.');
   }
-  
-  // Connection resets/network failures
-  if (msg.includes('fetch failed') || msg.includes('connection') || msg.includes('network') || msg.includes('socket')) {
-    return true;
-  }
-  
-  return false;
-};
 
-const extractHttpStatus = (error) => {
-  const match = error.message.match(/status (\d+)/i) || error.message.match(/\((\d+)\)/);
-  return match ? parseInt(match[1], 10) : null;
-};
-
-/**
- * Unified helper to execute an AI API request with automatic retries and model cycling failovers.
- * Uses PRIMARY_TIMEOUT_MS for the first attempt and FALLBACK_TIMEOUT_MS for all subsequent attempts.
- * Handles 404, 429, 400, 401, 502, 503 with differentiated logic.
- * Returns parsed JSON object if successful, or throws a user-friendly error on final failure.
- */
-const executeWithRetry = async (
-  requestId,
-  modelName,
-  fetchFunc,
-  validatorFunc,
-  primaryTimeoutMs = OPENROUTER.PRIMARY_TIMEOUT_MS,
-  fallbackTimeoutMs = OPENROUTER.FALLBACK_TIMEOUT_MS
-) => {
-  const maxAttempts = OPENROUTER_MODELS.length;
-  const failureRecords = []; // Track {model, status} for post-loop analysis
-  
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const currentModel = OPENROUTER_MODELS[attempt] || OPENROUTER_MODELS[0];
-    const timeoutMs = attempt === 0 ? primaryTimeoutMs : fallbackTimeoutMs;
-    const runStartTime = Date.now();
-    try {
-      logger.info('AIAnalyzer', `[aiAnalyzer] Attempting model: ${currentModel} (attempt ${attempt + 1}/${maxAttempts})`);
-      const resultString = await fetchFunc(currentModel, timeoutMs);
+  // 2. Attempt Fallback: OpenAI GPT (gpt-4o-mini)
+  if (!primarySuccess) {
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim().length > 0) {
+      const openaiStartTime = Date.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), NATIVE_AI.OPENAI_TIMEOUT_MS);
+      resultString = ""; // Reset result string for fallback attempt
       
-      if (!resultString || resultString.trim().length === 0) {
-        throw new Error('Received empty response from AI provider.');
+      try {
+        logger.info('AIAnalyzer', `[aiAnalyzer] Failover to secondary model: ${NATIVE_AI.OPENAI_MODEL}`);
+        
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const stream = await openai.chat.completions.create({
+          model: NATIVE_AI.OPENAI_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent }
+          ],
+          response_format: { type: "json_object" },
+          stream: true
+        }, { signal: controller.signal });
+
+        for await (const chunk of stream) {
+          if (controller.signal.aborted) {
+            throw new Error('TIMEOUT');
+          }
+          try {
+            const text = chunk.choices[0]?.delta?.content || "";
+            resultString += text;
+          } catch (chunkErr) {
+            logger.error('AIAnalyzer', `OpenAI chunk extraction failed: ${chunkErr.message}`);
+            throw chunkErr;
+          }
+        }
+
+        const duration = Date.now() - openaiStartTime;
+        logger.info('AIAnalyzer', `[Req ID: ${requestId}] ✅ OpenAI Success. Model: ${NATIVE_AI.OPENAI_MODEL}, Duration: ${duration}ms`);
+      } catch (openaiError) {
+        const duration = Date.now() - openaiStartTime;
+        logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ OpenAI Failed. Model: ${NATIVE_AI.OPENAI_MODEL}, Duration: ${duration}ms, Error: ${openaiError.message}`);
+        
+        // Check if rate limited
+        const isRateLimited = (
+          openaiError.status === 429 ||
+          openaiError.message?.includes('429') ||
+          openaiError.message?.includes('rate limit')
+        );
+        if (isRateLimited) {
+          throw new Error('AI_DAILY_LIMIT_EXHAUSTED');
+        }
+        throw new Error('Analysis could not be generated. Please try again.');
+      } finally {
+        clearTimeout(timeoutId);
+        controller.abort(); // Prevent leak
       }
+    } else {
+      logger.warn('AIAnalyzer', '⚠️ OPENAI_API_KEY is not configured. Skipping fallback attempt.');
       
-      const cleaned = cleanJsonString(resultString);
-      const sanitised = cleaned.replace(/,\s*([}\]])/g, '$1');
-      const parsed = JSON.parse(sanitised);
-      
-      if (!validatorFunc(parsed)) {
-        const schemaErr = new Error('AI response failed schema, required fields, or type validation.');
-        schemaErr.isSchemaFailure = true;
-        throw schemaErr;
+      // If Gemini also failed (or was skipped), throw or handle mock below
+      if (errorRecord) {
+        throw errorRecord;
       }
-      
-      const duration = Date.now() - runStartTime;
-      logger.info('AIAnalyzer', `[Req ID: ${requestId}] ✅ Success. Model: ${currentModel}, Duration: ${duration}ms, Attempt: ${attempt + 1}/${maxAttempts}, Final result: Success.`);
-      return parsed;
-      
-    } catch (error) {
-      console.error('[OpenRouter Error] Status:', error?.response?.status);
-      console.error('[OpenRouter Error] Data:', JSON.stringify(error?.response?.data));
-      console.error('[OpenRouter Error] Message:', error?.message);
-
-      const duration = Date.now() - runStartTime;
-      const status = error?.response?.status || extractHttpStatus(error);
-      const responseData = error?.response?.data;
-      
-      logger.error('AIAnalyzer', `[Req ID: ${requestId}] ❌ Attempt ${attempt + 1}/${maxAttempts} failed. Model: ${currentModel}, Duration: ${duration}ms, HTTP status: ${status || 'N/A'}, Failure reason: ${error.message}`);
-      
-      failureRecords.push({ model: currentModel, status: status });
-
-      // Fix 5: Detect daily rate limit exhaustion
-      const isAccountRateLimited = (
-        status === 429 &&
-        (responseData?.error?.message?.includes('free-models-per-day') ||
-         error.message?.includes('free-models-per-day'))
-      );
-
-      if (isAccountRateLimited) {
-        throw new Error('AI_DAILY_LIMIT_EXHAUSTED');
-      }
-
-      // Fix 4: Handle 404, 429/503/502, 400/401
-      if (status === 404) {
-        logger.error('AIAnalyzer', `[aiAnalyzer] Model ${currentModel} is not available on free tier (404) — remove from FALLBACK_MODELS`);
-        continue; // no delay, move to next immediately
-      }
-
-      if (status === 429 || status === 503 || status === 502) {
-        logger.warn('AIAnalyzer', `[aiAnalyzer] Model ${currentModel} rate limited or unavailable (${status})`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        continue;
-      }
-
-      if (status === 400 || status === 401) {
-        throw error; // not a model problem — fail fast
-      }
-
-      // All other errors (timeouts, network, etc.) — apply standard delay between fallback attempts
-      if (attempt + 1 < maxAttempts) {
-        const nextModel = OPENROUTER_MODELS[attempt + 1];
-        logger.info('AIAnalyzer', `[Req ID: ${requestId}] 🕒 Retrying/Failover to model ${nextModel} (Attempt ${attempt + 2}/${maxAttempts}) in ${OPENROUTER.FALLBACK_DELAY_MS}ms...`);
-        await sleep(OPENROUTER.FALLBACK_DELAY_MS);
-      }
+      throw new Error('No AI provider keys configured.');
     }
   }
 
-  // All models exhausted — check if all were rate-limited
-  logger.error('AIAnalyzer', `[Req ID: ${requestId}] 🛑 Request pipeline terminated. Final result: Failure.`);
-  const allRateLimited = failureRecords.length > 0 && failureRecords.every(e => e.status === 429);
-  if (allRateLimited) {
-    const rateLimitErr = new Error('AI_RATE_LIMIT_EXHAUSTED');
-    rateLimitErr.code = 'AI_RATE_LIMIT_EXHAUSTED';
-    throw rateLimitErr;
+  // 3. Process, clean, sanitize, and validate the output
+  if (!resultString || resultString.trim().length === 0) {
+    throw new Error('Received empty response from AI provider.');
   }
 
-  const finalErr = new Error('Analysis could not be generated. Please try again.');
-  finalErr.code = 'AI_ANALYSIS_FAILED';
-  throw finalErr;
+  const cleaned = cleanJsonString(resultString);
+  const sanitised = cleaned.replace(/,\s*([}\]])/g, '$1');
+  const parsed = JSON.parse(sanitised);
+
+  if (!validatorFunc(parsed)) {
+    const schemaErr = new Error('AI response failed schema, required fields, or type validation.');
+    schemaErr.isSchemaFailure = true;
+    throw schemaErr;
+  }
+
+  return parsed;
 };
 
 const analyzeResumeText = async (text, targetRole, atsAnalysisContext) => {
-  const t_prompt_start = Date.now();
-  if (!apiKey) {
-    logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY is not configured. Returning mock analysis.');
+  if (!geminiKey && !openaiKey) {
+    logger.warn('AIAnalyzer', '⚠️ No API key configured. Returning mock analysis.');
     return getMockRoleBasedAts(targetRole);
   }
 
@@ -1286,9 +1410,7 @@ The JSON response must conform exactly to this schema:
     "achievements": "string (explanation for the achievements score, max 15 words)"
   }
 }`;
-  const t_prompt_finish = Date.now();
 
-  const t_serialization_start = Date.now();
   const jsonInput = {
     targetRole: targetRole || 'Software Engineer',
     resumeText: text,
@@ -1296,124 +1418,8 @@ The JSON response must conform exactly to this schema:
     calculatedBreakdownScores: (atsAnalysisContext && atsAnalysisContext.breakdown) || {}
   };
   
-  const payloadBase = {
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: JSON.stringify(jsonInput) }
-    ],
-    max_tokens: OPENROUTER.MAX_TOKENS,
-    temperature: OPENROUTER.TEMPERATURE,
-    top_p: OPENROUTER.TOP_P,
-    frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
-    presence_penalty: OPENROUTER.PRESENCE_PENALTY
-  };
-  const bodyBaseStr = JSON.stringify(payloadBase);
-  const t_serialization_finish = Date.now();
-
-  const t_dispatch_start = Date.now();
-  const headers = {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json',
-    'HTTP-Referer': env.CLIENT_URL,
-    'X-Title': 'Resumetrices'
-  };
-  const t_dispatch_finish = Date.now();
-
+  const userContent = JSON.stringify(jsonInput);
   const requestId = `res_${crypto.randomUUID()}`;
-
-  const fetchFunc = async (model, timeoutMs) => {
-    const payloadObject = JSON.parse(bodyBaseStr);
-    const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
-    payloadObject.models = [
-      model,
-      OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
-      OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
-    ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3);
-    payloadObject.route = "fallback";
-    const finalBodyStr = JSON.stringify(payloadObject);
-
-    // Calculate prompt size metrics
-    const charactersCount = systemPrompt.length + JSON.stringify(jsonInput).length;
-    const estimatedTokens = Math.ceil(charactersCount / 4);
-    const payloadKB = Math.ceil(Buffer.byteLength(finalBodyStr, 'utf8') / 1024);
-
-    // Log request size metrics EXACTLY as requested
-    logger.info('AIAnalyzer', `Request Size Metrics for ${model}:\n` +
-      `Characters:\n${charactersCount.toLocaleString()}\n\n` +
-      `Estimated Tokens:\n${estimatedTokens.toLocaleString()}\n\n` +
-      `JSON Payload:\n${payloadKB} KB`
-    );
-
-    const fetch_start_time = Date.now();
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const response = await fetch(OPENROUTER.URL, {
-        method: 'POST',
-        headers: headers,
-        body: finalBodyStr,
-        signal: controller.signal
-      });
-
-      const fetch_headers_time = Date.now();
-
-      if (!response.ok) {
-        const status = response.status;
-        let detailMessage = '';
-        let errorData = null;
-        try {
-          const body = await response.text();
-          detailMessage = body ? ` - ${body}` : '';
-          errorData = JSON.parse(body);
-        } catch (err) {}
-        
-        const error = new Error(`OpenRouter API responded with status ${status}${detailMessage}`);
-        error.response = {
-          status: status,
-          data: errorData
-        };
-        throw error;
-      }
-
-      const payload = await response.json();
-      const fetch_body_time = Date.now();
-
-      if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
-        throw new Error('Malformed completion response structure received from OpenRouter API.');
-      }
-
-      const t_final = Date.now();
-      const promptBuildDuration = t_prompt_finish - t_prompt_start;
-      const serializationDuration = t_serialization_finish - t_serialization_start;
-      const httpDispatchDuration = t_dispatch_finish - t_dispatch_start;
-      const waitingForAIDuration = fetch_headers_time - fetch_start_time;
-      const responseParsingDuration = (fetch_body_time - fetch_headers_time) + (t_final - fetch_body_time);
-      const totalDuration = t_final - t_prompt_start;
-
-      // Print request lifecycle timings EXACTLY in requested format
-      logger.info('AIAnalyzer', `Request Lifecycle Timings for ${model}:\n` +
-        `Prompt Build:\n${promptBuildDuration} ms\n\n` +
-        `Serialization:\n${serializationDuration} ms\n\n` +
-        `HTTP Dispatch:\n${httpDispatchDuration} ms\n\n` +
-        `Waiting for AI:\n${waitingForAIDuration} ms\n\n` +
-        `Response Parsing:\n${responseParsingDuration} ms\n\n` +
-        `Total:\n${totalDuration} ms`
-      );
-
-      if (payload.usage) {
-        logger.info('AIAnalyzer', `${model} completion usage metrics:`, {
-          promptTokens: payload.usage.prompt_tokens,
-          completionTokens: payload.usage.completion_tokens,
-          totalTokens: payload.usage.total_tokens
-        });
-      }
-
-      return payload.choices[0].message.content;
-    } finally {
-      clearTimeout(id);
-    }
-  };
 
   const validatorFunc = (parsed) => {
     if (!aiResponseValidator.validateAtsAnalysis(parsed)) return false;
@@ -1423,9 +1429,9 @@ The JSON response must conform exactly to this schema:
   };
 
   try {
-    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc, 25000, 20000);
+    return await executeNativeAI(requestId, systemPrompt, userContent, validatorFunc, RESUME_ANALYSIS_SCHEMA);
   } catch (error) {
-    if (apiKey) {
+    if (geminiKey || openaiKey) {
       throw error;
     }
     logger.warn('AIAnalyzer', `⚠️ API execution failed. Falling back to high-fidelity mock data for role "${targetRole}" to prevent pipeline crash. Error: ${error.message}`);
@@ -1454,8 +1460,8 @@ const validateSkillGapResult = (obj) => {
 const analyzeSkillGap = async (resumeText, targetRole, detectedSkills = []) => {
   const role = targetRole || 'Software Engineer';
 
-  if (!apiKey) {
-    logger.warn('AIAnalyzer', `⚠️ OPENROUTER_API_KEY is not configured. Returning mock skill gap results for "${role}".`);
+  if (!geminiKey && !openaiKey) {
+    logger.warn('AIAnalyzer', `⚠️ No API key configured. Returning mock skill gap results for "${role}".`);
     return getMockSkillGap(role, resumeText, detectedSkills);
   }
 
@@ -1493,50 +1499,6 @@ Do not include any preamble, introduction, markdown code block backticks (like \
 
   const requestId = `sg_${crypto.randomUUID()}`;
 
-  const fetchFunc = async (model, timeoutMs) => {
-    const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
-    const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': env.CLIENT_URL,
-        'X-Title': 'Resumetrices'
-      },
-      body: JSON.stringify({
-        models: [
-          model,
-          OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
-          OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
-        ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3),
-        route: "fallback",
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent }
-        ],
-        max_tokens: OPENROUTER.MAX_TOKENS,
-        temperature: OPENROUTER.TEMPERATURE,
-        top_p: OPENROUTER.TOP_P,
-        frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
-        presence_penalty: OPENROUTER.PRESENCE_PENALTY
-      })
-    }, timeoutMs);
-    
-    if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
-      throw new Error('Malformed completion response structure received from OpenRouter API.');
-    }
-    
-    if (payload.usage) {
-      logger.info('AIAnalyzer', `${model} completion usage metrics (Skill Gap):`, {
-        promptTokens: payload.usage.prompt_tokens,
-        completionTokens: payload.usage.completion_tokens,
-        totalTokens: payload.usage.total_tokens
-      });
-    }
-    
-    return payload.choices[0].message.content;
-  };
-
   const validatorFunc = (parsed) => {
     if (!aiResponseValidator.validateSkillGap(parsed)) return false;
     const validation = groundingValidator.validateSkillGap(parsed, resumeText, targetRole);
@@ -1545,9 +1507,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   };
 
   try {
-    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc, 20000, 20000);
+    return await executeNativeAI(requestId, systemPrompt, userContent, validatorFunc, SKILL_GAP_SCHEMA);
   } catch (error) {
-    if (apiKey) {
+    if (geminiKey || openaiKey) {
       throw error;
     }
     logger.warn('AIAnalyzer', `⚠️ Skill gap API execution failed. Falling back to high-fidelity mock data for role "${role}" to prevent pipeline crash. Error: ${error.message}`);
@@ -1572,11 +1534,80 @@ const validateInterviewQuestionsResult = (obj) => {
 };
 
 /**
+ * Generates structured technical, behavioral, and HR interview questions for a given target role using Gemini 3.5 Flash and strict JSON schema.
+ */
+const generateTechnicalQuestionsForRole = async (targetRole) => {
+  const systemPrompt = "Act as an expert cross-functional interviewer. Generate a targeted, comprehensive interview prep kit for a candidate pursuing the role of: " + targetRole + ". Provide exactly 3 highly technical architectural questions, 3 behavioral strategy questions, and 2 core HR/organizational cultural questions. Ensure the topics tie directly to the standard expectations of that precise title.";
+  const userContent = `Target Role: ${targetRole}`;
+  const requestId = `tq_${crypto.randomUUID()}`;
+
+  const schema = {
+    type: "object",
+    properties: {
+      technical: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            questionText: { type: "string" },
+            focusArea: { type: "string" }
+          },
+          required: ["id", "questionText", "focusArea"]
+        }
+      },
+      behavioral: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            questionText: { type: "string" },
+            focusArea: { type: "string" }
+          },
+          required: ["id", "questionText", "focusArea"]
+        }
+      },
+      hr: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "integer" },
+            questionText: { type: "string" },
+            focusArea: { type: "string" }
+          },
+          required: ["id", "questionText", "focusArea"]
+        }
+      }
+    },
+    required: ["technical", "behavioral", "hr"]
+  };
+
+  const validatorFunc = (parsed) => {
+    return parsed &&
+      Array.isArray(parsed.technical) && parsed.technical.length === 3 &&
+      Array.isArray(parsed.behavioral) && parsed.behavioral.length === 3 &&
+      Array.isArray(parsed.hr) && parsed.hr.length === 2;
+  };
+
+  // Enforce 120000ms timeout
+  const originalTimeout = NATIVE_AI.GEMINI_TIMEOUT_MS;
+  try {
+    NATIVE_AI.GEMINI_TIMEOUT_MS = 120000;
+    const result = await executeNativeAI(requestId, systemPrompt, userContent, validatorFunc, schema);
+    return result;
+  } finally {
+    NATIVE_AI.GEMINI_TIMEOUT_MS = originalTimeout;
+  }
+};
+
+/**
  * Generates customized technical, project-specific, behavioral, and HR interview questions based on resume content.
  */
 const generateInterviewQuestions = async (resumeText, atsAnalysis = null, detectedSkills = [], targetRole = 'Software Engineer', missingSkills = [], candidateProfile = null, difficultyMetadata = null) => {
-  if (!apiKey) {
-    logger.warn('AIAnalyzer', '⚠️ OPENROUTER_API_KEY is not configured. Returning mock interview questions.');
+  if (!geminiKey && !openaiKey) {
+    logger.warn('AIAnalyzer', '⚠️ No API key configured. Returning mock interview questions.');
     return getMockInterviewQuestions(targetRole, detectedSkills, missingSkills, resumeText);
   }
 
@@ -1650,50 +1681,6 @@ Do not include any preamble, introduction, markdown code block backticks (like \
     (difficultyMetadata ? `Adaptive Interview Guidelines: Classification=${difficultyMetadata.difficultyClassification}, Suggested Question Difficulty=${difficultyMetadata.questionDifficulty}, Depth Focus=${difficultyMetadata.focusArea}\n` : '') +
     `\nResume Text:\n\n${resumeText}`;
 
-  const fetchFunc = async (model, timeoutMs) => {
-    const modelIdx = OPENROUTER_MODELS.indexOf(model) !== -1 ? OPENROUTER_MODELS.indexOf(model) : 0;
-    const payload = await fetchJsonWithTimeout(OPENROUTER.URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': env.CLIENT_URL,
-        'X-Title': 'Resumetrices'
-      },
-      body: JSON.stringify({
-        models: [
-          model,
-          OPENROUTER_MODELS[(modelIdx + 1) % OPENROUTER_MODELS.length],
-          OPENROUTER_MODELS[(modelIdx + 2) % OPENROUTER_MODELS.length]
-        ].filter((val, idx, self) => self.indexOf(val) === idx).slice(0, 3),
-        route: "fallback",
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent }
-        ],
-        max_tokens: 1200, // Override global limit to prevent 25 questions truncation
-        temperature: OPENROUTER.TEMPERATURE,
-        top_p: OPENROUTER.TOP_P,
-        frequency_penalty: OPENROUTER.FREQUENCY_PENALTY,
-        presence_penalty: OPENROUTER.PRESENCE_PENALTY
-      })
-    }, timeoutMs);
-    
-    if (!payload.choices || payload.choices.length === 0 || !payload.choices[0].message) {
-      throw new Error('Malformed completion response structure received from OpenRouter API.');
-    }
-    
-    if (payload.usage) {
-      logger.info('AIAnalyzer', `${model} completion usage metrics (Interview Questions):`, {
-        promptTokens: payload.usage.prompt_tokens,
-        completionTokens: payload.usage.completion_tokens,
-        totalTokens: payload.usage.total_tokens
-      });
-    }
-    
-    return payload.choices[0].message.content;
-  };
-
   const validatorFunc = (parsed) => {
     if (!aiResponseValidator.validateInterviewQuestions(parsed)) return false;
     const validation = groundingValidator.validateInterviewQuestions(parsed, resumeText, targetRole);
@@ -1702,9 +1689,9 @@ Do not include any preamble, introduction, markdown code block backticks (like \
   };
 
   try {
-    return await executeWithRetry(requestId, OPENROUTER.MODEL_ID, fetchFunc, validatorFunc, 20000, 20000);
+    return await executeNativeAI(requestId, systemPrompt, userContent, validatorFunc, INTERVIEW_QUESTIONS_SCHEMA);
   } catch (error) {
-    if (apiKey) {
+    if (geminiKey || openaiKey) {
       throw error;
     }
     logger.warn('AIAnalyzer', `⚠️ Interview questions API execution failed. Falling back to high-fidelity mock data for role "${targetRole}" to prevent pipeline crash. Error: ${error.message}`);
@@ -1743,6 +1730,7 @@ module.exports = {
   analyzeResumeText,
   analyzeSkillGap,
   generateInterviewQuestions,
+  generateTechnicalQuestionsForRole,
   classifyDocument,
   extractProjectsFromText,
   getMockInterviewQuestions,

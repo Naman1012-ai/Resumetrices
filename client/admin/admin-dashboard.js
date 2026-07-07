@@ -207,6 +207,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 3.5. Decorate Consumer Hub links to preserve the admin navigation loop context
+  const mockParamVal = isMockMode ? 'mock=true' : '';
+  const urlSuffix = `?mode=admin-preview${mockParamVal ? '&' + mockParamVal : ''}`;
+  const dashboardLinks = document.querySelectorAll('a[href="../dashboard.html"]');
+  dashboardLinks.forEach(link => {
+    link.href = `../dashboard.html${urlSuffix}`;
+  });
+
   // 4. Report Run Audit Logs Controller — fetch, render, search, slide-out inspector
   let reportAuditData = []; // cache for filtering
 

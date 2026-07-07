@@ -173,6 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
       btnAnalyze.textContent = 'Analyzing Resume...';
       if (btnRemoveFile) btnRemoveFile.setAttribute('disabled', 'true');
 
+      // 10s timer for micro-copy transition
+      const microCopyTimer = setTimeout(() => {
+        btnAnalyze.textContent = "Analyzing deep structural patterns... parsing complex engineering matrices takes a brief moment.";
+      }, 10000);
+
       const formData = new FormData();
       formData.append('resume', selectedFile);
       formData.append('targetRole', selectedRole);
@@ -272,6 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnAnalyze.removeAttribute('disabled');
         btnAnalyze.textContent = 'Run Pipeline Analysis';
       } finally {
+        clearTimeout(microCopyTimer);
         if (btnRemoveFile) btnRemoveFile.removeAttribute('disabled');
       }
     });

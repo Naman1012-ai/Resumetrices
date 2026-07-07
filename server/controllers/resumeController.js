@@ -7,6 +7,7 @@
 const fs = require('fs');
 const firebaseService = require('../services/firebaseService');
 const resumeService = require('../services/resumeService');
+const aiAnalyzer = require('../services/aiAnalyzer');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
 
@@ -500,37 +501,33 @@ exports.analyzeSkillGap = async (req, res, next) => {
  */
 exports.generateInterviewQuestions = async (req, res, next) => {
   const startTime = Date.now();
-  logger.info('InterviewPrep', '🚀 Starting interview questions generation...');
-  const userId = req.user ? req.user.uid : 'anonymous';
-  if (userId === 'anonymous' && process.env.NODE_ENV !== 'development') {
-    const error = new Error('Access denied. Authentication required.');
-    error.statusCode = 401;
-    error.code = 'UNAUTHORIZED';
+  logger.info('InterviewPrep', '🚀 Starting technical questions generation...');
+  
+  const { targetRole } = req.body;
+  if (!targetRole || typeof targetRole !== 'string' || targetRole.trim().length === 0) {
+    const error = new Error('targetRole is required.');
+    error.statusCode = 400;
+    error.code = 'INVALID_INPUT';
     return next(error);
   }
-  
+
   try {
-    const result = await resumeService.processInterviewQuestions(userId, req.body);
+    const result = await aiAnalyzer.generateTechnicalQuestionsForRole(targetRole);
 
     const duration = Date.now() - startTime;
-    logger.info('InterviewPrep', `⏱️ Interview questions generation completed in ${duration}ms.`);
+    logger.info('InterviewPrep', `⏱️ Interview prep generation completed in ${duration}ms.`);
 
     return res.status(200).json({
       success: true,
       technical: result.technical,
-      projectBased: result.projectBased,
-      skillGap: result.skillGap,
-      domainKnowledge: result.domainKnowledge,
       behavioral: result.behavioral,
-      hrQuestions: result.hrQuestions,
-      gradingRubric: result.gradingRubric
+      hr: result.hr
     });
-    
   } catch (error) {
     if (error.message === 'AI_DAILY_LIMIT_EXHAUSTED') {
       return res.status(503).json({
         success: false,
-        userMessage: 'Daily analysis limit reached. Please try again after midnight UTC.'
+        userMessage: 'Daily analysis limit reached. Please try again later.'
       });
     }
     logger.error('InterviewPrep', `Unexpected Interview Questions Error: ${error.message}`);

@@ -1,7 +1,7 @@
 /**
  * @file errorHandler.js
  * @description Centralized Express error-handling middleware.
- * Sanitizes stack traces in production, handles Multer, Firebase, and OpenRouter errors,
+ * Sanitizes stack traces in production, handles Multer, Firebase, and native AI integration errors,
  * and ensures consistent JSON response formatting.
  */
 

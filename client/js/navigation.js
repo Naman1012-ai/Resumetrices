@@ -6,6 +6,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const activeId = urlParams.get('id') || sessionStorage.getItem('activeAnalysisId');
   const mockParam = urlParams.get('mock') === 'true' ? 'mock=true' : '';
+  
+  const mode = urlParams.get('mode');
+  const isAdminPreview = (mode === 'admin-preview') || (sessionStorage.getItem('admin_preview_active') === 'true');
+  if (mode === 'admin-preview') {
+    sessionStorage.setItem('admin_preview_active', 'true');
+  }
+
+  if (isAdminPreview) {
+    const adminBanner = document.createElement('div');
+    adminBanner.id = 'admin-preview-header-bar';
+    adminBanner.style.cssText = 'background: #090d16; border-bottom: 1px solid var(--border-color); padding: 0.65rem 1.5rem; display: flex; align-items: center; justify-content: space-between; z-index: 9999; position: relative; width: 100%;';
+    adminBanner.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--amber, #f59e0b);"></span>
+        <span style="font-size: 0.75rem; font-weight: 700; color: var(--amber, #f59e0b); text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Outfit', sans-serif;">Admin Portal Preview</span>
+      </div>
+      <a href="admin/dashboard.html${mockParam ? '?' + mockParam : ''}" id="admin-preview-back-link" style="font-size: 0.85rem; font-weight: 700; color: var(--text-main, #ffffff); text-decoration: none; font-family: 'Outfit', sans-serif; transition: opacity 0.15s; cursor: pointer;">
+        ← Back to Admin Dashboard
+      </a>
+    `;
+    const backLink = adminBanner.querySelector('#admin-preview-back-link');
+    if (backLink) {
+      backLink.addEventListener('click', () => {
+        sessionStorage.removeItem('admin_preview_active');
+      });
+    }
+    document.body.prepend(adminBanner);
+  }
 
   if (urlParams.get('id')) {
     sessionStorage.setItem('activeAnalysisId', urlParams.get('id'));
@@ -15,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = [];
     if (includeId && activeId) params.push(`id=${activeId}`);
     if (mockParam) params.push(mockParam);
+    if (isAdminPreview) params.push('mode=admin-preview');
     const queryString = params.length > 0 ? '?' + params.join('&') : '';
     return basePage + queryString;
   }

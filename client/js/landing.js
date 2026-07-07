@@ -33,6 +33,22 @@ document.addEventListener('DOMContentLoaded', () => {
   getRedirectResult(auth).then(async (result) => {
     if (result && result.user) {
       const user = result.user;
+      sessionStorage.setItem('oauth_in_progress', 'true');
+
+      // Clear any stale historical routing contexts
+      sessionStorage.removeItem('redirectTo');
+      localStorage.removeItem('redirectTo');
+
+      // Fully await token settlement to fix the callback handler race condition
+      try {
+        const idToken = await user.getIdToken(true);
+        localStorage.setItem('auth_token', idToken);
+        sessionStorage.setItem('auth_token', idToken);
+        sessionStorage.setItem('user_uid', user.uid);
+      } catch (tokenErr) {
+        console.error('Failed to settle session tokens:', tokenErr);
+      }
+
       try {
         const userRef = ref(db, `users/${user.uid}`);
         const snapshot = await get(userRef);
@@ -62,11 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.removeItem('pendingReportAction');
         sessionStorage.removeItem('pendingGuestReport');
         await handleAuthSessionBridge(user);
+        sessionStorage.removeItem('oauth_in_progress');
         return;
       }
       
-      redirectUser();
+      await handleAuthSessionBridge(user);
+      sessionStorage.removeItem('oauth_in_progress');
     } else {
+      sessionStorage.removeItem('oauth_in_progress');
       isRedirectProcessing = false;
       if (auth.currentUser) {
         const pendingReportAction = sessionStorage.getItem('pendingReportAction');
@@ -91,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }).catch((error) => {
+    sessionStorage.removeItem('oauth_in_progress');
     isRedirectProcessing = false;
     console.error("OAuth Error Context:", error);
     showToast(`Google Sign-In Error: ${error.code} - ${error.message}`, 'error');
@@ -675,6 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.setItem('pendingReportAction', 'true');
             sessionStorage.setItem('pendingGuestReport', JSON.stringify(window.appState.activeAnalysis));
           }
+          sessionStorage.setItem('oauth_in_progress', 'true');
           await signInWithRedirect(auth, googleProvider);
           return; // Redirect will handle the rest
         }
@@ -743,9 +764,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const mockParam = isMockMode ? '&mock=true' : '';
     
     if (analysisId) {
-      window.location.href = `analysis.html?id=${analysisId}${mockParam}`;
+      window.location.href = `/analysis.html?id=${analysisId}${mockParam}`;
     } else {
-      window.location.href = `dashboard.html?${mockParam.slice(1)}`;
+      window.location.href = `/dashboard.html?${mockParam.slice(1)}`;
     }
   }
 

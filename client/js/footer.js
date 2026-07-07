@@ -18,6 +18,10 @@ function getLinkUrl(basePage, includeId = false) {
   const params = [];
   if (includeId && activeId) params.push(`id=${activeId}`);
   if (mockParam) params.push(mockParam);
+  
+  const isAdminPreview = (urlParams.get('mode') === 'admin-preview') || (sessionStorage.getItem('admin_preview_active') === 'true');
+  if (isAdminPreview) params.push('mode=admin-preview');
+
   const queryString = params.length > 0 ? '?' + params.join('&') : '';
   return prefix + basePage + queryString;
 }

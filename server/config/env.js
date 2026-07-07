@@ -11,8 +11,11 @@ const isTest = nodeEnv === 'test' || nodeEnv === 'testing';
 // Validate critical variables in production
 if (!isDev && !isTest) {
   const missingVars = [];
-  if (!process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY.trim().length === 0) {
-    missingVars.push('OPENROUTER_API_KEY');
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.trim().length === 0) {
+    missingVars.push('GEMINI_API_KEY');
+  }
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim().length === 0) {
+    missingVars.push('OPENAI_API_KEY');
   }
   if (!process.env.FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID.trim().length === 0) {
     missingVars.push('FIREBASE_PROJECT_ID');
@@ -63,7 +66,8 @@ const config = {
   IS_TEST: isTest,
   PORT: port,
   CLIENT_URL: clientUrl,
-  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
   
   FIREBASE: {
     PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
@@ -76,12 +80,8 @@ const config = {
   ALLOW_MOCK_AUTH: process.env.ALLOW_MOCK_AUTH === 'true',
   VITE_ADMIN_EMAIL: process.env.VITE_ADMIN_EMAIL || 'admin@resumetrices.com',
   
-  
   AI: {
-    MODEL_ID: process.env.AI_MODEL || process.env.OPENROUTER_MODEL_ID || 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    FALLBACK_MODEL_ID: process.env.OPENROUTER_FALLBACK_MODEL_ID || 'openrouter/free',
-    REQUEST_TIMEOUT_MS: requestTimeoutMs,
-    MAX_AI_RETRIES: parseInt(process.env.MAX_AI_RETRIES, 10) || 1
+    REQUEST_TIMEOUT_MS: requestTimeoutMs
   },
   
   UPLOAD: {

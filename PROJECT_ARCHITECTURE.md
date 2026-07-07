@@ -13,7 +13,7 @@ The application uses a decoupled client-server architecture:
 *   **Frontend**: A Single Page Application (SPA) style interface built with semantic HTML5, custom vanilla CSS3 components, and vanilla ES6 JavaScript. It communicates with the backend via REST APIs and interfaces directly with Firebase client SDKs for authentication and auth state propagation.
 *   **Backend**: An Express.js REST API server built on Node.js. It manages file parsing, contains the deterministic ATS scoring engine, manages AI analysis prompt generation and API failovers, validates evidence grounding, and exposes secure admin controls.
 *   **Database**: Firebase Realtime Database (RTDB) utilized in a denormalized, flat structure to achieve low-latency document reads and writes.
-*   **AI Integration**: OpenRouter API integration featuring fallback model pipelines, dynamic retries, token limit safeguards, and verbatim grounding validators.
+*   **AI Integration**: Google Gemini and OpenAI API integration featuring fallback model pipelines, dynamic retries, token limit safeguards, and verbatim grounding validators.
 *   **Authentication**: Firebase Authentication manages user login, registration, password resets, and session validation. Custom middlewares inspect verified Firebase ID tokens on the server.
 
 ```mermaid
@@ -21,7 +21,7 @@ graph TD
     Client[Client Browser: HTML/CSS/JS] <-->|HTTPS / REST API| Server[Node.js / Express Server]
     Client <-->|Firebase SDK / Web WebSockets| Firebase[Firebase Auth & Realtime DB]
     Server <-->|Firebase Admin SDK| Firebase
-    Server <-->|HTTPS / REST API| OpenRouter[OpenRouter AI Provider]
+    Server <-->|HTTPS / REST SDK| NativeAI[Google Gemini / OpenAI]
 ```
 
 ### Technologies Used
@@ -31,7 +31,7 @@ graph TD
 | **Backend** | Node.js, Express.js | Multer, pdf-parse, Helmet, CORS |
 | **Database** | Firebase Realtime Database | firebase-admin/database |
 | **Authentication** | Firebase Auth | firebase-admin/auth |
-| **AI Processing** | LLM Pipelines | OpenRouter API (Gemini, LLaMA, Qwen, Mistral) |
+| **AI Processing** | LLM Pipelines | Native SDKs (Google Gemini & OpenAI GPT) |
 | **Testing** | Node.js Unit Testing | custom mock scripts, Assert |
 
 ---
@@ -113,7 +113,7 @@ c:/CODING/Resume Analyser-2/
 │   │   ├── adminRoutes.js      # Administrative API Endpoints
 │   │   └── resumeRoutes.js     # General User API Endpoints
 │   ├── services/               # Core Logic Services
-│   │   ├── aiAnalyzer.js       # OpenRouter Prompt Dispatch & Failover Loop
+│   │   ├── aiAnalyzer.js       # Native AI Prompt Dispatch & Failover Loop
 │   │   ├── aiResponseValidator.js # JSON Structural Integrity Validator
 │   │   ├── atsScorer.js        # Deterministic Score Engine & Stage Safeguards
 │   │   ├── candidateProfiler.js# Career Stage & Complexity Inference Engine
@@ -166,7 +166,7 @@ c:/CODING/Resume Analyser-2/
 #### [server/config/constants.js](file:///c:/CODING/Resume%20Analyser-2/server/config/constants.js)
 *   **Purpose**: Centralized storage of static constants, score weights, timeouts, and rate limits.
 *   **Imports**: `config/env`.
-*   **Exports**: Static configuration maps (`SCORE_WEIGHTS`, `UPLOAD`, `BODY_LIMITS`, `RATE_LIMITS`, `OPENROUTER`, `SERVER`).
+*   **Exports**: Static configuration maps (`SCORE_WEIGHTS`, `UPLOAD`, `BODY_LIMITS`, `RATE_LIMITS`, `NATIVE_AI`, `SERVER`).
 *   **Type**: Backend | **Critical**: YES | **Safe to Modify**: YES (safe modification guide).
 *   **Complexity**: Low.
 
@@ -262,7 +262,7 @@ c:/CODING/Resume Analyser-2/
 *   **Complexity**: High.
 
 #### [server/services/aiAnalyzer.js](file:///c:/CODING/Resume%20Analyser-2/server/services/aiAnalyzer.js)
-*   **Purpose**: Integrates OpenRouter models with fallbacks, retries, and prompt construction.
+*   **Purpose**: Integrates Google Gemini and OpenAI models with fallbacks, retries, and prompt construction.
 *   **Imports**: `config/env`, `utils/logger`, `config/constants`, `crypto`, `services/aiResponseValidator`, `services/groundingValidator`.
 *   **Exports**: `analyzeResumeText`, `analyzeSkillGap`, `generateInterviewQuestions`, `extractProjectsFromText`.
 *   **Type**: Backend | **Critical**: YES | **Safe to Modify**: DO NOT MODIFY.
@@ -656,7 +656,7 @@ The AI analysis pipeline executes in a strict, sequential series of operations:
   ↓ 
 [difficultyEngine.generateDifficultyMetadata] (classification styles)
   ↓ 
-[aiAnalyzer.analyzeResumeText] (OpenRouter API loop)
+[aiAnalyzer.analyzeResumeText] (Native AI API loop)
   ↓ 
 [aiResponseValidator] (JSON schema integrity check)
   ↓ 
@@ -675,7 +675,7 @@ The AI analysis pipeline executes in a strict, sequential series of operations:
 3.  `scoreResume` ([atsScorer.js](file:///c:/CODING/Resume%20Analyser-2/server/services/atsScorer.js)): Performs the static category scoring.
 4.  `buildCandidateProfile` ([candidateProfiler.js](file:///c:/CODING/Resume%20Analyser-2/server/services/candidateProfiler.js)): Infers experience and technical levels.
 5.  `generateDifficultyMetadata` ([difficultyEngine.js](file:///c:/CODING/Resume%20Analyser-2/server/services/difficultyEngine.js)): Determines adaptive interview styles.
-6.  `analyzeResumeText` ([aiAnalyzer.js](file:///c:/CODING/Resume%20Analyser-2/server/services/aiAnalyzer.js)): Calls the OpenRouter LLM API.
+6.  `analyzeResumeText` ([aiAnalyzer.js](file:///c:/CODING/Resume%20Analyser-2/server/services/aiAnalyzer.js)): Calls the Google Gemini or OpenAI LLM API.
 7.  `validateAtsAnalysis` ([groundingValidator.js](file:///c:/CODING/Resume%20Analyser-2/server/services/groundingValidator.js)): Validates and grounds the strengths and weaknesses.
 8.  `validateConsolidatedRecord` ([aiResponseValidator.js](file:///c:/CODING/Resume%20Analyser-2/server/services/aiResponseValidator.js)): Validates the integrity of the final consolidated record.
 9.  `saveAnalysis` ([firebaseService.js](file:///c:/CODING/Resume%20Analyser-2/server/services/firebaseService.js)): Saves the results to Firebase.
@@ -892,7 +892,7 @@ sequenceDiagram
     actor User as Candidate Browser
     participant Express as Express Server
     participant Scorer as ATS Scorer Service
-    participant OpenRouter as OpenRouter AI
+    participant NativeAI as Google Gemini / OpenAI
     participant Firebase as Firebase DB
     
     User->>Express: POST /api/upload (Token & PDF File)
@@ -900,8 +900,8 @@ sequenceDiagram
     Express->>Express: Parse PDF buffer to text
     Express->>Scorer: scoreResume(text, targetRole)
     Scorer-->>Express: Return Score, Categories, Matches, & stage
-    Express->>OpenRouter: Post Payload (System Prompt & Resume Text)
-    OpenRouter-->>Express: Return Completion (JSON analysis results)
+    Express->>NativeAI: Post Payload (System Prompt & Resume Text)
+    NativeAI-->>Express: Return Completion (JSON analysis results)
     Express->>Express: safeJsonParse & Validate schema
     Express->>Express: Validate evidence grounding
     Express->>Firebase: Write to analyses/{id} & users/{uid}/analyses/{id}
@@ -949,14 +949,15 @@ graph TD
 *   `FIREBASE_DATABASE_URL`: Realtime Database URL.
 *   `FIREBASE_CLIENT_EMAIL`: Service account email.
 *   `FIREBASE_PRIVATE_KEY`: Service account private key.
-*   `OPENROUTER_API_KEY`: OpenRouter API key.
+*   `GEMINI_API_KEY`: Google Gemini API key.
+*   `OPENAI_API_KEY`: OpenAI API key.
 *   `VITE_ADMIN_EMAIL`: Email address of the admin user.
 
 ### Constants Config (`constants.js`)
 *   `SCORE_WEIGHTS`: Base weights for the 8 scoring categories.
 *   `UPLOAD.MAX_FILE_SIZE`: Maximum file size limit (5MB).
 *   `RATE_LIMITS`: Windows and limits for uploads and general API routes.
-*   `OPENROUTER`: Endpoint URL, default models list, temperature, and timeouts.
+*   `NATIVE_AI`: Google Gemini and OpenAI model names and request timeouts.
 
 ---
 
@@ -999,7 +1000,7 @@ The frontend is served from `/client` and uses the following static assets:
 | **`server.js`** | Startup bootstrapper | **High**: Server won't start; graceful shutdown breaks. | `app.js`, `firebaseService` | Critical |
 | **`app.js`** | Middleware configurations | **High**: CORS blocks requests; Helmet security breaks. | `resumeRoutes`, `adminRoutes` | Critical |
 | **`atsScorer.js`** | Deterministic score engine | **Very High**: ATS score calculations will break. | `rolesConfig`, `constants` | Critical |
-| **`aiAnalyzer.js`** | OpenRouter integration | **Very High**: Prompts and failover loops will break. | `aiResponseValidator` | Critical |
+| **`aiAnalyzer.js`** | Native AI integration | **Very High**: Prompts and failover loops will break. | `aiResponseValidator` | Critical |
 | **`resumeService.js`** | Analysis orchestrator | **Very High**: Main analysis pipeline will fail. | All service sub-modules | Critical |
 | **`firebaseService.js`**| Database connections | **Very High**: DB reads and writes will fail. | `firebase-admin` | Critical |
 | **`safeJsonParse.js`** | Malformed JSON recovery | **High**: Malformed LLM responses will crash server. | None | High |
@@ -1070,7 +1071,7 @@ The frontend is served from `/client` and uses the following static assets:
 ### Glossary
 *   **ATS**: Applicant Tracking System.
 *   **Grounding**: The process of validating AI-generated claims against verbatim text in the source document.
-*   **OpenRouter**: A unified API gateway to access multiple LLM models.
+*   **Google Gemini & OpenAI**: Direct, native AI integration targeting free-tier models.
 *   **RTDB**: Realtime Database (Firebase).
 *   **YoE**: Years of Experience.
 
