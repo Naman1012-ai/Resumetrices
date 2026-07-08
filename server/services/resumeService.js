@@ -188,6 +188,8 @@ async function processResumeAnalysis(userId, file, targetRole, onProgress) {
     atsScore: scoreAnalysis.overallScore,
     breakdown: scoreAnalysis.breakdown,
     weights: scoreAnalysis.weights,
+    isMismatched: scoreAnalysis.isMismatched,
+    compatibilityLabel: scoreAnalysis.compatibilityLabel,
     justifications: scoreAnalysis.justifications,
     explanations: aiAnalysis.categoryExplanations || {},
     strengths: aiAnalysis.strengths,

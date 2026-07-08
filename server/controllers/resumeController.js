@@ -58,6 +58,8 @@ exports.analyzeResume = async (req, res, next) => {
       targetRole: targetRole,
       score: record.score,
       breakdown: record.breakdown,
+      weights: record.weights,
+      isMismatched: record.isMismatched,
       explanations: record.explanations,
       strengths: record.strengths,
       weaknesses: record.weaknesses,
@@ -157,6 +159,8 @@ exports.analyzePublicResume = async (req, res, next) => {
       targetRole: targetRole,
       score: record.score,
       breakdown: record.breakdown,
+      weights: record.weights,
+      isMismatched: record.isMismatched,
       explanations: record.explanations,
       strengths: record.strengths,
       weaknesses: record.weaknesses,
@@ -282,6 +286,8 @@ exports.analyzeResumeStream = async (req, res, next) => {
       targetRole: targetRole,
       score: record.score,
       breakdown: record.breakdown,
+      weights: record.weights,
+      isMismatched: record.isMismatched,
       explanations: record.explanations,
       strengths: record.strengths,
       weaknesses: record.weaknesses,
@@ -817,28 +823,30 @@ exports.claimAnalysis = async (req, res, next) => {
       return next(error);
     }
 
-    // Write the full analysis to the user's analyses collection
-    const newAnalysisId = `analysis_${crypto.randomUUID()}`;
+    // Write the full analysis to the user's analyses collection using the original sessionId as analysisId
+    const claimedAnalysisId = sessionId;
     const rawAnalysisData = anonRecord.analysisData;
     
     // Set user ownership on payload
     rawAnalysisData.userId = userId;
-    rawAnalysisData.analysisId = newAnalysisId;
-    if (rawAnalysisData.createdAt) {
-      rawAnalysisData.createdAt = new Date().toISOString();
+    rawAnalysisData.analysisId = claimedAnalysisId;
+    
+    // Explicitly preserve the original createdAt timestamp
+    if (rawAnalysisData && !rawAnalysisData.createdAt) {
+      rawAnalysisData.createdAt = anonRecord.createdAt || new Date().toISOString();
     }
 
-    await firebaseService.saveAnalysis(newAnalysisId, rawAnalysisData);
+    await firebaseService.saveAnalysis(claimedAnalysisId, rawAnalysisData);
 
     // Delete the anonymous temp entry
     await firebaseService.deleteAnonymousAnalysis(sessionId);
 
-    logger.info('ClaimAnalysis', `✅ Claim successful. Session ${sessionId} migrated to analysis record ${newAnalysisId} for User ${userId}.`);
+    logger.info('ClaimAnalysis', `✅ Claim successful. Session ${sessionId} migrated/saved to analyses path for User ${userId}.`);
 
     return res.status(200).json({
       success: true,
       message: 'Analysis claimed successfully.',
-      analysisId: newAnalysisId
+      analysisId: claimedAnalysisId
     });
   } catch (error) {
     next(error);

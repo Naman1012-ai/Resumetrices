@@ -43,6 +43,29 @@ const getKeywordRegex = (keyword) => {
   return new RegExp(startBoundary + escaped + endBoundary, 'i');
 };
 
+/**
+ * Reusable, null-safe clamping helper function to guarantee
+ * all calculated metrics stay strictly within their intended ranges.
+ */
+const clamp = (value, min, max) => {
+  if (value === null || value === undefined || isNaN(value)) return min;
+  return Math.max(min, Math.min(max, Number(value)));
+};
+
+/**
+ * Normalizes skill inputs. Supports both string primitives and key-value objects.
+ */
+const normalizeSkill = (s) => {
+  if (!s) return null;
+  if (typeof s === 'string') {
+    return { name: s, weight: 1 };
+  }
+  if (typeof s === 'object' && s.name) {
+    return { name: s.name, weight: s.weight !== undefined ? Number(s.weight) : 1 };
+  }
+  return null;
+};
+
 // Comprehensive Semantic Skill Mapping Matrix
 const semanticSkillMap = {
   // Database & Storage
@@ -192,46 +215,19 @@ const checkArchitecturalComplexity = (skill, text) => {
  * @returns {object}
  */
 const getDynamicWeights = (roleName) => {
-  const isTech = /software|developer|engineer|devops|cloud|qa|full\s*stack|backend|frontend|mobile|ai|ml/i.test(roleName);
-  const isMgmt = /manager|lead|director|product|pm/i.test(roleName);
-
-  if (isTech) {
-    // Technical/Engineering Roles: Allocate 50% entirely to 'Skills' and 'Projects'
-    return {
-      contact: 5,
-      formatting: 5,
-      skills: 25,
-      projects: 25,
-      experience: 20,
-      education: 10,
-      keywords: 10,
-      achievements: 5
-    };
-  } else if (isMgmt) {
-    // Management/Leadership Roles: Heavy weights to Experience, Leadership Scope, and Impact Metrics
-    return {
-      contact: 5,
-      formatting: 5,
-      skills: 10,
-      projects: 10,
-      experience: 35,
-      education: 10,
-      keywords: 15,
-      achievements: 10
-    };
-  } else {
-    // Default balanced weights (Other/General)
-    return {
-      contact: 10,
-      formatting: 10,
-      skills: 20,
-      projects: 15,
-      experience: 20,
-      education: 10,
-      keywords: 10,
-      achievements: 5
-    };
-  }
+  // Enforce a strict, context-aware, role-dependent scoring weight system
+  // where "Skills & Match Quality" acts as the true gatekeeper (40% weight).
+  // "Experience & Impact Metrics" are reduced to 10%, and "Projects & Core Stack" is 15%.
+  return {
+    contact: 5,
+    formatting: 5,
+    skills: 40,
+    projects: 15,
+    experience: 10,
+    education: 10,
+    keywords: 10,
+    achievements: 5
+  };
 };
 
 /**
@@ -291,6 +287,37 @@ const parseExperienceEntries = (text) => {
 };
 
 /**
+ * Resolves Core Anchor Keywords required for the selected targetRole.
+ * If a resume matches ZERO core anchor keywords, it triggers a mismatched role penalty.
+ * @param {string} resolvedRole
+ * @returns {string[]}
+ */
+const getCoreAnchors = (resolvedRole) => {
+  const anchors = {
+    'Mobile Developer': ['react native', 'flutter', 'swift', 'kotlin', 'android sdk', 'ios sdk', 'objective-c', 'mobile app', 'xcode', 'android studio'],
+    'Backend Developer': ['node.js', 'express', 'django', 'flask', 'fastapi', 'spring', 'nestjs', 'postgresql', 'mongodb', 'redis', 'apis', 'rest api', 'graphql'],
+    'Frontend Developer': ['react', 'angular', 'vue', 'svelte', 'typescript', 'javascript', 'html', 'css', 'tailwind', 'next.js'],
+    'Full Stack Developer': ['react', 'vue', 'angular', 'node.js', 'django', 'flask', 'express', 'sql', 'postgresql', 'mongodb', 'typescript', 'javascript'],
+    'AI/ML Engineer': ['python', 'pytorch', 'tensorflow', 'scikit-learn', 'machine learning', 'deep learning', 'llm', 'nlp', 'computer vision', 'neural networks'],
+    'Data Scientist': ['python', 'r', 'pandas', 'numpy', 'sql', 'machine learning', 'statistics', 'data science'],
+    'Data Analyst': ['sql', 'excel', 'tableau', 'power bi', 'python', 'pandas', 'data visualization', 'analytics'],
+    'DevOps Engineer': ['docker', 'kubernetes', 'ci/cd', 'terraform', 'ansible', 'jenkins', 'linux', 'aws', 'gcp', 'infrastructure'],
+    'Cloud Engineer': ['aws', 'azure', 'gcp', 'terraform', 'cloud infrastructure', 'serverless', 'iam', 's3', 'ec2'],
+    'Cybersecurity Analyst': ['security', 'cryptography', 'siem', 'firewalls', 'vulnerability', 'owasp', 'penetration testing', 'cybersecurity'],
+    'QA Engineer': ['selenium', 'cypress', 'playwright', 'jest', 'pytest', 'junit', 'testing', 'qa', 'automation testing'],
+    'Product Manager': ['product strategy', 'roadmap', 'user research', 'agile', 'scrum', 'product lifecycle', 'prd', 'product management'],
+    'UI/UX Designer': ['figma', 'wireframing', 'prototyping', 'user research', 'ui design', 'ux design', 'design systems', 'sketch', 'adobe xd']
+  };
+  const list = anchors[resolvedRole];
+  if (list) return list;
+  
+  // Dynamic fallback using the role config essential list
+  const role = rolesConfig[resolvedRole] || rolesConfig['Other'];
+  const essential = role.essential || [];
+  return essential.slice(0, 5).map(s => typeof s === 'string' ? s.toLowerCase() : (s && s.name ? s.name.toLowerCase() : ''));
+};
+
+/**
  * Scores a resume based on realistic ATS evaluation criteria with 8 required categories.
  * @param {string} text - Raw resume text content.
  * @param {string} targetRole - Target role.
@@ -320,7 +347,10 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   const role = rolesConfig[resolvedRole] || rolesConfig['Other'];
   const essentialSkills = role.essential || [];
   const recommendedSkills = role.recommended || [];
-  const roleSkills = [...essentialSkills, ...recommendedSkills];
+  const essentialSkillsStrings = essentialSkills.map(s => typeof s === 'string' ? s : (s && s.name) || '');
+  const recommendedSkillsStrings = recommendedSkills.map(s => typeof s === 'string' ? s : (s && s.name) || '');
+  const roleSkillsStrings = [...essentialSkillsStrings, ...recommendedSkillsStrings];
+  const anchors = getCoreAnchors(resolvedRole);
 
   // Dynamic role-agnostic property fallbacks
   const experienceTitles = role.experienceTitles || [
@@ -404,7 +434,14 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     projects: ['projects', 'personal projects', 'academic projects', 'portfolio', 'selected projects', 'technical projects'],
     skills: ['skills', 'technical skills', 'technologies', 'core competencies', 'skills & technologies', 'professional skills', 'skills & tools', 'tools'],
     education: ['education', 'academic background', 'academic history', 'educational background', 'education history'],
-    achievements: ['achievements', 'awards', 'accomplishments', 'certifications', 'honors', 'leadership']
+    achievements: [
+      'achievements', 'awards', 'accomplishments', 'certifications', 'honors', 'leadership',
+      'licenses', 'credentials', 'key achievements', 'leadership history',
+      'certifications & licenses', 'certifications and licenses', 'awards & achievements',
+      'awards and achievements', 'achievements & certifications', 'achievements and certifications',
+      'achievements & awards', 'achievements and awards', 'leadership & activities',
+      'leadership and activities', 'leadership credentials', 'honors & awards', 'honors and awards'
+    ]
   };
 
   const sections = {
@@ -428,7 +465,11 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
 
     let foundHeader = false;
     for (const [key, synonyms] of Object.entries(sectionMapping)) {
-      if (synonyms.some(syn => {
+      // General regex fallback for achievements/credentials and key achievements
+      const isAchievementsMatch = key === 'achievements' && 
+        /^\s*(?:[^a-zA-Z0-9]*\s*)?(?:key\s+)?(?:achievements?|awards?|accomplishments?|certifications?|licenses?|credentials?|honors?|leadership(?:\s+history)?|activities)(?:\s*(?:&|and|or|,)\s*(?:achievements?|awards?|accomplishments?|certifications?|licenses?|credentials?|honors?|leadership|activities))*\s*[^a-zA-Z0-9]*$/i.test(trimmed);
+
+      if (isAchievementsMatch || synonyms.some(syn => {
         const escaped = syn.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
         const regex = new RegExp(`^\\s*(?:[^a-zA-Z0-9]*\\s*)?${escaped}(?:\\s*[^a-zA-Z0-9]*)?\\s*$`, 'i');
         return regex.test(trimmed);
@@ -486,7 +527,7 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   if (hasLocation) contactScore += 2.5; else contactDeductions.push('Location details');
   if (hasLink) contactScore += 2.5; else contactDeductions.push('LinkedIn, GitHub, or Portfolio profile link');
 
-  const rawContactScore = Math.min(10, Math.round(contactScore * 2) / 2);
+  const rawContactScore = clamp(Math.round(contactScore * 2) / 2, 0, 10);
 
   if (rawContactScore === 10) {
     strengths.push('Complete contact info and professional links (Email, Phone, Location, and Profile/Portfolio links) are present.');
@@ -510,7 +551,7 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   if (hasBullets) formattingScore += 1;
   if (hasDates) formattingScore += 1;
 
-  const rawFormattingScore = formattingScore;
+  const rawFormattingScore = clamp(formattingScore, 0, 10);
 
   if (rawFormattingScore === 10) {
     strengths.push('Excellent resume layout with a summary, standard headings, clear timeline ranges, and bulleted layout.');
@@ -524,38 +565,60 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   const matchedSkillsList = [];
   const missingSkillsFromEssential = [];
 
-  essentialSkills.forEach(skill => {
-    if (hasSemanticSkillMatch(skill, normalizedText)) {
+  let totalEssentialWeight = 0;
+  let matchedEssentialWeight = 0;
+
+  essentialSkills.forEach(rawSkill => {
+    const skillObj = normalizeSkill(rawSkill);
+    if (!skillObj) return;
+    const skillName = skillObj.name;
+    const skillWeight = skillObj.weight;
+
+    totalEssentialWeight += skillWeight;
+
+    if (hasSemanticSkillMatch(skillName, normalizedText)) {
       essentialMatchedCount++;
-      matchedSkillsList.push(skill);
-    } else if (checkArchitecturalComplexity(skill, normalizedText)) {
+      matchedEssentialWeight += skillWeight;
+      matchedSkillsList.push(skillName);
+    } else if (checkArchitecturalComplexity(skillName, normalizedText)) {
       essentialMatchedCount += 0.85; // Semantic Complexity Credit
-      matchedSkillsList.push(skill + " (Evidence-based Match)");
+      matchedEssentialWeight += skillWeight * 0.85;
+      matchedSkillsList.push(skillName + " (Evidence-based Match)");
     } else {
-      missingSkillsFromEssential.push(skill);
+      missingSkillsFromEssential.push(skillName);
     }
   });
 
-  recommendedSkills.forEach(skill => {
-    if (hasSemanticSkillMatch(skill, normalizedText)) {
+  let totalRecommendedWeight = 0;
+  let matchedRecommendedWeight = 0;
+
+  recommendedSkills.forEach(rawSkill => {
+    const skillObj = normalizeSkill(rawSkill);
+    if (!skillObj) return;
+    const skillName = skillObj.name;
+    const skillWeight = skillObj.weight;
+
+    totalRecommendedWeight += skillWeight;
+
+    if (hasSemanticSkillMatch(skillName, normalizedText)) {
       recommendedMatchedCount++;
-      matchedSkillsList.push(skill);
-    } else if (checkArchitecturalComplexity(skill, normalizedText)) {
+      matchedRecommendedWeight += skillWeight;
+      matchedSkillsList.push(skillName);
+    } else if (checkArchitecturalComplexity(skillName, normalizedText)) {
       recommendedMatchedCount += 0.85; // Semantic Complexity Credit
-      matchedSkillsList.push(skill + " (Evidence-based Match)");
+      matchedRecommendedWeight += skillWeight * 0.85;
+      matchedSkillsList.push(skillName + " (Evidence-based Match)");
     }
   });
 
-  let skillsScoreEssential = 0;
-  if (essentialMatchedCount >= 4) skillsScoreEssential = 12;
-  else if (essentialMatchedCount >= 3) skillsScoreEssential = 10;
-  else if (essentialMatchedCount >= 2) skillsScoreEssential = 7;
-  else if (essentialMatchedCount >= 1) skillsScoreEssential = 4;
+  // Progressive Partial Scoring (eliminates all-or-nothing threshold gating)
+  const skillsScoreEssential = totalEssentialWeight > 0 
+    ? (matchedEssentialWeight / totalEssentialWeight) * 12 
+    : 0;
 
-  let skillsScoreRecommended = 0;
-  if (recommendedMatchedCount >= 3) skillsScoreRecommended = 5;
-  else if (recommendedMatchedCount === 2) skillsScoreRecommended = 4;
-  else if (recommendedMatchedCount === 1) skillsScoreRecommended = 2;
+  const skillsScoreRecommended = totalRecommendedWeight > 0 
+    ? (matchedRecommendedWeight / totalRecommendedWeight) * 5 
+    : 0;
 
   let skillsOrganizationScore = 0;
   const targetText = skillsText || normalizedText;
@@ -566,7 +629,10 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     skillsOrganizationScore = 1.5;
   }
 
-  const rawSkillsScore = Math.min(20, skillsScoreEssential + skillsScoreRecommended + skillsOrganizationScore);
+  // Apply progressive deductions/penalties for missing essential skills without bottoming out to 0
+  const baseSkillsTotal = skillsScoreEssential + skillsScoreRecommended + skillsOrganizationScore;
+  const skillsPenalty = Math.min(baseSkillsTotal * 0.4, missingSkillsFromEssential.length * 0.75);
+  const rawSkillsScore = clamp(baseSkillsTotal - skillsPenalty, 0, 20);
 
   if (rawSkillsScore >= 16) {
     strengths.push(`Strong alignment of core and secondary technical skills matching the ${targetRole} target profile.`);
@@ -587,8 +653,11 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     projectEntries.forEach(entry => {
       if (!entry.title) return;
 
+      // Merge role essential and recommended skills with the generic techKeywords for project tech matching
+      const combinedTechKeywords = [...new Set([...techKeywords, ...roleSkillsStrings.map(s => s.toLowerCase())])];
+
       // Tech stack count (at least 2 keywords, matched semantically to support synonyms)
-      const matchedTech = techKeywords.filter(kw => {
+      const matchedTech = combinedTechKeywords.filter(kw => {
         return hasSemanticSkillMatch(kw, entry.title) || entry.details.some(d => hasSemanticSkillMatch(kw, d));
       });
 
@@ -597,7 +666,13 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
       const hasMetric = /\b(?:\d+%\s*|\$\d+|\d+\s*x\s*|latency|throughput|saved \d+ hours)\b|\b\d+(?:\s*[kKmM]\+?)?\s*(?:active\s*)?(?:users|downloads|requests|queries|records|percent|%)\b/i.test(detailsText);
       const hasFeature = detailsText.length >= 20;
 
-      if (matchedTech.length >= 2 && (hasLink || hasMetric || hasFeature)) {
+      // Project description must contain keywords matching the target domain (anchors or essential skills)
+      const domainSearchList = anchors.length > 0 ? anchors : essentialSkillsStrings.map(s => s.toLowerCase());
+      const hasDomainKeywords = domainSearchList.some(anchor => {
+        return hasSemanticSkillMatch(anchor, entry.title) || entry.details.some(d => hasSemanticSkillMatch(anchor, d));
+      });
+
+      if (matchedTech.length >= 2 && (hasLink || hasMetric || hasFeature) && hasDomainKeywords) {
         qualifyingCount++;
       }
     });
@@ -618,7 +693,7 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     });
     advancedScore = Math.min(2.0, advancedScore);
 
-    rawProjectsScore = Math.min(15, entryPoints + advancedScore);
+    rawProjectsScore = clamp(entryPoints + advancedScore, 0, 15);
     rawProjectsScore = Math.round(rawProjectsScore * 2) / 2;
   }
 
@@ -727,8 +802,8 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   const metricMultiplier = Math.min(1.25, 1.0 + (totalMetricsCount * 0.05));
 
   // Reward complexity & metric indicators
-  rawExperienceScore = Math.min(20, rawExperienceScore * metricMultiplier);
-  rawProjectsScore = Math.min(15, rawProjectsScore * metricMultiplier);
+  rawExperienceScore = clamp(rawExperienceScore * metricMultiplier, 0, 20);
+  rawProjectsScore = clamp(rawProjectsScore * metricMultiplier, 0, 15);
 
   // ----------------------------------------------------
   // 6. Education & Academic Alignment (Raw Max 10)
@@ -754,18 +829,18 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   const hasEduDate = dateRangeRegex.test(eduTargetText) || singleDateRegex.test(eduTargetText);
   if (hasEduDate) educationScore += 2;
 
-  const rawEducationScore = Math.min(10, educationScore);
+  const rawEducationScore = clamp(educationScore, 0, 10);
 
   // ----------------------------------------------------
   // 7. Keywords Density & Gaps (Raw Max 10)
   // ----------------------------------------------------
   let keywordsScore = 0;
 
-  const primaryCount = matchedSkillsList.filter(s => essentialSkills.includes(s.toLowerCase())).length;
+  const primaryCount = matchedSkillsList.filter(s => essentialSkillsStrings.map(x => x.toLowerCase()).includes(s.toLowerCase())).length;
   const primaryScore = Math.min(3, primaryCount * 0.5);
   keywordsScore += primaryScore;
 
-  const secondaryCount = matchedSkillsList.filter(s => recommendedSkills.includes(s.toLowerCase())).length;
+  const secondaryCount = matchedSkillsList.filter(s => recommendedSkillsStrings.map(x => x.toLowerCase()).includes(s.toLowerCase())).length;
   const secondaryScore = Math.min(2, secondaryCount * 0.5);
   keywordsScore += secondaryScore;
 
@@ -785,26 +860,27 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   else if (evidenceMatches.size === 1) evidenceScore = 1;
   keywordsScore += evidenceScore;
 
-  let rawKeywordsScore = Math.min(10, Math.round(keywordsScore * 2) / 2);
+  let rawKeywordsScore = clamp(Math.round(keywordsScore * 2) / 2, 0, 10);
 
   const stuffedKeywordsRegex = /\b(?:jwt|oauth|docker|kubernetes|aws|redis|kafka|database|postgres|mongodb|ci\/cd|pipeline|microservices)\b/gi;
   const totalKeywordsFrequency = (normalizedText.toLowerCase().match(stuffedKeywordsRegex) || []).length;
   if (totalKeywordsFrequency > 25 && evidenceMatches.size <= 2) {
-    rawKeywordsScore = Math.min(4, rawKeywordsScore);
+    rawKeywordsScore = clamp(rawKeywordsScore, 0, 4);
   }
 
   // ----------------------------------------------------
   // 8. Achievements & Leadership Credentials (Raw Max 5)
   // ----------------------------------------------------
   let achievementsScore = 0;
+  const achTargetText = achievementsText || normalizedText;
 
-  const metricCheck = /(?:\d+%\s*|\$\d+|\d+\s*x\s*|latency|throughput|saved \d+ hours)/i.test(normalizedText);
+  const metricCheck = /(?:\d+%\s*|\$\d+|\d+\s*x\s*|latency|throughput|saved \d+ hours)/i.test(achTargetText);
   if (metricCheck) achievementsScore += 2.5;
 
-  const recognitionRegex = /\b(?:award|scholarship|hackathon|winner|placed|publication|patent|certificate|certified|promotion|promoted|lead|spearheaded|honors|dean's list)\b/i;
-  if (recognitionRegex.test(normalizedText)) achievementsScore += 2.5;
+  const recognitionRegex = /\b(?:award|awards|scholarship|hackathon|winner|placed|publication|patent|certificate|certified|certification|certifications|license|licenses|credential|credentials|achievement|achievements|honors|dean's list|promotion|promoted|lead|spearheaded|leadership|activities)\b/i;
+  if (recognitionRegex.test(achTargetText)) achievementsScore += 2.5;
 
-  const rawAchievementsScore = Math.min(5, Math.round(achievementsScore * 2) / 2);
+  const rawAchievementsScore = clamp(Math.round(achievementsScore * 2) / 2, 0, 5);
 
   if (rawAchievementsScore === 5) {
     strengths.push('Highlights quantifiable achievements and professional leadership credentials/awards.');
@@ -853,14 +929,39 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
 
   const breakdown = {};
   Object.keys(rawScores).forEach(category => {
-    const rawVal = rawScores[category];
+    const rawVal = clamp(rawScores[category], 0, rawMax[category]);
     const maxVal = rawMax[category];
     const weightVal = roleWeights[category];
-    breakdown[category] = Math.round((rawVal / maxVal) * weightVal);
+    const calculatedVal = Math.round((rawVal / maxVal) * weightVal);
+    breakdown[category] = clamp(calculatedVal, 0, weightVal);
   });
 
+  // 1. Core Anchor Keyword check (Hard Role-Specific Skill Gate)
+  let matchedAnchorsCount = 0;
+  if (anchors.length > 0) {
+    anchors.forEach(anchor => {
+      if (hasSemanticSkillMatch(anchor, normalizedText)) {
+        matchedAnchorsCount++;
+      }
+    });
+  }
+
   // Compute overall score deterministically
-  const overallScore = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
+  let overallScore = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
+
+  // If anchors defined and zero matched, apply hard penalty
+  const hasZeroAnchors = anchors.length > 0 && matchedAnchorsCount === 0;
+  if (hasZeroAnchors) {
+    overallScore = Math.min(60, Math.round(overallScore * 0.5));
+    // Also push a weakness and recommendation explaining the domain mismatch
+    weaknesses.push(`Resume lacks essential core technologies required for the ${targetRole} target domain.`);
+    recommendations.push(`Acquire and highlight foundation core technologies for ${targetRole} (such as ${anchors.slice(0, 3).join(', ')}).`);
+  }
+
+  // Check if Skills & Match Quality score is below 40% of the maximum weight, or zero anchors matched
+  const skillsMaxWeight = roleWeights.skills || 40;
+  const skillsScoreVal = breakdown.skills || 0;
+  const isMismatched = ((skillsScoreVal / skillsMaxWeight) < 0.4) || hasZeroAnchors;
 
   // Collect missing sections
   const missingSections = [];
@@ -897,7 +998,7 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
 
   const skillsDetected = matchedSkillsList.map(s => s.charAt(0).toUpperCase() + s.slice(1));
   const skillsMissing = [];
-  essentialSkills.concat(recommendedSkills).forEach(skill => {
+  essentialSkillsStrings.concat(recommendedSkillsStrings).forEach(skill => {
     if (!matchedSkillsList.some(s => s.toLowerCase().startsWith(skill.toLowerCase()))) {
       skillsMissing.push(skill.charAt(0).toUpperCase() + skill.slice(1));
     }
@@ -993,7 +1094,7 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
   const achievementsDetected = [];
   const achievementsMissing = [];
   if (metricCheck) achievementsDetected.push('Quantifiable Business Metrics'); else achievementsMissing.push('Quantifiable Business Metrics');
-  if (recognitionRegex.test(normalizedText)) achievementsDetected.push('Leadership/Honors/Awards'); else achievementsMissing.push('Leadership/Honors/Awards');
+  if (recognitionRegex.test(achTargetText)) achievementsDetected.push('Leadership/Honors/Awards'); else achievementsMissing.push('Leadership/Honors/Awards');
 
   const justifications = {
     contact: {
@@ -1046,7 +1147,24 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     }
   };
 
-  logger.info('ATSScorer', `Universal Dynamic Scorer Complete. Score: ${overallScore}/100. Career Stage: ${isFresher ? 'Fresher' : 'Experienced'}.`);
+  let compatibilityLabel = 'Moderate Match';
+  if (isMismatched) {
+    compatibilityLabel = 'Mismatched Profile';
+  } else if (overallScore >= 90) {
+    compatibilityLabel = 'Excellent Match';
+  } else if (overallScore >= 80) {
+    compatibilityLabel = 'Strong Match';
+  } else if (overallScore >= 70) {
+    compatibilityLabel = 'Good Match';
+  } else if (overallScore >= 60) {
+    compatibilityLabel = 'Moderate Match';
+  } else if (overallScore >= 50) {
+    compatibilityLabel = 'Weak Match';
+  } else {
+    compatibilityLabel = 'Low Match';
+  }
+
+  logger.info('ATSScorer', `Universal Dynamic Scorer Complete. Score: ${overallScore}/100. Career Stage: ${isFresher ? 'Fresher' : 'Experienced'}. Compatibility: ${compatibilityLabel}`);
 
   return {
     overallScore,
@@ -1057,7 +1175,9 @@ const scoreResume = (text, targetRole = 'Software Engineer') => {
     weaknesses,
     recommendations,
     missingSections,
-    detectedSkills: matchedSkillsList
+    detectedSkills: matchedSkillsList,
+    isMismatched,
+    compatibilityLabel
   };
 };
 

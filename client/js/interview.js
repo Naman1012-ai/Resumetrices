@@ -80,7 +80,7 @@ async function renderInterviewReport(analysis) {
   }
   if (rhScore) rhScore.textContent = `${score}/100`;
 
-  const details = getCompatibilityDetails(score);
+  const details = getCompatibilityDetails(score, analysis, analysis.weights);
   const statusText = `Compatibility: ${details.label}`;
   const bannerText = `COMPATIBILITY: ${details.label.toUpperCase()}`;
   const color = details.color;
@@ -341,13 +341,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const idToken = await user.getIdToken();
             headers['Authorization'] = `Bearer ${idToken}`;
           }
-          const response = await fetch(`${FirebaseService.getApiBase()}/interview/questions`, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payload)
-          });
-          responseData = await response.json();
-          if (!response.ok) throw new Error(responseData.message || 'Failed to generate questions.');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 25000);
+          
+          try {
+            const response = await fetch(`${FirebaseService.getApiBase()}/interview/questions`, {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify(payload),
+              signal: controller.signal
+            });
+            responseData = await response.json();
+            if (!response.ok) throw new Error(responseData.message || 'Failed to generate questions.');
+          } catch (fetchErr) {
+            if (fetchErr.name === 'AbortError') {
+              throw new Error('Interview prep generation timed out after 25 seconds. Please try again.');
+            }
+            throw fetchErr;
+          } finally {
+            clearTimeout(timeoutId);
+          }
         }
 
         // Render questions

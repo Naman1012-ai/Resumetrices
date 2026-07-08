@@ -28,14 +28,98 @@ export function formatTimeAgo(dateStr) {
 }
 
 // getCompatibilityDetails helper
-export function getCompatibilityDetails(score) {
+export function getCompatibilityDetails(score, breakdown, weights) {
+  let isMismatched = false;
+  let savedLabel = null;
+
+  if (breakdown) {
+    if (typeof breakdown === 'object') {
+      if (typeof breakdown.compatibilityLabel === 'string') {
+        savedLabel = breakdown.compatibilityLabel;
+      }
+      if (breakdown.isMismatched === true) {
+        isMismatched = true;
+      }
+    }
+  }
+
+  // If we have a saved compatibility label, map directly to its styled details
+  if (savedLabel) {
+    let label = savedLabel;
+    let color = '';
+    let borderColor = '';
+    let bg = '';
+    let ratingClass = '';
+    const labelLower = savedLabel.toLowerCase();
+
+    if (labelLower.includes('mismatched')) {
+      ratingClass = 'critical';
+      color = '#f43f5e';
+      borderColor = 'rgba(244, 63, 94, 0.3)';
+      bg = 'rgba(244, 63, 94, 0.04)';
+    } else if (labelLower.includes('excellent')) {
+      ratingClass = 'extreme';
+      color = '#10b981';
+      borderColor = 'rgba(16, 185, 129, 0.3)';
+      bg = 'rgba(16, 185, 129, 0.04)';
+    } else if (labelLower.includes('strong')) {
+      ratingClass = 'strong';
+      color = '#06b6d4';
+      borderColor = 'rgba(6, 182, 212, 0.3)';
+      bg = 'rgba(6, 182, 212, 0.04)';
+    } else if (labelLower.includes('good')) {
+      ratingClass = 'medium';
+      color = '#3b82f6';
+      borderColor = 'rgba(59, 130, 246, 0.3)';
+      bg = 'rgba(59, 130, 246, 0.04)';
+    } else if (labelLower.includes('moderate')) {
+      ratingClass = 'moderate';
+      color = '#f59e0b';
+      borderColor = 'rgba(245, 158, 11, 0.3)';
+      bg = 'rgba(245, 158, 11, 0.04)';
+    } else if (labelLower.includes('weak')) {
+      ratingClass = 'low';
+      color = '#f97316';
+      borderColor = 'rgba(249, 115, 22, 0.3)';
+      bg = 'rgba(249, 115, 22, 0.04)';
+    } else {
+      ratingClass = 'critical';
+      color = '#f43f5e';
+      borderColor = 'rgba(244, 63, 94, 0.3)';
+      bg = 'rgba(244, 63, 94, 0.04)';
+    }
+
+    return { label, ratingClass, color, borderColor, bg };
+  }
+
+  // Fallback to calculation-based mapping
+  if (breakdown) {
+    const b = breakdown.breakdown || breakdown;
+    const w = breakdown.weights || weights;
+    const skillsVal = (b && typeof b.skills === 'number') ? b.skills : null;
+    const maxSkills = (w && typeof w.skills === 'number') ? w.skills : 40;
+    
+    if (skillsVal !== null) {
+      const skillsPct = skillsVal / maxSkills;
+      if (skillsPct < 0.4) {
+        isMismatched = true;
+      }
+    }
+  }
+
   let label = '';
   let color = '';
   let borderColor = '';
   let bg = '';
   let ratingClass = '';
 
-  if (score >= 90) {
+  if (isMismatched) {
+    label = 'Mismatched Profile';
+    ratingClass = 'critical';
+    color = '#f43f5e'; // Rose
+    borderColor = 'rgba(244, 63, 94, 0.3)';
+    bg = 'rgba(244, 63, 94, 0.04)';
+  } else if (score >= 90) {
     label = 'Excellent Match';
     ratingClass = 'extreme';
     color = '#10b981'; // Emerald
@@ -77,8 +161,8 @@ export function getCompatibilityDetails(score) {
 }
 
 // getStatusBadge helper
-export function getStatusBadge(score) {
-  const details = getCompatibilityDetails(score);
+export function getStatusBadge(score, breakdown, weights) {
+  const details = getCompatibilityDetails(score, breakdown, weights);
   return `<span style="display:inline-block;padding:0.2rem 0.6rem;border-radius:9999px;font-size:0.75rem;font-weight:700;background:${details.bg.replace('0.04', '0.12')};color:${details.color};">Compatibility: ${details.label}</span>`;
 }
 

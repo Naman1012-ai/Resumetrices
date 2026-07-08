@@ -58,7 +58,7 @@ async function renderAnalysisReport(analysis) {
   if (rhScore) rhScore.textContent = `${score}/100`;
 
   // Get compatibility visual details from central helper
-  const details = getCompatibilityDetails(score);
+  const details = getCompatibilityDetails(score, analysis, analysis.weights);
   const statusText = `Compatibility: ${details.label}`;
   const bannerText = `COMPATIBILITY: ${details.label.toUpperCase()}`;
   const color = details.color;

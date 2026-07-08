@@ -45,7 +45,7 @@ module.exports = {
   NATIVE_AI: {
     GEMINI_MODEL: 'gemini-3.5-flash',
     OPENAI_MODEL: 'gpt-4o-mini',
-    GEMINI_TIMEOUT_MS: 120000,
+    GEMINI_TIMEOUT_MS: 60000,
     OPENAI_TIMEOUT_MS: 20000
   },
 

@@ -381,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (teaserTargetRole) teaserTargetRole.textContent = `Target Role: ${analysis.targetRole}`;
     
     const score = analysis.score || 0;
-    const details = getCompatibilityDetails(score);
+    const details = getCompatibilityDetails(score, analysis, analysis.weights);
     const badgeText = `Compatibility: ${details.label}`;
     const color = details.color;
     const bg = details.bg.replace('0.04', '0.08');
@@ -722,37 +722,36 @@ document.addEventListener('DOMContentLoaded', () => {
     sessionStorage.removeItem('pendingReportAction');
     sessionStorage.removeItem('pendingGuestReport');
 
-    if (window.appState.activeAnalysis && window.appState.activeAnalysis.userId === 'anonymous') {
+    const analysisId = (window.appState.activeAnalysis && window.appState.activeAnalysis.analysisId) || '';
+
+    if (analysisId && window.appState.activeAnalysis.userId === 'anonymous') {
       showToast('Saving guest report to your profile...', 'info');
 
       try {
-        window.appState.activeAnalysis.userId = user.uid;
-
         if (!isMockMode) {
-          // Commit record to permanent history under new user UID
-          const analysisRef = ref(db, `analyses/${window.appState.activeAnalysis.analysisId}`);
-          await update(analysisRef, { userId: user.uid });
-          
-          // Also save to user specific path
-          const userAnalysisRef = ref(db, `users/${user.uid}/analyses/${window.appState.activeAnalysis.analysisId}`);
-          const summaryPayload = {
-            analysisId: window.appState.activeAnalysis.analysisId,
-            userId: user.uid,
-            resumeName: window.appState.activeAnalysis.resumeName || 'Untitled Resume',
-            resumeFileName: window.appState.activeAnalysis.resumeFileName || window.appState.activeAnalysis.resumeName || 'Untitled Resume',
-            targetRole: window.appState.activeAnalysis.targetRole || '',
-            score: window.appState.activeAnalysis.score || window.appState.activeAnalysis.atsScore || 0,
-            createdAt: window.appState.activeAnalysis.createdAt || new Date().toISOString(),
-            breakdown: window.appState.activeAnalysis.breakdown || {},
-            missingSkills: window.appState.activeAnalysis.skillGap ? (window.appState.activeAnalysis.skillGap.missingSkills || []) : []
-          };
-          await set(userAnalysisRef, summaryPayload);
+          const idToken = await user.getIdToken();
+          const response = await fetch(`${API_BASE}/analysis/claim`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ sessionId: analysisId })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.message || 'Failed to claim anonymous analysis via REST API');
+          }
+          window.appState.activeAnalysis.userId = user.uid;
+        } else {
+          window.appState.activeAnalysis.userId = user.uid;
         }
         
-        sessionStorage.setItem('activeAnalysisId', window.appState.activeAnalysis.analysisId);
+        sessionStorage.setItem('activeAnalysisId', analysisId);
         showToast('Report successfully saved to your profile!', 'success');
       } catch (dbError) {
         console.error('Failed to link report to profile:', dbError);
+        showToast('Could not claim your guest report. Redirecting...', 'warning');
       }
     }
 
@@ -760,7 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (authModalOverlay) authModalOverlay.style.display = 'none';
 
     // Redirect to full unlocked analysis report page
-    const analysisId = (window.appState.activeAnalysis && window.appState.activeAnalysis.analysisId) || '';
     const mockParam = isMockMode ? '&mock=true' : '';
     
     if (analysisId) {

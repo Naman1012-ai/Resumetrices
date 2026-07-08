@@ -1,6 +1,6 @@
 import { auth, isMockMode } from './firebase-config.js';
 import { FirebaseService } from './api.js';
-import { escapeHTML, showToast } from './utils.js';
+import { escapeHTML, showToast, getCompatibilityDetails } from './utils.js';
 
 function renderTagsCloud(container, list, colorClass) {
   if (!container) return;
@@ -53,42 +53,12 @@ async function renderSkillGapReport(analysis) {
   }
   if (rhScore) rhScore.textContent = `${score}/100`;
 
-  let state = '';
-  let statusText = '';
-  let bannerText = '';
-  let color = '';
-  let borderColor = '';
-  let bg = '';
-
-  if (score < 40) {
-    state = 'CRITICAL_GAP';
-    statusText = 'Compatibility: Critical';
-    bannerText = 'COMPATIBILITY: CRITICAL';
-    color = '#f43f5e';
-    borderColor = 'rgba(244, 63, 94, 0.3)';
-    bg = 'rgba(244, 63, 94, 0.04)';
-  } else if (score >= 40 && score <= 59) {
-    state = 'MODERATE_MATCH';
-    statusText = 'Compatibility: Moderate';
-    bannerText = 'COMPATIBILITY: MODERATE';
-    color = '#f59e0b';
-    borderColor = 'rgba(245, 158, 11, 0.3)';
-    bg = 'rgba(245, 158, 11, 0.04)';
-  } else if (score >= 60 && score <= 79) {
-    state = 'STRONG_ALIGNMENT';
-    statusText = 'Compatibility: Strong';
-    bannerText = 'COMPATIBILITY: STRONG';
-    color = '#06b6d4';
-    borderColor = 'rgba(6, 182, 212, 0.3)';
-    bg = 'rgba(6, 182, 212, 0.04)';
-  } else {
-    state = 'EXCEPTIONAL_MATCH';
-    statusText = 'Compatibility: Extreme';
-    bannerText = 'COMPATIBILITY: EXTREME';
-    color = '#10b981';
-    borderColor = 'rgba(16, 185, 129, 0.3)';
-    bg = 'rgba(16, 185, 129, 0.04)';
-  }
+  const details = getCompatibilityDetails(score, analysis, analysis.weights);
+  const statusText = `Compatibility: ${details.label}`;
+  const bannerText = `COMPATIBILITY: ${details.label.toUpperCase()}`;
+  const color = details.color;
+  const borderColor = details.borderColor;
+  const bg = details.bg;
 
   if (rhBadge) {
     rhBadge.textContent = bannerText;

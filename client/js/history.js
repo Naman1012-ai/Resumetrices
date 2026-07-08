@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
           minute: '2-digit'
         });
 
-        const details = getCompatibilityDetails(item.score);
+        const details = getCompatibilityDetails(item.score, item, item.weights);
         const ratingClass = details.ratingClass;
         const levelLabel = `Compatibility: ${details.label}`;
 

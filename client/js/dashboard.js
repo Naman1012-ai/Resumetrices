@@ -188,7 +188,7 @@ async function loadDashboardData() {
             <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--emerald); font-weight: 600;">${escapeHTML(item.targetRole)}</td>
             <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">${dateStr}</td>
             <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color); font-weight: 700;">${item.score}/100</td>
-            <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color);">${getStatusBadge(item.score)}</td>
+            <td style="padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--border-color);">${getStatusBadge(item.score, item, item.weights)}</td>
           `;
           summaryBody.appendChild(tr);
         });

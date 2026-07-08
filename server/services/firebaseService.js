@@ -117,6 +117,10 @@ const saveAnalysis = async (analysisId, record) => {
     score: record.score || 0,
     atsScore: record.atsScore || record.score || 0,
     breakdown: record.breakdown || {},
+    weights: record.weights || {},
+    isMismatched: record.isMismatched !== undefined ? record.isMismatched : (record.breakdown && record.breakdown.skills && record.weights && record.weights.skills ? (record.breakdown.skills < record.weights.skills * 0.4) : false),
+    compatibilityLabel: record.compatibilityLabel || '',
+    justifications: record.justifications || {},
     explanations: record.explanations || {},
     strengths: record.strengths || [],
     weaknesses: record.weaknesses || [],
@@ -352,7 +356,10 @@ const computeExtendedStats = (sortedList) => {
     resumeName: item.resumeName,
     targetRole: item.targetRole,
     score: item.score,
-    createdAt: item.createdAt
+    createdAt: item.createdAt,
+    compatibilityLabel: item.compatibilityLabel || '',
+    breakdown: item.breakdown || {},
+    weights: item.weights || {}
   }));
 
   return {

@@ -10,6 +10,15 @@ const logger = require('../utils/logger');
 const groundingValidator = require('./groundingValidator');
 const aiResponseValidator = require('./aiResponseValidator');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+class GoogleGenAI extends GoogleGenerativeAI {
+  constructor(options) {
+    if (options && typeof options === 'object' && options.apiKey) {
+      super(options.apiKey);
+    } else {
+      super(options);
+    }
+  }
+}
 const OpenAI = require('openai');
 
 const { NATIVE_AI } = constants;
@@ -1234,7 +1243,7 @@ const executeNativeAI = async (requestId, systemPrompt, userContent, validatorFu
       try {
         logger.info('AIAnalyzer', `[aiAnalyzer] Attempting primary model: ${NATIVE_AI.GEMINI_MODEL} (Attempt ${attempt}/${maxAttempts})`);
         
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const model = genAI.getGenerativeModel(
           {
             model: NATIVE_AI.GEMINI_MODEL,
@@ -1537,7 +1546,15 @@ const validateInterviewQuestionsResult = (obj) => {
  * Generates structured technical, behavioral, and HR interview questions for a given target role using Gemini 3.5 Flash and strict JSON schema.
  */
 const generateTechnicalQuestionsForRole = async (targetRole) => {
-  const systemPrompt = "Act as an expert cross-functional interviewer. Generate a targeted, comprehensive interview prep kit for a candidate pursuing the role of: " + targetRole + ". Provide exactly 3 highly technical architectural questions, 3 behavioral strategy questions, and 2 core HR/organizational cultural questions. Ensure the topics tie directly to the standard expectations of that precise title.";
+  const systemPrompt = `Act as a meticulous, senior technical recruiter. Your task is to generate a comprehensive, highly targeted interview prep kit for a candidate pursuing the role of: ${targetRole}. 
+
+You must strictly output exactly 30 questions in total. No more, no less. Divide this load evenly into our three designated categories, forcing exactly:
+- 10 highly technical architectural questions
+- 10 behavioral performance questions
+- 10 standard HR, culture-fit, and workplace alignment questions.
+
+Tailor every single question to reflect the realistic modern industry expectations of that exact role title.`;
+
   const userContent = `Target Role: ${targetRole}`;
   const requestId = `tq_${crypto.randomUUID()}`;
 
@@ -1586,15 +1603,15 @@ const generateTechnicalQuestionsForRole = async (targetRole) => {
 
   const validatorFunc = (parsed) => {
     return parsed &&
-      Array.isArray(parsed.technical) && parsed.technical.length === 3 &&
-      Array.isArray(parsed.behavioral) && parsed.behavioral.length === 3 &&
-      Array.isArray(parsed.hr) && parsed.hr.length === 2;
+      Array.isArray(parsed.technical) && parsed.technical.length === 10 &&
+      Array.isArray(parsed.behavioral) && parsed.behavioral.length === 10 &&
+      Array.isArray(parsed.hr) && parsed.hr.length === 10;
   };
 
-  // Enforce 120000ms timeout
+  // Enforce 25000ms (25 seconds) timeout for this 30-question payload
   const originalTimeout = NATIVE_AI.GEMINI_TIMEOUT_MS;
   try {
-    NATIVE_AI.GEMINI_TIMEOUT_MS = 120000;
+    NATIVE_AI.GEMINI_TIMEOUT_MS = 25000;
     const result = await executeNativeAI(requestId, systemPrompt, userContent, validatorFunc, schema);
     return result;
   } finally {

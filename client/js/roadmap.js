@@ -21,7 +21,7 @@ async function renderRoadmapReport(analysis) {
   if (rhScore) rhScore.textContent = `${score}/100`;
 
   let state = '';
-  const details = getCompatibilityDetails(score);
+  const details = getCompatibilityDetails(score, analysis, analysis.weights);
   const statusText = `Compatibility: ${details.label}`;
   const bannerText = `COMPATIBILITY: ${details.label.toUpperCase()}`;
   const color = details.color;
