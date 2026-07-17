@@ -120,17 +120,22 @@ The platform allows users to upload resumes, receive detailed ATS analysis, iden
 AI-Resume-Analyzer/
 │
 ├── client/
+|   ├── admin/
 │   ├── css/
 │   ├── js/
 │   ├── assets/
-│   └── index.html
+│   └── *.html
 │
 ├── server/
 │   ├── routes/
 │   ├── services/
 │   ├── middleware/
 │   ├── config/
-│   └── server.js
+|   ├── utils/
+|   ├── controllers/
+|   ├── app.js
+│   └── server.js  
+
 │
 ├── .env
 ├── package.json
