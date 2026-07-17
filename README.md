@@ -6,6 +6,12 @@ The platform allows users to upload resumes, receive detailed ATS analysis, iden
 
 ---
 
+## Live Demo
+
+https://resumetrices.onrender.com/
+
+--- 
+
 ## Features
 
 ### Authentication
