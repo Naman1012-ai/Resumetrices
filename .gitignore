@@ -25,4 +25,5 @@ uploads/*
 *.sw?
 
 .firebaserc
+firebase.json
 hide
