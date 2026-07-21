@@ -2,7 +2,7 @@
 
 import { auth } from './firebase-config.js';
 
-const SUPPORT_EMAIL = 'support.resumetrices@gmail.com';
+const SUPPORT_EMAIL = 'demo.projects1012@gmail.com';
 
 // Setup search parameters for query param tracking (e.g. active analysis id, mock mode)
 const urlParams = new URLSearchParams(window.location.search);
@@ -49,8 +49,16 @@ function initFooter() {
   if (contactField && contactField.textContent.includes('{{ SUPPORT_EMAIL }}')) {
     contactField.textContent = SUPPORT_EMAIL;
   }
+  if (contactField && contactField.getAttribute('href')?.includes('mailto:')) {
+    contactField.setAttribute('href', `mailto:${SUPPORT_EMAIL}`);
+  }
 
   if (!footer) return;
+
+  const isContactPage = window.location.pathname.endsWith('contact.html');
+  const footerEmailHtml = isContactPage 
+    ? `<a href="mailto:${SUPPORT_EMAIL}" class="support-email">${SUPPORT_EMAIL}</a>` 
+    : '';
 
   // Render the unified footer template
   footer.innerHTML = `
@@ -102,7 +110,7 @@ function initFooter() {
         <span class="version-tag">Version 1.2.0</span>
       </div>
       <div class="footer-bottom-middle">
-        <a href="mailto:${SUPPORT_EMAIL}" class="support-email">${SUPPORT_EMAIL}</a>
+        ${footerEmailHtml}
       </div>
       <div class="footer-bottom-right social-links">
         <a href="https://github.com" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
